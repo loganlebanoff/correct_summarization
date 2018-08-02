@@ -1,0 +1,13 @@
+java -jar /home/logan/ranklib/bin/RankLib-2.10.jar -train /home/logan/data/discourse/to_lambdamart/cnn_dm_coref/train.txt -validate /home/logan/data/discourse/to_lambdamart/cnn_dm_coref/val.txt -test /home/logan/data/discourse/to_lambdamart/cnn_dm_coref/test.txt -ranker 6 -metric2t MAP -metric2T MAP -save /home/logan/data/discourse/lambdamart/map.txt -sparse -estop 1000
+
+java -jar /home/logan/ranklib/bin/RankLib-2.10.jar -train /home/logan/data/discourse/to_lambdamart/cnn_dm_coref/train.txt -validate /home/logan/data/discourse/to_lambdamart/cnn_dm_coref/val.txt -test /home/logan/data/discourse/to_lambdamart/cnn_dm_coref/test.txt -ranker 6 -metric2t NDCG@1 -metric2T NDCG@1 -save /home/logan/data/discourse/lambdamart/ndcg1.txt -sparse -estop 1000
+
+java -jar /home/logan/ranklib/bin/RankLib-2.10.jar -train /home/logan/data/discourse/to_lambdamart/cnn_dm_coref/train.txt -validate /home/logan/data/discourse/to_lambdamart/cnn_dm_coref/val.txt -test /home/logan/data/discourse/to_lambdamart/cnn_dm_coref/test.txt -ranker 6 -metric2t NDCG@5 -metric2T NDCG@5 -save /home/logan/data/discourse/lambdamart/ndcg5.txt -sparse -estop 1000
+
+java -jar /home/logan/ranklib/bin/RankLib-2.10.jar -train /home/logan/data/discourse/to_lambdamart/cnn_dm_coref/train.txt -validate /home/logan/data/discourse/to_lambdamart/cnn_dm_coref/val.txt -test /home/logan/data/discourse/to_lambdamart/cnn_dm_coref/test.txt -ranker 6 -metric2t NDCG@10 -metric2T NDCG@10 -save /home/logan/data/discourse/lambdamart/ndcg10.txt -sparse -estop 1000
+
+
+java -jar /home/logan/ranklib/bin/RankLib-2.10.jar -rank /home/logan/data/discourse/to_lambdamart/cnn_dm_coref/test.txt -score /home/logan/data/discourse/lambdamart_results/map_scores.txt -ranker 6 -metric2t MAP -metric2T MAP -load /home/logan/data/discourse/lambdamart/map.txt -sparse
+
+
+python -m scoop -vv --hostfile hosts preprocess_for_lambdamart_no_flags.py
