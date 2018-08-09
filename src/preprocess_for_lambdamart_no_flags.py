@@ -24,12 +24,14 @@ from collections import defaultdict
 # FLAGS = FLAGS
 
 exp_name = 'reference'
-dataset = 'cnn_dm_coref'
+in_dataset = 'cnn_dm_coref'
+out_dataset = 'cnn_dm_coref_importance'
 dataset_split = 'train'
 num_instances = -1,
 random_seed = 123
 max_sent_len_feat = 20
 balance = False
+importance = True
 
 data_dir = '/home/logan/data/multidoc_summarization/merge_indices_tf_examples'
 log_dir = '/home/logan/data/multidoc_summarization/logs/'
@@ -185,7 +187,7 @@ def format_to_lambdamart(inst):
     #     out_str += ' %d:%0.6f' % (feat_idx+1, feat)
 
     for feat_idx, feat in enumerate(features):
-        if feat != 0:
+        if feat != 0 or feat_idx == len(features)-1:
             out_str += ' %d:%d' % (feat_idx+1, feat)
     out_str += ' #source_indices:'
     for idx, source_idx in enumerate(source_indices):
@@ -221,66 +223,92 @@ def convert_article_to_lambdamart_features(ex):
     article_sent_tokens = [write_data.process_sent(sent) for sent in raw_article_sents]
     summ_sent_tokens = [sent.strip().split() for sent in summary_text.strip().split('\n')]
 
+    # return [len(ssi) for ssi in similar_source_indices_list]
     sent_term_matrix = util.get_tfidf_matrix(raw_article_sents)
     doc_vector = np.mean(sent_term_matrix, axis=0)
-
-    mmr_all = util.calc_MMR_all(raw_article_sents, article_sent_tokens, summ_sent_tokens, None) # the size is (# of summary sents, # of article sents)
-
-    possible_pairs = [list(x) for x in list(itertools.combinations(list(xrange(len(raw_article_sents))), 2))]   # all pairs
-    possible_singles = [[i] for i in range(len(raw_article_sents))]
-    # negative_pairs = [x for x in possible_pairs if not (x in similar_source_indices_list or x[::-1] in similar_source_indices_list)]
-    # negative_singles = [x for x in possible_singles if not (x in similar_source_indices_list or x[::-1] in similar_source_indices_list)]
-    #
-    # random_negative_pairs = np.random.permutation(len(negative_pairs)).tolist()
-    # random_negative_singles = np.random.permutation(len(negative_singles)).tolist()
-
-    all_combinations = list(itertools.product(possible_pairs + possible_singles, list(xrange(len(summ_sent_tokens)))))
-    positives = [(similar_source_indices, summ_sent_idx) for summ_sent_idx, similar_source_indices in enumerate(similar_source_indices_list)]
-    negatives = [(ssi, ssi_idx) for ssi, ssi_idx in all_combinations if not ((ssi, ssi_idx) in positives or (ssi[::-1], ssi_idx) in positives)]
 
     out_str = ''
     # ssi_idx_cur_inst_id = defaultdict(int)
     instances = []
-    for similar_source_indices, ssi_idx in positives:
-        # True sentence single/pair
-        relevance = 1
-        qid = example_idx * 10 + ssi_idx
-        features = get_features(similar_source_indices, sent_term_matrix, doc_vector, article_sent_tokens, single_feat_len, pair_feat_len, mmr_all[ssi_idx])
-        if features is None:
-            continue
-        # inst_id = ssi_idx_cur_inst_id[ssi_idx]
-        instances.append(Lambdamart_Instance(features, relevance, qid, similar_source_indices))
-        # ssi_idx_cur_inst_id[ssi_idx] += 1
-        a=0
 
-        if balance:
-            # False sentence single/pair
-            is_pair = len(similar_source_indices) == 2
-            if is_pair:
-                if len(random_negative_pairs) == 0:
-                    continue
-                negative_indices = possible_pairs[random_negative_pairs.pop()]
-            else:
-                if len(random_negative_singles) == 0:
-                    continue
-                negative_indices = possible_singles[random_negative_singles.pop()]
+    if importance:
+        importances = util.special_squash(util.get_tfidf_importances(raw_article_sents))
+        possible_pairs = [list(x) for x in list(itertools.combinations(list(xrange(len(raw_article_sents))), 2))]   # all pairs
+        possible_singles = [[i] for i in range(len(raw_article_sents))]
+        possible_combinations = possible_pairs + possible_singles
+        positives = [ssi for ssi in similar_source_indices_list]
+        negatives = [ssi for ssi in possible_combinations if not (ssi in positives or ssi[::-1] in positives)]
+
+        qid = example_idx * 10
+        for similar_source_indices in positives:
+            # True sentence single/pair
+            relevance = 1
+            features = get_features(similar_source_indices, sent_term_matrix, doc_vector, article_sent_tokens, single_feat_len, pair_feat_len, importances)
+            if features is None:
+                continue
+            instances.append(Lambdamart_Instance(features, relevance, qid, similar_source_indices))
+            a=0
+        for negative_indices in negatives:
             neg_relevance = 0
-            neg_features = get_features(negative_indices, sent_term_matrix, doc_vector, article_sent_tokens, single_feat_len, pair_feat_len)
+            neg_features = get_features(negative_indices, sent_term_matrix, doc_vector, article_sent_tokens, single_feat_len, pair_feat_len, importances)
             if neg_features is None:
                 continue
-            neg_lambdamart_str = format_to_lambdamart(neg_features, neg_relevance, qid, negative_indices)
-            out_str += neg_lambdamart_str + '\n'
+            instances.append(Lambdamart_Instance(neg_features, neg_relevance, qid, negative_indices))
+    else:
+        mmr_all = util.calc_MMR_all(raw_article_sents, article_sent_tokens, summ_sent_tokens, None) # the size is (# of summary sents, # of article sents)
 
-    if not balance:
-        for negative_indices, ssi_idx in negatives:
-            neg_relevance = 0
+        possible_pairs = [list(x) for x in list(itertools.combinations(list(xrange(len(raw_article_sents))), 2))]   # all pairs
+        possible_singles = [[i] for i in range(len(raw_article_sents))]
+        # negative_pairs = [x for x in possible_pairs if not (x in similar_source_indices_list or x[::-1] in similar_source_indices_list)]
+        # negative_singles = [x for x in possible_singles if not (x in similar_source_indices_list or x[::-1] in similar_source_indices_list)]
+        #
+        # random_negative_pairs = np.random.permutation(len(negative_pairs)).tolist()
+        # random_negative_singles = np.random.permutation(len(negative_singles)).tolist()
+
+        all_combinations = list(itertools.product(possible_pairs + possible_singles, list(xrange(len(summ_sent_tokens)))))
+        positives = [(similar_source_indices, summ_sent_idx) for summ_sent_idx, similar_source_indices in enumerate(similar_source_indices_list)]
+        negatives = [(ssi, ssi_idx) for ssi, ssi_idx in all_combinations if not ((ssi, ssi_idx) in positives or (ssi[::-1], ssi_idx) in positives)]
+
+        for similar_source_indices, ssi_idx in positives:
+            # True sentence single/pair
+            relevance = 1
             qid = example_idx * 10 + ssi_idx
-            neg_features = get_features(negative_indices, sent_term_matrix, doc_vector, article_sent_tokens, single_feat_len, pair_feat_len, mmr_all[ssi_idx])
-            if neg_features is None:
+            features = get_features(similar_source_indices, sent_term_matrix, doc_vector, article_sent_tokens, single_feat_len, pair_feat_len, mmr_all[ssi_idx])
+            if features is None:
                 continue
             # inst_id = ssi_idx_cur_inst_id[ssi_idx]
-            instances.append(Lambdamart_Instance(neg_features, neg_relevance, qid, negative_indices))
+            instances.append(Lambdamart_Instance(features, relevance, qid, similar_source_indices))
             # ssi_idx_cur_inst_id[ssi_idx] += 1
+            a=0
+
+            if balance:
+                # False sentence single/pair
+                is_pair = len(similar_source_indices) == 2
+                if is_pair:
+                    if len(random_negative_pairs) == 0:
+                        continue
+                    negative_indices = possible_pairs[random_negative_pairs.pop()]
+                else:
+                    if len(random_negative_singles) == 0:
+                        continue
+                    negative_indices = possible_singles[random_negative_singles.pop()]
+                neg_relevance = 0
+                neg_features = get_features(negative_indices, sent_term_matrix, doc_vector, article_sent_tokens, single_feat_len, pair_feat_len)
+                if neg_features is None:
+                    continue
+                neg_lambdamart_str = format_to_lambdamart(neg_features, neg_relevance, qid, negative_indices)
+                out_str += neg_lambdamart_str + '\n'
+
+        if not balance:
+            for negative_indices, ssi_idx in negatives:
+                neg_relevance = 0
+                qid = example_idx * 10 + ssi_idx
+                neg_features = get_features(negative_indices, sent_term_matrix, doc_vector, article_sent_tokens, single_feat_len, pair_feat_len, mmr_all[ssi_idx])
+                if neg_features is None:
+                    continue
+                # inst_id = ssi_idx_cur_inst_id[ssi_idx]
+                instances.append(Lambdamart_Instance(neg_features, neg_relevance, qid, negative_indices))
+                # ssi_idx_cur_inst_id[ssi_idx] += 1
 
     sorted_instances = sorted(instances, key=lambda x: (x.qid, x.source_indices))
     assign_inst_ids(sorted_instances)
@@ -315,17 +343,18 @@ def main(unused_argv):
 
     start_time = time.time()
     np.random.seed(random_seed)
-    source_dir = os.path.join(data_dir, dataset)
+    source_dir = os.path.join(data_dir, in_dataset)
     source_files = sorted(glob.glob(source_dir + '/' + dataset_split + '*'))
     pros = {'annotators': 'dcoref', 'outputFormat': 'json', 'timeout': '5000000'}
     single_feat_len = len(get_single_sent_features(0, sparse.csr_matrix(np.array([[0,0],[0,0]])), np.array([[0,0]]), [['single','.'],['sentence','.']], [0,0]))
     pair_feat_len = len(get_pair_sent_features([0,1], sparse.csr_matrix(np.array([[0,0],[0,0]])), np.array([[0,0]]), [['single','.'],['sentence','.']], [0,0]))
+    util.print_vars(single_feat_len, pair_feat_len)
 
     example_idx = -1
-    util.create_dirs(os.path.join(out_dir, dataset))
-    out_path = os.path.join(out_dir, dataset, dataset_split + '.txt')
+    util.create_dirs(os.path.join(out_dir, out_dataset))
+    out_path = os.path.join(out_dir, out_dataset, dataset_split + '.txt')
     writer = open(out_path, 'wb')
-    total = len(source_files)*1000 if 'cnn' or 'newsroom' in dataset else len(source_files)
+    total = len(source_files)*1000 if 'cnn' or 'newsroom' in in_dataset else len(source_files)
     example_generator = data.example_generator(source_dir + '/' + dataset_split + '*', True, False, should_check_valid=False)
     # for example in tqdm(example_generator, total=total):
     ex_gen = example_generator_extended(example_generator, total, single_feat_len, pair_feat_len)
@@ -345,6 +374,10 @@ def main(unused_argv):
     #     all_features.append(convert_article_to_lambdamart_features(example))
 
     writer.write(''.join(all_features))
+    # all_features = util.flatten_list_of_lists(all_features)
+    # num1 = sum(x == 1 for x in all_features)
+    # num2 = sum(x == 2 for x in all_features)
+    # print 'Single sent: %d instances. Pair sent: %d instances.' % (num1, num2)
 
     # for example in tqdm(ex_gen, total=total):
     #     features = convert_article_to_lambdamart_features(example)

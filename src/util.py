@@ -37,6 +37,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from nltk.stem.porter import PorterStemmer
 import struct
 import collections
+import inspect, re
 
 stop_words = set(stopwords.words('english'))
 CHUNK_SIZE = 1000
@@ -484,19 +485,46 @@ def get_tfidf_importances(raw_article_sents, tfidf_model_path=None):
         sent_reps = get_tfidf_matrix(raw_article_sents)
     cluster_rep = np.mean(sent_reps, axis=0)
     similarity_matrix = cosine_similarity(sent_reps, cluster_rep)
-    return np.squeeze(similarity_matrix)
+    return np.squeeze(similarity_matrix, 1)
 
+def singles_to_singles_pairs(distribution):
+    possible_pairs = [tuple(x) for x in
+                      list(itertools.combinations(list(xrange(len(distribution))), 2))]  # all pairs
+    possible_singles = [tuple([i]) for i in range(len(distribution))]
+    all_combinations = possible_pairs + possible_singles
+    out_dict = {}
+    for single in possible_singles:
+        out_dict[single] = distribution[single[0]]
+    for pair in possible_pairs:
+        average = (distribution[pair[0]] + distribution[pair[1]]) / 2.0
+        out_dict[pair] = average
+    return out_dict
 
 def combine_sim_and_imp(logan_similarity, logan_importances, lambda_val=0.6):
     mmr = lambda_val*logan_importances - (1-lambda_val)*logan_similarity
     mmr = np.maximum(mmr, 0)
     return mmr
 
-def calc_MMR(raw_article_sents, article_sent_tokens, summ_tokens, vocab):
-    importances = special_squash(get_tfidf_importances(raw_article_sents))
+def combine_sim_and_imp_dict(similarities_dict, importances_dict, lambda_val=0.6):
+    mmr = {}
+    for key in importances_dict.keys():
+        mmr[key] = combine_sim_and_imp(similarities_dict[key], importances_dict[key], lambda_val=lambda_val)
+    return mmr
+
+def calc_MMR(raw_article_sents, article_sent_tokens, summ_tokens, vocab, importances=None):
+    if importances is None:
+        importances = get_tfidf_importances(raw_article_sents)
+    importances = special_squash(importances)
     similarities = Similarity_Functions.rouge_l_similarity(article_sent_tokens, summ_tokens, vocab, metric='precision')
     mmr = special_squash(combine_sim_and_imp(similarities, importances))
     return mmr
+
+def calc_MMR_source_indices(article_sent_tokens, summ_tokens, vocab, importances_dict):
+    importances_dict = special_squash_dict(importances_dict)
+    similarities = Similarity_Functions.rouge_l_similarity(article_sent_tokens, summ_tokens, vocab, metric='precision')
+    similarities_dict = singles_to_singles_pairs(similarities)
+    mmr_dict = special_squash_dict(combine_sim_and_imp_dict(similarities_dict, importances_dict))
+    return mmr_dict
 
 def calc_MMR_all(raw_article_sents, article_sent_tokens, summ_sent_tokens, vocab):
     all_mmr = []
@@ -519,6 +547,16 @@ def special_squash(distribution):
         res = res / np.max(res)
     return res
 
+def special_squash_dict(distribution_dict):
+    distribution = distribution_dict.values()
+    values = special_squash(distribution)
+    keys = distribution_dict.keys()
+    items = zip(keys, values)
+    out_dict = {}
+    for key, val in items:
+        out_dict[key] = val
+    return out_dict
+
 def print_execution_time(start_time):
     localtime = time.asctime( time.localtime(time.time()) )
     print ("Finished at: ", localtime)
@@ -530,10 +568,21 @@ def print_execution_time(start_time):
     else:
         print('Execution time: ', time_taken/3600., ' hr')
 
+def split_list_by_item(lst, item):
+    return [list(y) for x, y in itertools.groupby(lst, lambda z: z == item) if not x]
 
+def show_callers_locals():
+    """Print the local variables in the caller's frame."""
+    callers_local_vars = inspect.currentframe().f_back.f_back.f_back.f_locals.items()
+    return callers_local_vars
 
+def varname(my_var):
+    callers_locals = show_callers_locals()
+    return [var_name for var_name, var_val in callers_locals if var_val is my_var]
 
-
+def print_vars(*args):
+    for v in args:
+        print varname(v), v
 
 
 

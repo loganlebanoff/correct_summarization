@@ -61,24 +61,6 @@ highlight_colors = ['aqua', 'lime', 'yellow', '#FF7676', '#B9968D', '#D7BDE2', '
 hard_highlight_colors = ['#00BBFF', '#00BB00', '#F4D03F', '#BB5454', '#A16252', '#AF7AC5', '#AEB6BF', '#FF008F', '#0ECA74', '#FF7400', '#6668FF', '#7931FF']
 # hard_highlight_colors = ['blue', 'green', 'orange', 'red']
 
-flags.DEFINE_string('exp_name', 'reference', 'Path to system-generated summaries that we want to evaluate.' +
-                           ' If you want to run on human summaries, then enter "reference".')
-flags.DEFINE_string('dataset', 'cnn_dm', 'Which dataset to use. Can be {duc_2004, tac_2011, etc}')
-flags.DEFINE_string('dataset_split', 'test', 'Which dataset split to use. Must be one of {train, val (or dev), test}')
-flags.DEFINE_integer('vocab_size', 50000, 'Size of vocabulary. These will be read from the vocabulary file in order. If the vocabulary file contains fewer words than this number, or if this number is set to 0, will take all words in the vocabulary file.')
-flags.DEFINE_integer('sentence_limit', 2, 'Max number of sentences to include for merging.')
-flags.DEFINE_integer('num_instances', -1, 'Number of instances to run for before stopping. Use -1 to run on all instances.')
-flags.DEFINE_string('vocab_path', '/home/logan/data/multidoc_summarization/cnn-dailymail/finished_files/vocab', 'Path expression to text vocabulary file.')
-flags.DEFINE_boolean('only_rouge_l', False, 'Whether to use only R-L in calculating similarity or whether to average over R-1, R-2, and R-L.')
-flags.DEFINE_boolean('print_output', True, 'Whether to print and save the merged sentences and statistics.')
-flags.DEFINE_boolean('save_dataset', False, 'Whether to save the merged sentences as a dataset.')
-flags.DEFINE_boolean('coreference_replacement', False, 'Whether to print and save the merged sentences and statistics.')
-flags.DEFINE_boolean('kaiqiang', False, 'Whether to save the single sentences as a dataset for Kaiqiang.')
-flags.DEFINE_boolean('highlight_sents_in_article', False, 'Whether to save an html file that shows the selected sentences as highlighted in the article.')
-flags.DEFINE_boolean('create_lambdamart_dataset', True, 'Whether to save features as a dataset that will be used to predict which sentences should be merged, using the LambdaMART system.')
-flags.DEFINE_integer('top_n_sents', 10, 'Number of sentences to take from the beginning of the article. Use -1 to run on entire article.')
-flags.DEFINE_integer('min_matched_tokens', 2, 'Number of tokens required that still counts a source sentence as matching a summary sentence.')
-
 def start_tag(color):
     return "<font color='" + color + "'>"
 
@@ -112,22 +94,22 @@ def html_friendly_fusions(summ_sent, similar_source_indices, lcs_paths, article_
     out_str += '-----------------------------------<br>'
     return out_str
 
-def get_idx_for_source_idx(similar_source_indices_list, source_idx):
-    for ssi_idx, similar_source_indices in enumerate(similar_source_indices_list):
-        for source_indices_idx, source_indices in enumerate(similar_source_indices):
-            if source_idx in source_indices:
-                return ssi_idx, source_indices_idx
+def get_idx_for_source_idx(similar_source_indices, source_idx):
+    for source_indices_idx, source_indices in enumerate(similar_source_indices):
+        for idx_idx, idx in enumerate(source_indices):
+            if source_idx == idx:
+                return source_indices_idx, idx_idx
     return None, None
 
-def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_list, lcs_paths_list,
-                                    article_lcs_paths_list, article_sent_tokens, doc_indices):
+def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_list,
+                                    article_sent_tokens, doc_indices=None, lcs_paths_list=None, article_lcs_paths_list=None):
     end_tag = "</mark>"
     out_str = ''
 
     for summ_sent_idx, summ_sent in enumerate(summary_sent_tokens):
         similar_source_indices = similar_source_indices_list[summ_sent_idx]
-        lcs_paths = lcs_paths_list[summ_sent_idx]
-        # article_lcs_paths = article_lcs_paths_list[summ_sent_idx]
+        # lcs_paths = lcs_paths_list[summ_sent_idx]
+
 
         for token_idx, token in enumerate(summ_sent):
             insert_string = token + ' '
@@ -137,7 +119,8 @@ def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_
                     color = hard_highlight_colors[summ_sent_idx]
                 else:
                     color = highlight_colors[summ_sent_idx]
-                if token_idx in lcs_paths[source_indices_idx]:
+                # if token_idx in lcs_paths[source_indices_idx]:
+                if lcs_paths_list is None or lcs_paths_list[summ_sent_idx][source_indices_idx]:
                     insert_string = start_tag_highlight(color) + token + ' ' + end_tag
                     break
                 # else:
@@ -149,7 +132,7 @@ def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_
     cur_token_idx = 0
     cur_doc_idx = 0
     for sent_idx, sent in enumerate(article_sent_tokens):
-        if doc_indices[cur_token_idx] != cur_doc_idx:
+        if doc_indices is not None and doc_indices[cur_token_idx] != cur_doc_idx:
             cur_doc_idx = doc_indices[cur_token_idx]
             out_str += '<br>'
         summ_sent_idx, priority = get_idx_for_source_idx(similar_source_indices_list, sent_idx)
@@ -159,12 +142,13 @@ def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_
         else:
             color = highlight_colors[summ_sent_idx]
             hard_color = hard_highlight_colors[summ_sent_idx]
-            article_lcs_paths = article_lcs_paths_list[summ_sent_idx]
+            # article_lcs_paths = article_lcs_paths_list[summ_sent_idx]
         source_sentence = article_sent_tokens[sent_idx]
         for token_idx, token in enumerate(source_sentence):
             if priority is None:
                 insert_string = token + ' '
-            elif token_idx in article_lcs_paths[priority]:
+            # elif token_idx in article_lcs_paths[priority]:
+            elif article_lcs_paths_list is None or article_lcs_paths_list[summ_sent_idx][priority]:
                 if priority == 0:
                     insert_string = start_tag_highlight(hard_color) + token + ' ' + end_tag
                 else:
@@ -626,15 +610,15 @@ def main(unused_argv):
             lcs_paths_list.append(lcs_paths)
             article_lcs_paths_list.append(article_lcs_paths)
 
+        simple_similar_source_indices = [ [s[0] for s in sim_source_ind] for sim_source_ind in similar_source_indices_list]
         if FLAGS.create_lambdamart_dataset:
-            simple_similar_source_indices = [ [s[0] for s in sim_source_ind] for sim_source_ind in similar_source_indices_list]
             write_lambdamart_example(simple_similar_source_indices, raw_article_sents, summary_text, lambdamart_writer)
 
 
         if FLAGS.highlight_sents_in_article:
-            extracted_sents_in_article_html = html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_list,
-                                                                              lcs_paths_list, article_lcs_paths_list,
-                                                                              article_sent_tokens, doc_indices)
+            extracted_sents_in_article_html = html_highlight_sents_in_article(summary_sent_tokens, simple_similar_source_indices,
+                                                                              article_sent_tokens, doc_indices,
+                                                                              lcs_paths_list, article_lcs_paths_list)
             extracted_sents_in_article_html_file.write(extracted_sents_in_article_html)
         a=0
 
@@ -671,6 +655,24 @@ def main(unused_argv):
 
 
 if __name__ == '__main__':
+    flags.DEFINE_string('exp_name', 'reference', 'Path to system-generated summaries that we want to evaluate.' +
+                               ' If you want to run on human summaries, then enter "reference".')
+    flags.DEFINE_string('dataset', 'cnn_dm', 'Which dataset to use. Can be {duc_2004, tac_2011, etc}')
+    flags.DEFINE_string('dataset_split', 'test', 'Which dataset split to use. Must be one of {train, val (or dev), test}')
+    flags.DEFINE_integer('vocab_size', 50000, 'Size of vocabulary. These will be read from the vocabulary file in order. If the vocabulary file contains fewer words than this number, or if this number is set to 0, will take all words in the vocabulary file.')
+    flags.DEFINE_integer('sentence_limit', 2, 'Max number of sentences to include for merging.')
+    flags.DEFINE_integer('num_instances', -1, 'Number of instances to run for before stopping. Use -1 to run on all instances.')
+    flags.DEFINE_string('vocab_path', '/home/logan/data/multidoc_summarization/cnn-dailymail/finished_files/vocab', 'Path expression to text vocabulary file.')
+    flags.DEFINE_boolean('only_rouge_l', False, 'Whether to use only R-L in calculating similarity or whether to average over R-1, R-2, and R-L.')
+    flags.DEFINE_boolean('print_output', True, 'Whether to print and save the merged sentences and statistics.')
+    flags.DEFINE_boolean('save_dataset', False, 'Whether to save the merged sentences as a dataset.')
+    flags.DEFINE_boolean('coreference_replacement', False, 'Whether to print and save the merged sentences and statistics.')
+    flags.DEFINE_boolean('kaiqiang', False, 'Whether to save the single sentences as a dataset for Kaiqiang.')
+    flags.DEFINE_boolean('highlight_sents_in_article', False, 'Whether to save an html file that shows the selected sentences as highlighted in the article.')
+    flags.DEFINE_boolean('create_lambdamart_dataset', True, 'Whether to save features as a dataset that will be used to predict which sentences should be merged, using the LambdaMART system.')
+    flags.DEFINE_integer('top_n_sents', 10, 'Number of sentences to take from the beginning of the article. Use -1 to run on entire article.')
+    flags.DEFINE_integer('min_matched_tokens', 2, 'Number of tokens required that still counts a source sentence as matching a summary sentence.')
+
     app.run(main)
 
 

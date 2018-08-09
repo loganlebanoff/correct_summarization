@@ -16,7 +16,7 @@ import util
 import data
 
 data_dir = '/home/logan/data/multidoc_summarization/tf_examples'
-log_dir = '/home/logan/data/multidoc_summarization/logs/'
+log_dir = '/home/logan/data/discourse/logs/'
 max_enc_steps = 100000
 min_dec_steps = 100
 max_dec_steps = 120

@@ -24,7 +24,7 @@ out_dir = '/home/logan/data/multidoc_summarization/sumrepo_duc2004/rouge'
 summary_methods = ['Centroid', 'ICSISumm', 'DPP', 'Submodular']
 
 data_dir = '/home/logan/data/multidoc_summarization/tf_examples'
-log_dir = '/home/logan/data/multidoc_summarization/logs/'
+log_dir = '/home/logan/data/discourse/logs/'
 max_enc_steps = 100000
 min_dec_steps = 100
 max_dec_steps = 120
@@ -184,23 +184,27 @@ def main(unused_argv):
 
     else:
         # source_dir = os.path.join(data_dir, FLAGS.dataset)
-        summary_dir = os.path.join(log_dir,FLAGS.exp_name,test_folder)
+        if os.path.exists(os.path.join(log_dir,FLAGS.exp_name,test_folder)):
+            summary_dir = os.path.join(log_dir,FLAGS.exp_name,test_folder)
+        else:
+            summary_dir = os.path.join(log_dir,FLAGS.exp_name)
         ref_dir = os.path.join(summary_dir, 'reference')
         dec_dir = os.path.join(summary_dir, 'decoded')
         summary_files = glob.glob(os.path.join(log_dir + FLAGS.exp_name, 'test_*.txt.result.summary'))
         if len(summary_files) > 0 and not os.path.exists(dec_dir):      # reformat files from extract + rewrite
             os.makedirs(ref_dir)
             os.makedirs(dec_dir)
-            for summary_file in summary_files:
+            for summary_file in tqdm(summary_files):
                 ex_index = extract_digits(os.path.basename(summary_file))
                 new_file = os.path.join(dec_dir, "%06d_decoded.txt" % ex_index)
                 shutil.copyfile(summary_file, new_file)
 
             ref_files_to_copy = glob.glob(os.path.join(log_dir, FLAGS.dataset, test_folder, 'reference', '*'))
-            for file in ref_files_to_copy:
+            for file in tqdm(ref_files_to_copy):
                 basename = os.path.basename(file)
                 shutil.copyfile(file, os.path.join(ref_dir, basename))
-        
+
+        print 'Evaluating on %d files' % len(os.listdir(dec_dir))
         results_dict = rouge_eval(ref_dir, dec_dir)
         rouge_log(results_dict, summary_dir)
 
