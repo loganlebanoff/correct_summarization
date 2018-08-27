@@ -16,7 +16,7 @@ import util
 from preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
     Lambdamart_Instance, format_to_lambdamart
 from scipy import sparse
-from count_merged import html_highlight_sents_in_article
+from count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
 
 
 exp_name = 'coref_lambdamart'
@@ -29,6 +29,8 @@ filter_sentences = True
 num_instances = -1
 random_seed = 123
 max_sent_len_feat = 20
+sentence_limit = 2
+min_matched_tokens = 2
 
 data_dir = '/home/logan/data/multidoc_summarization/merge_indices_tf_examples'
 lambdamart_in_dir = '/home/logan/data/discourse/temp/to_lambdamart'
@@ -166,8 +168,8 @@ def rank_instances(in_path, out_path):
 
 def get_sent_or_sents(article_sent_tokens, source_indices):
     chosen_sent_tokens = [article_sent_tokens[idx] for idx in source_indices]
-    sents = util.flatten_list_of_lists(chosen_sent_tokens)
-    return sents
+    # sents = util.flatten_list_of_lists(chosen_sent_tokens)
+    return chosen_sent_tokens
 
 def rank_and_get_source_sents(instances, article_sent_tokens, temp_in_path, temp_out_path):
     write_to_file(instances, temp_in_path)
@@ -181,6 +183,7 @@ def rank_and_get_source_sents(instances, article_sent_tokens, temp_in_path, temp
 
 def generate_summary(raw_article_sents, article_sent_tokens, temp_in_path, temp_out_path, single_feat_len, pair_feat_len):
     summary_tokens = []
+
     while len(summary_tokens) < 120:
         mmrs = util.calc_MMR(raw_article_sents, article_sent_tokens, summary_tokens, None)
         instances = get_features_all_combinations(raw_article_sents, article_sent_tokens, mmrs, single_feat_len, pair_feat_len)
@@ -232,19 +235,21 @@ def generate_summary_importance(raw_article_sents, article_sent_tokens, temp_in_
     summary_tokens = util.flatten_list_of_lists(summary_sent_tokens)
     already_used_source_indices = []
     similar_source_indices_list = []
+    summary_sents_for_html = []
     while len(summary_tokens) < 120:
         mmr_dict = util.calc_MMR_source_indices(article_sent_tokens, summary_tokens, None, source_indices_to_importances)
         sents, source_indices = get_best_source_sents(article_sent_tokens, mmr_dict, already_used_source_indices)
         if len(source_indices) == 0:
             break
-        summary_sent_tokens.append(sents)
+        summary_sent_tokens.extend(sents)
         summary_tokens = util.flatten_list_of_lists(summary_sent_tokens)
         similar_source_indices_list.append(source_indices)
+        summary_sents_for_html.append(' <br> '.join([' '.join(sent) for sent in sents]))
         if filter_sentences:
             already_used_source_indices.extend(source_indices)
     summary_sents = [' '.join(sent) for sent in summary_sent_tokens]
     # summary = '\n'.join([' '.join(tokens) for tokens in summary_sent_tokens])
-    return summary_sents, similar_source_indices_list
+    return summary_sents, similar_source_indices_list, summary_sents_for_html
 
 
 def example_generator_extended(example_generator, total, single_feat_len, pair_feat_len):
@@ -256,8 +261,8 @@ def example_generator_extended(example_generator, total, single_feat_len, pair_f
             break
         yield (example, example_idx, single_feat_len, pair_feat_len)
 
-def write_highlighted_html(html, example_idx):
-    path = os.path.join(html_dir, '%06d_highlighted.html' % example_idx)
+def write_highlighted_html(html, out_dir, example_idx):
+    path = os.path.join(out_dir, '%06d_highlighted.html' % example_idx)
     with open(path, 'w') as f:
         f.write(html)
 
@@ -268,20 +273,29 @@ def load_and_evaluate_example(ex):
     raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text = util.unpack_tf_example(example, names_to_types)
     article_sent_tokens = [write_data.process_sent(sent) for sent in raw_article_sents]
     groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
+    groundtruth_summ_sent_tokens = [sent.split(' ') for sent in groundtruth_summ_sents[0]]
     # summ_sent_tokens = [sent.strip().split() for sent in summary_text.strip().split('\n')]
     temp_in_path = os.path.join(temp_in_dir, '%06d.txt' % example_idx)
     temp_out_path = os.path.join(temp_out_dir, '%06d.txt' % example_idx)
 
     if importance:
-        summary_sents, similar_source_indices_list = generate_summary_importance(raw_article_sents, article_sent_tokens, temp_in_path, temp_out_path,
+        summary_sents, similar_source_indices_list, summary_sents_for_html = generate_summary_importance(raw_article_sents, article_sent_tokens, temp_in_path, temp_out_path,
                                     single_feat_len, pair_feat_len)
     else:
         summary_sents = generate_summary(raw_article_sents, article_sent_tokens, temp_in_path, temp_out_path, single_feat_len, pair_feat_len)
     if example_idx <= 100:
-        summary_sent_tokens = [sent.split(' ') for sent in summary_sents]
+        summary_sent_tokens = [sent.split(' ') for sent in summary_sents_for_html]
         extracted_sents_in_article_html = html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_list,
                                         article_sent_tokens)
-        write_highlighted_html(extracted_sents_in_article_html, example_idx)
+        write_highlighted_html(extracted_sents_in_article_html, html_dir, example_idx)
+
+        groundtruth_similar_source_indices_list, lcs_paths_list, article_lcs_paths_list = get_simple_source_indices_list(
+                                        groundtruth_summ_sent_tokens,
+                                       article_sent_tokens, None, sentence_limit, min_matched_tokens)
+        groundtruth_highlighted_html = html_highlight_sents_in_article(groundtruth_summ_sent_tokens, groundtruth_similar_source_indices_list,
+                                        article_sent_tokens, lcs_paths_list=lcs_paths_list, article_lcs_paths_list=article_lcs_paths_list)
+        all_html = '<u>System Summary</u><br><br>' + extracted_sents_in_article_html + '<u>Groundtruth Summary</u><br><br>' + groundtruth_highlighted_html
+        write_highlighted_html(all_html, html_dir, example_idx)
     rouge_eval_references.write_for_rouge(groundtruth_summ_sents, summary_sents, example_idx, ref_dir, dec_dir)
 
 

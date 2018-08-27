@@ -26,11 +26,11 @@ from collections import defaultdict
 exp_name = 'reference'
 in_dataset = 'cnn_dm_coref'
 out_dataset = 'cnn_dm_coref_importance'
-dataset_split = 'train'
+dataset_split = 'all'
 num_instances = -1,
 random_seed = 123
 max_sent_len_feat = 20
-balance = False
+balance = True
 importance = True
 
 data_dir = '/home/logan/data/multidoc_summarization/merge_indices_tf_examples'
@@ -39,7 +39,6 @@ out_dir = '/home/logan/data/discourse/to_lambdamart'
 max_enc_steps = 100000
 min_dec_steps = 100
 max_dec_steps = 120
-
 
 dm_single_close_quote = u'\u2019' # unicode
 dm_double_close_quote = u'\u201d'
@@ -122,19 +121,26 @@ def convert_to_one_hot(value, bins, range):
     hist, _ = np.histogram(value, bins=bins, range=range)
     return hist.tolist()
 
+def does_start_with_quotation_mark(sent_tokens):
+    if len(sent_tokens) == 0:
+        return False
+    return sent_tokens[0] == "`" or sent_tokens[0] == "``"
 
+max_num_sents = 20
 def get_single_sent_features(sent_idx, sent_term_matrix, doc_vector, article_sent_tokens, mmr):
+
     is_sent_single = [1]  # is_sent_single
     doc_similarity = util.cosine_similarity(sent_term_matrix[sent_idx], doc_vector)[0][0]
     sent_len = len(article_sent_tokens[sent_idx])
     sent_len = min(max_sent_len_feat, sent_len)
+    starts_with_quote = [does_start_with_quotation_mark(article_sent_tokens[sent_idx])]
     my_mmr = mmr[sent_idx]
 
-    sent_idx, _ = np.histogram(sent_idx, bins=10, range=(1,10))
+    sent_idx, _ = np.histogram(min(sent_idx, max_num_sents), bins=10, range=(0,max_num_sents))
     doc_similarity, _ = np.histogram(doc_similarity, bins=5, range=(0,1))
     sent_len, _ = np.histogram(sent_len, bins=10, range=(1,max_sent_len_feat))
     my_mmr = convert_to_one_hot(my_mmr, 5, (0,1))
-    return is_sent_single + sent_idx.tolist() + doc_similarity.tolist() + sent_len.tolist() + my_mmr
+    return is_sent_single + sent_idx.tolist() + doc_similarity.tolist() + sent_len.tolist() + starts_with_quote + my_mmr
 
 def get_pair_sent_features(similar_source_indices, sent_term_matrix, doc_vector, article_sent_tokens, mmr):
     features = []
@@ -151,7 +157,7 @@ def get_pair_sent_features(similar_source_indices, sent_term_matrix, doc_vector,
     features.extend(convert_to_one_hot(average_mmr, 5, (0,1)))
     sents_similarity = util.cosine_similarity(sent_term_matrix[sent_idx1], sent_term_matrix[sent_idx2])[0][0]
     features.extend(convert_to_one_hot(sents_similarity, 5, (0,1))) # sents_similarity
-    features.extend(convert_to_one_hot(abs(sent_idx1 - sent_idx2), 10, (0,20))) # sents_dist
+    features.extend(convert_to_one_hot(min(abs(sent_idx1 - sent_idx2), max_num_sents), 10, (0,max_num_sents))) # sents_dist
     return features
 
 
@@ -239,7 +245,12 @@ def convert_article_to_lambdamart_features(ex):
         positives = [ssi for ssi in similar_source_indices_list]
         negatives = [ssi for ssi in possible_combinations if not (ssi in positives or ssi[::-1] in positives)]
 
-        qid = example_idx * 10
+        negative_pairs = [x for x in possible_pairs if not (x in similar_source_indices_list or x[::-1] in similar_source_indices_list)]
+        negative_singles = [x for x in possible_singles if not (x in similar_source_indices_list or x[::-1] in similar_source_indices_list)]
+        random_negative_pairs = np.random.permutation(len(negative_pairs)).tolist()
+        random_negative_singles = np.random.permutation(len(negative_singles)).tolist()
+
+        qid = example_idx
         for similar_source_indices in positives:
             # True sentence single/pair
             relevance = 1
@@ -248,12 +259,30 @@ def convert_article_to_lambdamart_features(ex):
                 continue
             instances.append(Lambdamart_Instance(features, relevance, qid, similar_source_indices))
             a=0
-        for negative_indices in negatives:
-            neg_relevance = 0
-            neg_features = get_features(negative_indices, sent_term_matrix, doc_vector, article_sent_tokens, single_feat_len, pair_feat_len, importances)
-            if neg_features is None:
-                continue
-            instances.append(Lambdamart_Instance(neg_features, neg_relevance, qid, negative_indices))
+
+            if balance:
+                # False sentence single/pair
+                is_pair = len(similar_source_indices) == 2
+                if is_pair:
+                    if len(random_negative_pairs) == 0:
+                        continue
+                    negative_indices = negative_pairs[random_negative_pairs.pop()]
+                else:
+                    if len(random_negative_singles) == 0:
+                        continue
+                    negative_indices = negative_singles[random_negative_singles.pop()]
+                neg_relevance = 0
+                neg_features = get_features(negative_indices, sent_term_matrix, doc_vector, article_sent_tokens, single_feat_len, pair_feat_len, importances)
+                if neg_features is None:
+                    continue
+                instances.append(Lambdamart_Instance(neg_features, neg_relevance, qid, similar_source_indices))
+        if not balance:
+            for negative_indices in negatives:
+                neg_relevance = 0
+                neg_features = get_features(negative_indices, sent_term_matrix, doc_vector, article_sent_tokens, single_feat_len, pair_feat_len, importances)
+                if neg_features is None:
+                    continue
+                instances.append(Lambdamart_Instance(neg_features, neg_relevance, qid, negative_indices))
     else:
         mmr_all = util.calc_MMR_all(raw_article_sents, article_sent_tokens, summ_sent_tokens, None) # the size is (# of summary sents, # of article sents)
 
@@ -344,46 +373,50 @@ def main(unused_argv):
     start_time = time.time()
     np.random.seed(random_seed)
     source_dir = os.path.join(data_dir, in_dataset)
-    source_files = sorted(glob.glob(source_dir + '/' + dataset_split + '*'))
-    pros = {'annotators': 'dcoref', 'outputFormat': 'json', 'timeout': '5000000'}
     single_feat_len = len(get_single_sent_features(0, sparse.csr_matrix(np.array([[0,0],[0,0]])), np.array([[0,0]]), [['single','.'],['sentence','.']], [0,0]))
     pair_feat_len = len(get_pair_sent_features([0,1], sparse.csr_matrix(np.array([[0,0],[0,0]])), np.array([[0,0]]), [['single','.'],['sentence','.']], [0,0]))
     util.print_vars(single_feat_len, pair_feat_len)
-
-    example_idx = -1
     util.create_dirs(os.path.join(out_dir, out_dataset))
-    out_path = os.path.join(out_dir, out_dataset, dataset_split + '.txt')
-    writer = open(out_path, 'wb')
-    total = len(source_files)*1000 if 'cnn' or 'newsroom' in in_dataset else len(source_files)
-    example_generator = data.example_generator(source_dir + '/' + dataset_split + '*', True, False, should_check_valid=False)
-    # for example in tqdm(example_generator, total=total):
-    ex_gen = example_generator_extended(example_generator, total, single_feat_len, pair_feat_len)
-    print 'Creating list'
-    ex_list = [ex for ex in ex_gen]
-    print 'Converting...'
-    # all_features = pool.map(convert_article_to_lambdamart_features, ex_list)
+
+    if dataset_split == 'all':
+        dataset_splits = ['train', 'val', 'test']
+    else:
+        dataset_splits = [dataset_split]
+    for split in dataset_splits:
+        source_files = sorted(glob.glob(source_dir + '/' + split + '*'))
+
+        out_path = os.path.join(out_dir, out_dataset, split + '.txt')
+        writer = open(out_path, 'wb')
+        total = len(source_files)*1000 if 'cnn' or 'newsroom' in in_dataset else len(source_files)
+        example_generator = data.example_generator(source_dir + '/' + split + '*', True, False, should_check_valid=False)
+        # for example in tqdm(example_generator, total=total):
+        ex_gen = example_generator_extended(example_generator, total, single_feat_len, pair_feat_len)
+        print 'Creating list'
+        ex_list = [ex for ex in ex_gen]
+        print 'Converting...'
+        # all_features = pool.map(convert_article_to_lambdamart_features, ex_list)
 
 
 
-    # all_features = ray.get([convert_article_to_lambdamart_features.remote(ex) for ex in ex_list])
+        # all_features = ray.get([convert_article_to_lambdamart_features.remote(ex) for ex in ex_list])
 
-    all_features = list(futures.map(convert_article_to_lambdamart_features, ex_list))
+        all_features = list(futures.map(convert_article_to_lambdamart_features, ex_list))
 
-    # all_features = []
-    # for example  in tqdm(ex_gen, total=total):
-    #     all_features.append(convert_article_to_lambdamart_features(example))
+        # all_features = []
+        # for example  in tqdm(ex_gen, total=total):
+        #     all_features.append(convert_article_to_lambdamart_features(example))
 
-    writer.write(''.join(all_features))
-    # all_features = util.flatten_list_of_lists(all_features)
-    # num1 = sum(x == 1 for x in all_features)
-    # num2 = sum(x == 2 for x in all_features)
-    # print 'Single sent: %d instances. Pair sent: %d instances.' % (num1, num2)
+        writer.write(''.join(all_features))
+        # all_features = util.flatten_list_of_lists(all_features)
+        # num1 = sum(x == 1 for x in all_features)
+        # num2 = sum(x == 2 for x in all_features)
+        # print 'Single sent: %d instances. Pair sent: %d instances.' % (num1, num2)
 
-    # for example in tqdm(ex_gen, total=total):
-    #     features = convert_article_to_lambdamart_features(example)
-    #     writer.write(features)
+        # for example in tqdm(ex_gen, total=total):
+        #     features = convert_article_to_lambdamart_features(example)
+        #     writer.write(features)
 
-    writer.close()
+        writer.close()
     util.print_execution_time(start_time)
 
 
