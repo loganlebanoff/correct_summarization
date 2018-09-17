@@ -1,1 +1,0 @@
-java -Xmx100g -cp "/home/logan/stanford-corenlp-full-2018-02-27/*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer -port 9001 -timeout 15000000 -annotators tokenize,ssplit,pos,lemma,ner,parse,coref
