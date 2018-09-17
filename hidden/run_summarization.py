@@ -40,7 +40,7 @@ import util
 from tensorflow.python import debug as tf_debug
 from tqdm import tqdm
 from tqdm import trange
-import write_data
+import convert_data
 import importance_features
 import run_importance
 import cPickle
@@ -392,7 +392,7 @@ def main(unused_argv):
         FLAGS.data_path = os.path.join(FLAGS.data_root, FLAGS.dataset_name, FLAGS.dataset_split + '*')
     if not os.path.exists(os.path.join(FLAGS.data_root, FLAGS.dataset_name)) or len(os.listdir(os.path.join(FLAGS.data_root, FLAGS.dataset_name))) == 0:
         print('No TF example data found at %s so creating it from raw data.' % os.path.join(FLAGS.data_root, FLAGS.dataset_name))
-        write_data.process_dataset(FLAGS.dataset_name)
+        convert_data.process_dataset(FLAGS.dataset_name, FLAGS.data_path)
 
     logging.set_verbosity(logging.INFO) # choose what level of logging you want
     logging.info('Starting seq2seq_attention in %s mode...', (FLAGS.mode))

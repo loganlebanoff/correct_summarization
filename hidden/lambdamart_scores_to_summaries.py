@@ -19,9 +19,9 @@ from scipy import sparse
 from count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
 
 
-exp_name = 'coref_lambdamart'
+exp_name = 'coref_lambdamart_singles'
 dataset_articles = 'cnn_dm_coref'
-dataset_model = 'cnn_dm_coref_importance'
+dataset_model = 'singles'
 dataset_split = 'test'
 model = 'ndcg5'
 importance = True
@@ -31,6 +31,7 @@ random_seed = 123
 max_sent_len_feat = 20
 sentence_limit = 2
 min_matched_tokens = 2
+singles_and_pairs = 'singles'
 
 data_dir = '/home/logan/data/multidoc_summarization/merge_indices_tf_examples'
 lambdamart_in_dir = '/home/logan/data/discourse/temp/to_lambdamart'
@@ -141,7 +142,12 @@ def get_features_all_combinations(raw_article_sents, article_sent_tokens, mmrs, 
 
     possible_pairs = [list(x) for x in list(itertools.combinations(list(xrange(len(raw_article_sents))), 2))]   # all pairs
     possible_singles = [[i] for i in range(len(raw_article_sents))]
-    all_combinations = possible_pairs + possible_singles
+    if singles_and_pairs == 'pairs':
+        all_combinations = possible_pairs
+    elif singles_and_pairs == 'singles':
+        all_combinations = possible_singles
+    else:
+        all_combinations = possible_pairs + possible_singles
     instances = []
     for source_indices in all_combinations:
         features = get_features(source_indices, sent_term_matrix, doc_vector, article_sent_tokens,
@@ -149,12 +155,12 @@ def get_features_all_combinations(raw_article_sents, article_sent_tokens, mmrs, 
         instances.append(Lambdamart_Instance(features, 0, 0, source_indices))
     return instances
 
-def write_to_file(instances, out_path):
+def write_to_file(instances, out_path, single_feat_len):
     out_str = ''
     instances = sorted(instances, key=lambda x: (x.qid, x.source_indices))
     for inst_id, instance in enumerate(instances):
         instance.inst_id = inst_id
-        lambdamart_str = format_to_lambdamart(instance)
+        lambdamart_str = format_to_lambdamart(instance, single_feat_len)
         out_str += lambdamart_str + '\n'
     with open(out_path, 'w') as f:
         f.write(out_str)
@@ -171,8 +177,8 @@ def get_sent_or_sents(article_sent_tokens, source_indices):
     # sents = util.flatten_list_of_lists(chosen_sent_tokens)
     return chosen_sent_tokens
 
-def rank_and_get_source_sents(instances, article_sent_tokens, temp_in_path, temp_out_path):
-    write_to_file(instances, temp_in_path)
+def rank_and_get_source_sents(instances, article_sent_tokens, temp_in_path, temp_out_path, single_feat_len):
+    write_to_file(instances, temp_in_path, single_feat_len)
     inst_id_to_source_indices = read_source_indices_from_lambdamart_input(temp_in_path)
 
     rank_instances(temp_in_path, temp_out_path)
@@ -187,7 +193,7 @@ def generate_summary(raw_article_sents, article_sent_tokens, temp_in_path, temp_
     while len(summary_tokens) < 120:
         mmrs = util.calc_MMR(raw_article_sents, article_sent_tokens, summary_tokens, None)
         instances = get_features_all_combinations(raw_article_sents, article_sent_tokens, mmrs, single_feat_len, pair_feat_len)
-        sents, source_indices = rank_and_get_source_sents(instances, article_sent_tokens, temp_in_path, temp_out_path)
+        sents, source_indices = rank_and_get_source_sents(instances, article_sent_tokens, temp_in_path, temp_out_path, single_feat_len)
         summary_tokens.extend(sents)
     summary_sent_tokens = [sent + ['.'] for sent in util.split_list_by_item(summary_tokens, '.')]
     summary_sents = [' '.join(sent) for sent in summary_sent_tokens]
@@ -204,8 +210,8 @@ def get_lambdamart_scores_for_singles_pairs(data, inst_id_to_source_indices):
         out_dict[source_indices] = score
     return out_dict
 
-def rank_source_sents(instances, temp_in_path, temp_out_path):
-    write_to_file(instances, temp_in_path)
+def rank_source_sents(instances, temp_in_path, temp_out_path, single_feat_len):
+    write_to_file(instances, temp_in_path, single_feat_len)
     inst_id_to_source_indices = read_source_indices_from_lambdamart_input(temp_in_path)
 
     rank_instances(temp_in_path, temp_out_path)
@@ -230,7 +236,7 @@ def get_best_source_sents(article_sent_tokens, mmr_dict, already_used_source_ind
 def generate_summary_importance(raw_article_sents, article_sent_tokens, temp_in_path, temp_out_path, single_feat_len, pair_feat_len):
     tfidfs = util.get_tfidf_importances(raw_article_sents)
     instances = get_features_all_combinations(raw_article_sents, article_sent_tokens, tfidfs, single_feat_len, pair_feat_len)
-    source_indices_to_importances = rank_source_sents(instances, temp_in_path, temp_out_path)
+    source_indices_to_importances = rank_source_sents(instances, temp_in_path, temp_out_path, single_feat_len)
     summary_sent_tokens = []
     summary_tokens = util.flatten_list_of_lists(summary_sent_tokens)
     already_used_source_indices = []
@@ -308,10 +314,16 @@ def main(unused_argv):
     np.random.seed(random_seed)
     source_dir = os.path.join(data_dir, dataset_articles)
     source_files = sorted(glob.glob(source_dir + '/' + dataset_split + '*'))
-    single_feat_len = len(get_single_sent_features(0, sparse.csr_matrix(np.array([[0, 0], [0, 0]])), np.array([[0, 0]]),
+    if singles_and_pairs == 'pairs':
+        single_feat_len = 0
+    else:
+        single_feat_len = len(get_single_sent_features(0, sparse.csr_matrix(np.array([[0, 0], [0, 0]])), np.array([[0, 0]]),
                                                    [['single', '.'], ['sentence', '.']], [0, 0]))
-    pair_feat_len = len(
-        get_pair_sent_features([0, 1], sparse.csr_matrix(np.array([[0, 0], [0, 0]])), np.array([[0, 0]]),
+    if singles_and_pairs == 'singles':
+        pair_feat_len = 0
+    else:
+        pair_feat_len = len(
+            get_pair_sent_features([0, 1], sparse.csr_matrix(np.array([[0, 0], [0, 0]])), np.array([[0, 0]]),
                                [['single', '.'], ['sentence', '.']], [0, 0]))
 
 

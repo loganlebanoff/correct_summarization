@@ -584,7 +584,11 @@ def print_vars(*args):
     for v in args:
         print varname(v), v
 
-
+def shuffle(*args):
+    if len(args) == 0:
+        raise Exception('No lists to shuffle')
+    permutation = np.random.permutation(len(args[0]))
+    return [reorder(arg, permutation) for arg in args]
 
 
 
