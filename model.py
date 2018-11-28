@@ -25,6 +25,7 @@ from attention_decoder import attention_decoder
 from tensorflow.contrib.tensorboard.plugins import projector
 from absl import flags
 from absl import logging
+import sys
 
 FLAGS = flags.FLAGS
 
@@ -188,6 +189,14 @@ class SummarizationModel(object):
             # Note that for decoder timesteps and examples corresponding to a [PAD] token, this is junk - ignore.
             final_dists = [vocab_dist + copy_dist for (vocab_dist,copy_dist) in zip(vocab_dists_extended, attn_dists_projected)]
 
+            # final_dists = [tf.clip_by_value(dist, 1e-10, 1.-1e-10) for dist in final_dists]
+
+            def add_epsilon(dist, epsilon=sys.float_info.epsilon):
+                epsilon_mask = tf.ones_like(dist) * epsilon
+                return dist + epsilon_mask
+
+            final_dists = [add_epsilon(dist) for dist in final_dists]
+
             return final_dists
 
     def _add_emb_vis(self, embedding_var):
@@ -312,6 +321,7 @@ class SummarizationModel(object):
         tf.summary.scalar('global_norm', global_norm)
 
         # Apply adagrad optimizer
+        # optimizer = tf.train.AdamOptimizer()
         optimizer = tf.train.AdagradOptimizer(self._hps.lr, initial_accumulator_value=self._hps.adagrad_init_acc)
         with tf.device("/gpu:0"):
             self._train_op = optimizer.apply_gradients(zip(grads, tvars), global_step=self.global_step, name='train_step')

@@ -32,6 +32,11 @@ from nltk.stem.porter import PorterStemmer
 import dill
 from absl import app, flags, logging
 import random
+import util
+import time
+from tensorflow.python import debug as tf_debug
+from tqdm import tqdm
+import numpy as np
 
 random.seed(222)
 FLAGS = flags.FLAGS
@@ -39,9 +44,11 @@ FLAGS = flags.FLAGS
 # Where to find data
 flags.DEFINE_string('dataset_name', 'example_custom_dataset', 'Which dataset to use. Makes a log dir based on name.\
                                                 Must be one of {tac_2011, tac_2008, duc_2004, duc_tac, cnn_dm} or a custom dataset name')
-flags.DEFINE_string('data_root', 'tf_data', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
+flags.DEFINE_string('data_root', 'tf_data/with_coref', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
 flags.DEFINE_string('vocab_path', 'logs/vocab', 'Path expression to text vocabulary file.')
 flags.DEFINE_string('pretrained_path', 'logs/pretrained_model_tf1.2.1', 'Directory of pretrained model from See et al.')
+flags.DEFINE_boolean('use_pretrained', False, 'If True, use pretrained model in the path FLAGS.pretrained_path.')
+
 
 # Where to save output
 flags.DEFINE_string('log_root', 'logs', 'Root directory for all logging.')
@@ -93,7 +100,209 @@ flags.DEFINE_boolean('retain_mmr_values', False, 'Only used if using mute mode. 
 flags.DEFINE_string('similarity_fn', 'rouge_l', 'Which similarity function to use when calculating\
                             sentence similarity or coverage. Must be one of {rouge_l, ngram_similarity}')
 flags.DEFINE_boolean('plot_distributions', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
+flags.DEFINE_integer('num_iterations', 60000, 'How many iterations to run. Set to -1 to run indefinitely.')
 
+flags.DEFINE_boolean('attn_vis', False, 'If true, then output attention visualization during decoding.')
+flags.DEFINE_boolean('lambdamart_input', True, 'If true, then do postprocessing to combine sentences from the same example.')
+
+def calc_running_avg_loss(loss, running_avg_loss, summary_writer, step, decay=0.99):
+    """Calculate the running average loss via exponential decay.
+    This is used to implement early stopping w.r.t. a more smooth loss curve than the raw loss curve.
+
+    Args:
+        loss: loss on the most recent eval step
+        running_avg_loss: running_avg_loss so far
+        summary_writer: FileWriter object to write for tensorboard
+        step: training iteration step
+        decay: rate of exponential decay, a float between 0 and 1. Larger is smoother.
+
+    Returns:
+        running_avg_loss: new running average loss
+    """
+    if running_avg_loss == 0:	# on the first iteration just take the loss
+        running_avg_loss = loss
+    else:
+        running_avg_loss = running_avg_loss * decay + (1 - decay) * loss
+    running_avg_loss = min(running_avg_loss, 12)	# clip
+    loss_sum = tf.Summary()
+    tag_name = 'running_avg_loss/decay=%f' % (decay)
+    loss_sum.value.add(tag=tag_name, simple_value=running_avg_loss)
+    summary_writer.add_summary(loss_sum, step)
+    logging.info('running_avg_loss: %f', running_avg_loss)
+    return running_avg_loss
+
+
+def restore_best_model():
+    """Load bestmodel file from eval directory, add variables for adagrad, and save to train directory"""
+    logging.info("Restoring bestmodel for training...")
+
+    # Initialize all vars in the model
+    sess = tf.Session(config=util.get_config())
+    print "Initializing all variables..."
+    sess.run(tf.initialize_all_variables())
+
+    # Restore the best model from eval dir
+    saver = tf.train.Saver([v for v in tf.all_variables() if "Adagrad" not in v.name])
+    print "Restoring all non-adagrad variables from best model in eval dir..."
+    curr_ckpt = util.load_ckpt(saver, sess, "eval")
+    print "Restored %s." % curr_ckpt
+
+    # Save this model to train dir and quit
+    new_model_name = curr_ckpt.split("/")[-1].replace("bestmodel", "model")
+    new_fname = os.path.join(FLAGS.log_root, "train", new_model_name)
+    print "Saving model to %s..." % (new_fname)
+    new_saver = tf.train.Saver() # this saver saves all variables that now exist, including Adagrad variables
+    new_saver.save(sess, new_fname)
+    print "Saved."
+    exit()
+
+
+def convert_to_coverage_model():
+    """Load non-coverage checkpoint, add initialized extra variables for coverage, and save as new checkpoint"""
+    logging.info("converting non-coverage model to coverage model..")
+
+    # initialize an entire coverage model from scratch
+    sess = tf.Session(config=util.get_config())
+    print "initializing everything..."
+    sess.run(tf.global_variables_initializer())
+
+    # load all non-coverage weights from checkpoint
+    saver = tf.train.Saver([v for v in tf.global_variables() if "coverage" not in v.name and "Adagrad" not in v.name])
+    print "restoring non-coverage variables..."
+    curr_ckpt = util.load_ckpt(saver, sess)
+    print "restored."
+
+    # save this model and quit
+    new_fname = curr_ckpt + '_cov_init'
+    print "saving model to %s..." % (new_fname)
+    new_saver = tf.train.Saver() # this one will save all variables that now exist
+    new_saver.save(sess, new_fname)
+    print "saved."
+    exit()
+
+def setup_training(model, batcher):
+    """Does setup before starting training (run_training)"""
+    train_dir = os.path.join(FLAGS.log_root, "train")
+    if not os.path.exists(train_dir): os.makedirs(train_dir)
+
+    model.build_graph() # build the graph
+    if FLAGS.convert_to_coverage_model:
+        assert FLAGS.coverage, "To convert your non-coverage model to a coverage model, run with convert_to_coverage_model=True and coverage=True"
+        convert_to_coverage_model()
+    if FLAGS.restore_best_model:
+        restore_best_model()
+    saver = tf.train.Saver(max_to_keep=3) # keep 3 checkpoints at a time
+
+    sv = tf.train.Supervisor(logdir=train_dir,
+                                         is_chief=True,
+                                         saver=saver,
+                                         summary_op=None,
+                                         save_summaries_secs=60, # save summaries for tensorboard every 60 secs
+                                         save_model_secs=60, # checkpoint every 60 secs
+                                         global_step=model.global_step)
+    summary_writer = sv.summary_writer
+    logging.info("Preparing or waiting for session...")
+    sess_context_manager = sv.prepare_or_wait_for_session(config=util.get_config())
+    logging.info("Created session.")
+    try:
+        run_training(model, batcher, sess_context_manager, sv, summary_writer) # this is an infinite loop until interrupted
+    except KeyboardInterrupt:
+        logging.info("Caught keyboard interrupt on worker. Stopping supervisor...")
+        sv.stop()
+
+
+def run_training(model, batcher, sess_context_manager, sv, summary_writer):
+    """Repeatedly runs training iterations, logging loss to screen and writing summaries"""
+    logging.info("starting run_training")
+    with sess_context_manager as sess:
+        if FLAGS.debug: # start the tensorflow debugger
+            sess = tf_debug.LocalCLIDebugWrapperSession(sess)
+            sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
+        if FLAGS.num_iterations == -1:
+            while True: # repeats until interrupted
+                run_training_iteration(model, batcher, summary_writer, sess)
+        else:
+            initial_iter = model.global_step.eval(sess)
+            pbar = tqdm(initial=initial_iter, total=FLAGS.num_iterations)
+            print("Starting at iteration %d" % initial_iter)
+            for iter_idx in range(initial_iter, FLAGS.num_iterations):
+                run_training_iteration(model, batcher, summary_writer, sess)
+                pbar.update(1)
+            pbar.close()
+
+def run_training_iteration(model, batcher, summary_writer, sess):
+    batch = batcher.next_batch()
+
+    # tqdm.write('running training step...')
+    t0=time.time()
+    results = model.run_train_step(sess, batch)
+    t1=time.time()
+    # tqdm.write('seconds for training step: %.3f' % (t1-t0))
+
+    loss = results['loss']
+    tqdm.write('loss: %f' % loss) # print the loss to screen
+
+    if not np.isfinite(loss):
+        raise util.InfinityValueError("Loss is not finite. Stopping.")
+
+    if FLAGS.coverage:
+        coverage_loss = results['coverage_loss']
+        tqdm.write("coverage_loss: %f" % coverage_loss) # print the coverage loss to screen
+
+    # get the summaries and iteration number so we can write summaries to tensorboard
+    summaries = results['summaries'] # we will write these summaries to tensorboard using summary_writer
+    train_step = results['global_step'] # we need this to update our running average loss
+
+    summary_writer.add_summary(summaries, train_step) # write the summaries
+    if train_step % 100 == 0: # flush the summary writer every so often
+        summary_writer.flush()
+
+def run_eval(model, batcher, vocab):
+    """Repeatedly runs eval iterations, logging to screen and writing summaries. Saves the model with the best loss seen so far."""
+    model.build_graph() # build the graph
+    saver = tf.train.Saver(max_to_keep=3) # we will keep 3 best checkpoints at a time
+    sess = tf.Session(config=util.get_config())
+    eval_dir = os.path.join(FLAGS.log_root, "eval") # make a subdir of the root dir for eval data
+    bestmodel_save_path = os.path.join(eval_dir, 'bestmodel') # this is where checkpoints of best models are saved
+    summary_writer = tf.summary.FileWriter(eval_dir)
+    running_avg_loss = 0 # the eval job keeps a smoother, running average loss to tell it when to implement early stopping
+    best_loss = None	# will hold the best loss achieved so far
+
+    while True:
+        _ = util.load_ckpt(saver, sess) # load a new checkpoint
+        batch = batcher.next_batch() # get the next batch
+
+        # run eval on the batch
+        t0=time.time()
+        results = model.run_eval_step(sess, batch)
+        t1=time.time()
+        logging.info('seconds for batch: %.2f', t1-t0)
+
+        # print the loss and coverage loss to screen
+        loss = results['loss']
+        logging.info('loss: %f', loss)
+        if FLAGS.coverage:
+            coverage_loss = results['coverage_loss']
+            logging.info("coverage_loss: %f", coverage_loss)
+
+        # add summaries
+        summaries = results['summaries']
+        train_step = results['global_step']
+        summary_writer.add_summary(summaries, train_step)
+
+        # calculate running avg loss
+        running_avg_loss = calc_running_avg_loss(np.asscalar(loss), running_avg_loss, summary_writer, train_step)
+
+        # If running_avg_loss is best so far, save this checkpoint (early stopping).
+        # These checkpoints will appear as bestmodel-<iteration_number> in the eval dir
+        if best_loss is None or running_avg_loss < best_loss:
+            logging.info('Found new best model with %.3f running_avg_loss. Saving to %s', running_avg_loss, bestmodel_save_path)
+            saver.save(sess, bestmodel_save_path, global_step=train_step, latest_filename='checkpoint_best')
+            best_loss = running_avg_loss
+
+        # flush the summary writer every so often
+        if train_step % 100 == 0:
+            summary_writer.flush()
 
 def calc_features(cnn_dm_train_data_path, hps, vocab, batcher, save_path):
     if not os.path.exists(save_path): os.makedirs(save_path)
@@ -145,7 +354,8 @@ def main(unused_argv):
     FLAGS.actual_log_root = FLAGS.log_root
     FLAGS.log_root = os.path.join(FLAGS.log_root, FLAGS.exp_name)
 
-    vocab = Vocab(FLAGS.vocab_path, FLAGS.vocab_size) # create a vocabulary
+    original_dataset_name = 'xsum' if 'xsum' in FLAGS.dataset_name else 'cnn_dm' if 'cnn_dm' in FLAGS.dataset_name else ''
+    vocab = Vocab(FLAGS.vocab_path + '_' + original_dataset_name, FLAGS.vocab_size) # create a vocabulary
 
     # If in decode mode, set batch_size = beam_size
     # Reason: in decode mode, we decode one example at a time.
@@ -160,7 +370,7 @@ def main(unused_argv):
     # Make a namedtuple hps, containing the values of the hyperparameters that the model needs
     hparam_list = ['mode', 'lr', 'adagrad_init_acc', 'rand_unif_init_mag', 'trunc_norm_init_std',
                    'max_grad_norm', 'hidden_dim', 'emb_dim', 'batch_size', 'max_dec_steps',
-                   'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen']
+                   'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input']
     hps_dict = {}
     for key,val in FLAGS.__flags.iteritems(): # for each flag
         if key in hparam_list: # if it's in the list
@@ -205,10 +415,17 @@ def main(unused_argv):
     # Create a batcher object that will create minibatches of data
     batcher = Batcher(FLAGS.data_path, vocab, hps, single_pass=FLAGS.single_pass)
 
-    tf.set_random_seed(111) # a seed value for randomness
+    tf.set_random_seed(113) # a seed value for randomness
 
     # Start decoding on multi-document inputs
-    if hps.mode == 'decode':
+    if hps.mode == 'train':
+        print "creating model..."
+        model = SummarizationModel(hps, vocab)
+        setup_training(model, batcher)
+    elif hps.mode == 'eval':
+        model = SummarizationModel(hps, vocab)
+        run_eval(model, batcher, vocab)
+    elif hps.mode == 'decode':
         decode_model_hps = hps._replace(max_dec_steps=1) # The model is configured with max_dec_steps=1 because we only ever run one step of the decoder at a time (to do beam search). Note that the batcher is initialized with max_dec_steps equal to e.g. 100 because the batches need to contain the full summaries
         model = SummarizationModel(decode_model_hps, vocab)
         decoder = BeamSearchDecoder(model, batcher, vocab)

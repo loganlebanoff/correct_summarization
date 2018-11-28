@@ -26,7 +26,7 @@ include_sents_dist = True
 lr = False
 min_df = 5
 
-data_dir = 'tf_data/merge_indices'
+data_dir = 'tf_data'
 log_dir = 'logs/'
 out_dir = 'data/tfidf'
 max_enc_steps = 100000
@@ -37,7 +37,7 @@ dm_single_close_quote = u'\u2019' # unicode
 dm_double_close_quote = u'\u201d'
 END_TOKENS = ['.', '!', '?', '...', "'", "`", '"', dm_single_close_quote, dm_double_close_quote, ")"] # acceptable ways to end a sentence
 
-names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_lists'), ('summary_text', 'string')]
+names_to_types = [('article', 'string')]
 
 
 def get_tf_example(source_file):
@@ -91,9 +91,9 @@ def save_as_txt_file(ex):
     # if num_instances != -1 and example_idx >= num_instances:
     #     break
     example, example_idx = ex
-    print example_idx
-    raw_article_sents, similar_source_indices_list, summary_text = util.unpack_tf_example(example, names_to_types)
-    article_text = ' '.join(raw_article_sents).encode('utf-8')
+    # print example_idx
+    article_text, = util.unpack_tf_example(example, names_to_types)
+    article_text = article_text.encode('utf-8')
     # out_path = os.path.join(out_dir, in_dataset, 'article_%06d.txt' % example_idx)
     # with open(out_path, 'wb') as f:
     #     f.write(article_text)
@@ -119,7 +119,7 @@ def main(unused_argv):
     util.create_dirs(os.path.join(out_dir, input_dataset))
 
     if input_dataset == 'all':
-        datasets = ['duc_2003', 'duc_2004', 'tac_2008', 'tac_2010', 'tac_2011', 'cnn_dm']
+        datasets = ['duc_2003', 'duc_2004', 'tac_2008', 'tac_2010', 'tac_2011', 'cnn_dm', 'xsum']
     else:
         datasets = [input_dataset]
     if dataset_split == 'all':

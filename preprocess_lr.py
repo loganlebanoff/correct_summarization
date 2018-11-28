@@ -42,7 +42,7 @@ include_tfidf_vec = False
 if lr:
     out_dataset += '_lr'
 
-data_dir = 'tf_data/merge_indices'
+data_dir = 'tf_data/with_coref_and_ssi'
 log_dir = 'logs/'
 out_dir = 'data/to_lambdamart'
 tfidf_vec_path = 'data/tfidf/' + in_dataset + '_tfidf_vec.pkl'

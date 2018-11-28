@@ -22,32 +22,40 @@ import cPickle
 # from multiprocessing.dummy import Pool as ThreadPool
 # pool = ThreadPool(12)
 
-# FLAGS = FLAGS
+if 'singles_and_pairs' in flags.FLAGS:
+    flags_already_done = True
+else:
+    flags_already_done = False
+FLAGS = flags.FLAGS
+if 'singles_and_pairs' not in flags.FLAGS:
+    flags.DEFINE_string('singles_and_pairs', 'singles', 'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
+if 'dataset_name' not in flags.FLAGS:
+    flags.DEFINE_string('dataset_name', 'cnn_dm', 'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
+if 'dataset_split' not in flags.FLAGS:
+    flags.DEFINE_string('dataset_split', 'train', 'Which dataset split to use. Must be one of {train, val, test}')
+if 'use_pair_criteria' not in flags.FLAGS:
+    flags.DEFINE_boolean('use_pair_criteria', True, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
+
+if not flags_already_done:
+    FLAGS(sys.argv)
 
 exp_name = 'reference'
-in_dataset = 'cnn_dm'
-out_dataset = 'cnn_dm_both'
-dataset_split = 'all'
 num_instances = -1,
 random_seed = 123
 max_sent_len_feat = 20
 balance = True
 importance = True
 real_values = True
-singles_and_pairs = 'both'
+# singles_and_pairs = 'singles'
 include_sents_dist = True
 lr = False
 include_tfidf_vec = True
-use_pair_criteria = True
 min_matched_tokens = 1
 
-if lr:
-    out_dataset += '_lr'
-
-data_dir = 'tf_data/merge_indices'
+data_dir = 'tf_data/with_coref_and_ssi'
 log_dir = 'logs/'
 out_dir = 'data/to_lambdamart'
-tfidf_vec_path = 'data/tfidf/' + in_dataset + '_tfidf_vec.pkl'
+tfidf_vec_path = 'data/tfidf/' + 'all' + '_tfidf_vec_5.pkl'
 temp_dir = 'data/temp'
 max_enc_steps = 100000
 min_dec_steps = 100
@@ -57,80 +65,11 @@ dm_single_close_quote = u'\u2019' # unicode
 dm_double_close_quote = u'\u201d'
 END_TOKENS = ['.', '!', '?', '...', "'", "`", '"', dm_single_close_quote, dm_double_close_quote, ")"] # acceptable ways to end a sentence
 
-names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_lists'), ('summary_text', 'string'), ('corefs', 'json')]
+names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_lists'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 
 
 with open(tfidf_vec_path, 'rb') as f:
     tfidf_vectorizer = cPickle.load(f)
-
-def get_tf_example(source_file):
-    reader = open(source_file, 'rb')
-    len_bytes = reader.read(8)
-    if not len_bytes: return  # finished reading this file
-    str_len = struct.unpack('q', len_bytes)[0]
-    example_str = struct.unpack('%ds' % str_len, reader.read(str_len))[0]
-    e = example_pb2.Example.FromString(example_str)
-    return e
-
-def get_summary_text(summary_file):
-    with open(summary_file) as f:
-        summary_text = f.read()
-    return summary_text
-
-def get_summary_from_example(e):
-    summary_texts = []
-    for abstract in e.features.feature['abstract'].bytes_list.value:
-        summary_texts.append(abstract)  # the abstracts texts was saved under the key 'abstract' in the data files
-    all_abstract_sentences = [[sent.strip() for sent in data.abstract2sents(
-        abstract)] for abstract in summary_texts]
-    summary_text = '\n'.join(all_abstract_sentences[0])
-    return summary_text
-
-
-def get_human_summary_texts(summary_file):
-    summary_texts = []
-    e = get_tf_example(summary_file)
-    for abstract in e.features.feature['abstract'].bytes_list.value:
-        summary_texts.append(abstract)  # the abstracts texts was saved under the key 'abstract' in the data files
-    all_abstract_sentences = [[sent.strip() for sent in data.abstract2sents(
-        abstract)] for abstract in summary_texts]
-    summary_text = '\n'.join(all_abstract_sentences[0])
-    return summary_text
-
-def split_into_tokens(text):
-    tokens = text.split()
-    tokens = [t for t in tokens if t != '<s>' and t != '</s>']
-    return tokens
-
-def split_into_sent_tokens(text):
-    sent_tokens = [[t for t in tokens.strip().split() if t != '<s>' and t != '</s>'] for tokens in text.strip().split('\n')]
-    return sent_tokens
-
-def limit_to_n_tokens(sent_tokens, n):
-    res = []
-    count = 0
-    for sent in sent_tokens:
-        out_sent = []
-        for token in sent:
-            if count < n:
-                out_sent.append(token)
-                count += 1
-        if len(out_sent) > 0:
-            res.append(out_sent)
-    return res
-
-def split_by_periods(tokens):
-    period_indices = [idx for idx in range(len(tokens)) if tokens[idx] == '.']
-    cur_idx = 0
-    sents = []
-    for period_idx in period_indices:
-        sent = tokens[cur_idx:period_idx]
-        cur_idx = period_idx + 1
-        sents.append(sent)
-    # sent = tokens[cur_idx:len(tokens)]
-    # sents.append(sent)
-    sents = [sent for sent in sents if len(sent) > 0]
-    return sents
 
 def convert_to_one_hot(value, bins, range):
     hist, _ = np.histogram(value, bins=bins, range=range)
@@ -142,9 +81,9 @@ def does_start_with_quotation_mark(sent_tokens):
     return sent_tokens[0] == "`" or sent_tokens[0] == "``"
 
 max_num_sents = 30
-def get_single_sent_features(sent_idx, sent_term_matrix, article_sent_tokens, mmr):
-    abs_sent_idx = sent_idx + 1.0
-    rel_sent_idx = (sent_idx + 1.0) / max_num_sents
+def get_single_sent_features(sent_idx, sent_term_matrix, article_sent_tokens, mmr, rel_sent_idx):
+    abs_sent_idx = rel_sent_idx + 1.0
+    norm_sent_idx = (rel_sent_idx + 1.0) / max_num_sents
     # doc_similarity = util.cosine_similarity(sent_term_matrix[sent_idx], doc_vector)[0][0]
     sent_len = len(article_sent_tokens[sent_idx])
     sent_len = min(max_sent_len_feat, sent_len)
@@ -154,7 +93,7 @@ def get_single_sent_features(sent_idx, sent_term_matrix, article_sent_tokens, mm
 
 
     if real_values:
-        features = [abs_sent_idx, rel_sent_idx, sent_len, starts_with_quote, my_mmr]
+        features = [abs_sent_idx, norm_sent_idx, sent_len, starts_with_quote, my_mmr]
         if include_tfidf_vec:
             features.extend(tfidf_vec)
         return features
@@ -165,19 +104,20 @@ def get_single_sent_features(sent_idx, sent_term_matrix, article_sent_tokens, mm
         my_mmr = convert_to_one_hot(my_mmr, 5, (0,1))
         return sent_idx.tolist() + sent_len.tolist() + [starts_with_quote] + my_mmr
 
-def get_pair_sent_features(similar_source_indices, sent_term_matrix, article_sent_tokens, mmr):
+def get_pair_sent_features(similar_source_indices, sent_term_matrix, article_sent_tokens, mmr, my_rel_sent_indices):
     features = []
     # features.append(1)  # is_sent_pair
     sent_idx1, sent_idx2 = similar_source_indices[0], similar_source_indices[1]
+    rel_sent_idx1, rel_sent_idx2 = my_rel_sent_indices[0], my_rel_sent_indices[1]
     sent1_features = get_single_sent_features(sent_idx1,
-                         sent_term_matrix, article_sent_tokens, mmr)
+                         sent_term_matrix, article_sent_tokens, mmr, rel_sent_idx1)
     features.extend(sent1_features[1:]) # sent_idx, doc_similarity, sent_len
     sent2_features = get_single_sent_features(sent_idx2,
-                         sent_term_matrix, article_sent_tokens, mmr)
+                         sent_term_matrix, article_sent_tokens, mmr, rel_sent_idx2)
     features.extend(sent2_features[1:]) # sent_idx, doc_similarity, sent_len
     average_mmr = (mmr[sent_idx1] + mmr[sent_idx2])/2
     sents_similarity = util.cosine_similarity(sent_term_matrix[sent_idx1], sent_term_matrix[sent_idx2])[0][0]
-    sents_dist = abs(sent_idx1 - sent_idx2)
+    sents_dist = abs(rel_sent_idx1 - rel_sent_idx2)
     if real_values:
         features.extend([average_mmr, sents_similarity])
         if include_sents_dist:
@@ -190,14 +130,15 @@ def get_pair_sent_features(similar_source_indices, sent_term_matrix, article_sen
     return features
 
 
-def get_features(similar_source_indices, sent_term_matrix, article_sent_tokens, single_feat_len,
+def get_features(similar_source_indices, sent_term_matrix, article_sent_tokens, rel_sent_indices, single_feat_len,
                  pair_feat_len, mmr, singles_and_pairs):
     features = []
     if len(similar_source_indices) == 1:
         if singles_and_pairs == 'pairs':
             return None
         sent_idx = similar_source_indices[0]
-        features = get_single_sent_features(sent_idx, sent_term_matrix, article_sent_tokens, mmr)
+        rel_sent_idx = rel_sent_indices[sent_idx]
+        features = get_single_sent_features(sent_idx, sent_term_matrix, article_sent_tokens, mmr, rel_sent_idx)
         if singles_and_pairs == 'both':
             features = [2] + features
             features.extend([0]*pair_feat_len)
@@ -207,31 +148,24 @@ def get_features(similar_source_indices, sent_term_matrix, article_sent_tokens, 
         if singles_and_pairs == 'both':
             features = [1] + features
             features.extend([0]*single_feat_len)
-        features.extend(get_pair_sent_features(similar_source_indices, sent_term_matrix, article_sent_tokens, mmr))
+        my_rel_sent_indices = [rel_sent_indices[similar_source_indices[0]], rel_sent_indices[similar_source_indices[1]]]
+        features.extend(get_pair_sent_features(similar_source_indices, sent_term_matrix, article_sent_tokens, mmr, my_rel_sent_indices))
     elif len(similar_source_indices) == 0:
         return None
     else:
+        print similar_source_indices
         raise Exception("Shouldn't be here")
     return features
 
-first_pair_feature = 4
 
 def format_to_lambdamart(inst, single_feat_len):
     features, relevance, query_id, source_indices, inst_id = inst.features, inst.relevance, inst.qid, inst.source_indices, inst.inst_id
+    if query_id == 0:
+        a=0
     if features is None or len(features) == 0:
         raise Exception('features has no elements')
     is_single_sent = features[0]
     out_str = str(relevance) + ' qid:' + str(query_id)
-
-    # for feat_idx, feat in enumerate(features):
-    #     out_str += ' %d:%0.6f' % (feat_idx+1, feat)
-    # if features[0] == 1:
-    #     which_features = range(first_pair_feature)
-    # else:
-    #     which_features = range(first_pair_feature, len(features))
-    # for feat_idx in which_features:
-    #     feat = features[feat_idx]
-    #     out_str += ' %d:%0.6f' % (feat_idx+1, feat)
 
     for feat_idx, feat in enumerate(features):
         # if singles_and_pairs == 'singles' or singles_and_pairs == 'pairs' or feat_idx == 0 or \
@@ -266,15 +200,21 @@ def assign_inst_ids(instances):
         instance.inst_id = qid_cur_inst_id[instance.qid]
         qid_cur_inst_id[instance.qid] += 1
 
+def sentences_have_overlap(article_sent_tokens, s1, s2, min_matched_tokens):
+    nonstopword_matches, _ = util.matching_unigrams(article_sent_tokens[s1], article_sent_tokens[s2], should_remove_stop_words=True)
+    if len(nonstopword_matches) >= min_matched_tokens:
+        return True
+    else:
+        return False
+
 def filter_by_overlap(article_sent_tokens, possible_pairs):
     new_possible_pairs = []
     for s1, s2 in possible_pairs:
-        nonstopword_matches, _ = util.matching_unigrams(article_sent_tokens[s1], article_sent_tokens[s2], should_remove_stop_words=True)
-        if len(nonstopword_matches) >= min_matched_tokens:
+        if sentences_have_overlap(article_sent_tokens, s1, s2, min_matched_tokens):
             new_possible_pairs.append((s1, s2))
     return new_possible_pairs
 
-def filter_by_entites(article_sent_tokens, possible_pairs, corefs):
+def get_coref_pairs(corefs):
     coref_pairs = set()
     for coref in corefs:
         sent_indices = set()
@@ -283,6 +223,10 @@ def filter_by_entites(article_sent_tokens, possible_pairs, corefs):
             sent_indices.add(sent_idx)
         pairs = list(itertools.combinations(sorted(list(sent_indices)), 2))
         coref_pairs = coref_pairs.union(pairs)
+    return coref_pairs
+
+def filter_by_entites(article_sent_tokens, possible_pairs, corefs):
+    coref_pairs = get_coref_pairs(corefs)
     new_possible_pairs = coref_pairs.intersection(set(possible_pairs))
     return new_possible_pairs
 
@@ -293,14 +237,37 @@ def filter_pairs_by_criteria(raw_article_sents, possible_pairs, corefs):
     new_possible_pairs = list(set(overlap_pairs).union(set(entity_pairs)))
     return new_possible_pairs
 
+def get_rel_sent_indices(doc_indices, article_sent_tokens):
+    doc_indices_sent_tokens = util.reshape_like(doc_indices, article_sent_tokens)
+    sent_doc = [sent[0] for sent in doc_indices_sent_tokens]
+    rel_sent_indices = []
+    cur_doc_idx = 0
+    rel_sent_idx = 0
+    for doc_idx in sent_doc:
+        if doc_idx != cur_doc_idx:
+            rel_sent_idx = 0
+            cur_doc_idx = doc_idx
+        rel_sent_indices.append(rel_sent_idx)
+        rel_sent_idx += 1
+    return rel_sent_indices
+
 def convert_article_to_lambdamart_features(ex):
     # example_idx += 1
     # if num_instances != -1 and example_idx >= num_instances:
     #     break
     example, example_idx, single_feat_len, pair_feat_len, singles_and_pairs = ex
     print example_idx
-    raw_article_sents, similar_source_indices_list, summary_text, corefs = util.unpack_tf_example(example, names_to_types)
+    raw_article_sents, similar_source_indices_list, summary_text, corefs, doc_indices = util.unpack_tf_example(example, names_to_types)
     article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+    if doc_indices is None:
+        doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
+    doc_indices = [int(doc_idx) for doc_idx in doc_indices]
+    rel_sent_indices = get_rel_sent_indices(doc_indices, article_sent_tokens)
+    if FLAGS.singles_and_pairs == 'singles':
+        sentence_limit = 1
+    else:
+        sentence_limit = 2
+    similar_source_indices_list = util.enforce_sentence_limit(similar_source_indices_list, sentence_limit)
     summ_sent_tokens = [sent.strip().split() for sent in summary_text.strip().split('\n')]
 
     # sent_term_matrix = util.get_tfidf_matrix(raw_article_sents)
@@ -315,7 +282,7 @@ def convert_article_to_lambdamart_features(ex):
     if importance:
         importances = util.special_squash(util.get_tfidf_importances(tfidf_vectorizer, raw_article_sents))
         possible_pairs = [x for x in list(itertools.combinations(list(xrange(len(raw_article_sents))), 2))]   # all pairs
-        if use_pair_criteria:
+        if FLAGS.use_pair_criteria:
             possible_pairs = filter_pairs_by_criteria(raw_article_sents, possible_pairs, corefs)
         possible_singles = [(i,) for i in range(len(raw_article_sents))]
         possible_combinations = possible_pairs + possible_singles
@@ -331,7 +298,7 @@ def convert_article_to_lambdamart_features(ex):
         for similar_source_indices in positives:
             # True sentence single/pair
             relevance = 1
-            features = get_features(similar_source_indices, sent_term_matrix, article_sent_tokens, single_feat_len, pair_feat_len, importances, singles_and_pairs)
+            features = get_features(similar_source_indices, sent_term_matrix, article_sent_tokens, rel_sent_indices, single_feat_len, pair_feat_len, importances, singles_and_pairs)
             if features is None:
                 continue
             instances.append(Lambdamart_Instance(features, relevance, qid, similar_source_indices))
@@ -349,13 +316,13 @@ def convert_article_to_lambdamart_features(ex):
                         continue
                     negative_indices = negative_singles[random_negative_singles.pop()]
                 neg_relevance = 0
-                neg_features = get_features(negative_indices, sent_term_matrix, article_sent_tokens, single_feat_len, pair_feat_len, importances, singles_and_pairs)
+                neg_features = get_features(negative_indices, sent_term_matrix, article_sent_tokens, rel_sent_indices, single_feat_len, pair_feat_len, importances, singles_and_pairs)
                 if neg_features is None:
                     continue
                 instances.append(Lambdamart_Instance(neg_features, neg_relevance, qid, negative_indices))
         if not balance:
             for negative_indices in negatives:
-                neg_relevance = 2
+                neg_relevance = 0
                 neg_features = get_features(negative_indices, sent_term_matrix, article_sent_tokens, single_feat_len, pair_feat_len, importances, singles_and_pairs)
                 if neg_features is None:
                     continue
@@ -396,37 +363,47 @@ def main(unused_argv):
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
 
+    if FLAGS.singles_and_pairs == 'both':
+        in_dataset = FLAGS.dataset_name
+        out_dataset = FLAGS.dataset_name + '_both'
+    else:
+        in_dataset = FLAGS.dataset_name + '_singles'
+        out_dataset = FLAGS.dataset_name + '_singles'
+
+    if lr:
+        out_dataset = FLAGS.dataset_name + '_lr'
+
     start_time = time.time()
     np.random.seed(random_seed)
     source_dir = os.path.join(data_dir, in_dataset)
     ex_sents = ['single .', 'sentence .']
     article_text = ' '.join(ex_sents)
     sent_term_matrix = util.get_doc_substituted_tfidf_matrix(tfidf_vectorizer, ex_sents, article_text)
-    if singles_and_pairs == 'pairs':
+    if FLAGS.singles_and_pairs == 'pairs':
         single_feat_len = 0
     else:
-        single_feat_len = len(get_single_sent_features(0, sent_term_matrix, [['single','.'],['sentence','.']], [0,0]))
-    if singles_and_pairs == 'singles':
+        single_feat_len = len(get_single_sent_features(0, sent_term_matrix, [['single','.'],['sentence','.']], [0,0], 0))
+    if FLAGS.singles_and_pairs == 'singles':
         pair_feat_len = 0
     else:
-        pair_feat_len = len(get_pair_sent_features([0,1], sent_term_matrix, [['single','.'],['sentence','.']], [0,0]))
+        pair_feat_len = len(get_pair_sent_features([0,1], sent_term_matrix, [['single','.'],['sentence','.']], [0,0], [0, 0]))
     util.print_vars(single_feat_len, pair_feat_len)
     util.create_dirs(os.path.join(out_dir, out_dataset))
     util.create_dirs(temp_dir)
 
-    if dataset_split == 'all':
+    if FLAGS.dataset_split == 'all':
         dataset_splits = ['test', 'val', 'train']
     else:
-        dataset_splits = [dataset_split]
+        dataset_splits = [FLAGS.dataset_split]
     for split in dataset_splits:
         source_files = sorted(glob.glob(source_dir + '/' + split + '*'))
 
         out_path = os.path.join(out_dir, out_dataset, split + '.txt')
         writer = open(out_path, 'wb')
-        total = len(source_files)*1000 if 'cnn' or 'newsroom' in in_dataset else len(source_files)
+        total = len(source_files)*1000 if ('cnn' in in_dataset or 'newsroom' in in_dataset or 'xsum' in in_dataset) else len(source_files)
         example_generator = data.example_generator(source_dir + '/' + split + '*', True, False, should_check_valid=False)
         # for example in tqdm(example_generator, total=total):
-        ex_gen = example_generator_extended(example_generator, total, single_feat_len, pair_feat_len, singles_and_pairs)
+        ex_gen = example_generator_extended(example_generator, total, single_feat_len, pair_feat_len, FLAGS.singles_and_pairs)
         print 'Creating list'
         ex_list = [ex for ex in ex_gen]
         print 'Converting...'

@@ -42,8 +42,8 @@ def is_quote(tokens):
     doesnt_end_with_period = len(tokens) > 0 and tokens[-1] != "."
     # contains_says = "says" in tokens or "said" in tokens
     decision = contains_quotation_marks or doesnt_end_with_period
-    if decision:
-        print "Skipping quote: ", ' '.join(tokens)
+    # if decision:
+    #     print "Skipping quote: ", ' '.join(tokens)
     return decision
 
 def process_sent(sent):
@@ -52,7 +52,7 @@ def process_sent(sent):
     tokenized_sent = [fix_bracket_token(token) for token in tokenized_sent]
     return tokenized_sent
 
-def process_dataset(dataset_name, out_data_path, TAC_path='', DUC_path='', custom_dataset_path=''):
+def process_dataset(dataset_name, out_data_path, should_write_with_generator, TAC_path='', DUC_path='', custom_dataset_path=''):
     data_dirs = {
         'tac_2011': {
             'article_dir': os.path.join(TAC_path, 'summary_data/s11/test_doc_files'),
@@ -91,13 +91,28 @@ def process_dataset(dataset_name, out_data_path, TAC_path='', DUC_path='', custo
     out_dir = os.path.join(out_data_path, dataset_name)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    multidoc_dirnames = sorted(os.listdir(article_dir))
-    out_idx = 1
+    if should_write_with_generator:
+        # dataset_splits = ['test', 'val', 'train']
+        dataset_splits = ['test', 'val']
+        for dataset_split in dataset_splits:
+            multidoc_dirnames = [name for name in sorted(os.listdir(article_dir)) if dataset_split in name]
+            gen = multidoc_generator(multidoc_dirnames, article_dir, abstract_dir, is_tac, is_custom_dataset)
+            write_with_generator(gen, len(multidoc_dirnames), out_dir, dataset_split)
+    else:
+        multidoc_dirnames = sorted(os.listdir(article_dir))
+        out_idx = 1
+        for multidoc_dirname in multidoc_dirnames:
+            article, abstracts, doc_indices, raw_article_sents = get_article_abstract(multidoc_dirname, article_dir, abstract_dir, is_tac, is_custom_dataset)
+            with open(os.path.join(out_dir, 'test_{:03d}.bin'.format(out_idx)), 'wb') as writer:
+                write_example(article, abstracts, doc_indices, raw_article_sents, writer)
+            out_idx += 1
+
+def multidoc_generator(multidoc_dirnames, article_dir, abstract_dir, is_tac, is_custom_dataset):
     for multidoc_dirname in multidoc_dirnames:
-        article, abstracts, doc_indices, raw_article_sents = get_article_abstract(multidoc_dirname, article_dir, abstract_dir, is_tac, is_custom_dataset)
-        with open(os.path.join(out_dir, 'test_{:03d}.bin'.format(out_idx)), 'wb') as writer:
-            write_example(article, abstracts, doc_indices, raw_article_sents, writer)
-        out_idx += 1
+        article, abstracts, doc_indices, raw_article_sents = get_article_abstract(multidoc_dirname, article_dir,
+                                                                              abstract_dir, is_tac, is_custom_dataset)
+        example = make_example(article, abstracts, doc_indices, raw_article_sents, None)
+        yield example
 
 def combine_duc_2003_tac_2008_tac_2010(out_data_path):
     out_dir = os.path.join(out_data_path, 'duc_tac')
@@ -187,13 +202,14 @@ def get_article(article_dir, multidoc_dirname, is_tac):
 def process_abstract(abstract_lines):
     abstract = ''
     for line in abstract_lines:
+        line = line.encode('utf-8')
         line = line.lower()
         line = line.replace(u'\x92', "'")
         tokenized_sent = nltk.word_tokenize(line)
         tokenized_sent = [fix_bracket_token(token) for token in tokenized_sent]
         sent = ' '.join(tokenized_sent)
         abstract += '<s> ' + sent + ' </s> '
-    abstract = abstract.encode('utf-8').strip()
+    # abstract = abstract.encode('utf-8')
     abstract = abstract.strip()
     return abstract
 
@@ -227,8 +243,13 @@ def make_example(article, abstracts, doc_indices, raw_article_sents, corefs):
     tf_example = example_pb2.Example()
     tf_example.features.feature['article'].bytes_list.value.extend([article.encode('utf-8')])
     for abstract in abstracts:
-        tf_example.features.feature['abstract'].bytes_list.value.extend([process_abstract(abstract).encode('utf-8')])
+        if type(abstract) == list:
+            tf_example.features.feature['abstract'].bytes_list.value.extend([process_abstract(abstract).encode('utf-8')])
+        else:
+            tf_example.features.feature['abstract'].bytes_list.value.extend([abstract.encode('utf-8')])
     if doc_indices is not None:
+        if type(doc_indices) == list:
+            doc_indices = ' '.join(doc_indices)
         tf_example.features.feature['doc_indices'].bytes_list.value.extend([doc_indices.encode('utf-8')])
     if raw_article_sents is not None:
         for sent in raw_article_sents:
@@ -290,13 +311,14 @@ def main(unused_argv):
         raise Exception("Problem with flags: %s" % unused_argv)
     if FLAGS.dataset_name == '':
         raise Exception('Must specify which dataset to convert.')
-    process_dataset(FLAGS.dataset_name, FLAGS.out_data_path, FLAGS.TAC_path, FLAGS.DUC_path, FLAGS.custom_dataset_path)
+    process_dataset(FLAGS.dataset_name, FLAGS.out_data_path, FLAGS.write_with_generator, FLAGS.TAC_path, FLAGS.DUC_path, FLAGS.custom_dataset_path)
     
 if __name__ == '__main__':
     flags.DEFINE_string('dataset_name', 'example_custom_dataset', 'Which dataset to convert from raw data to tf examples')
     flags.DEFINE_string('out_data_path', 'tf_data', 'Where to put output tf examples')
     flags.DEFINE_string('TAC_path', '', 'Path to raw TAC data.')
     flags.DEFINE_string('DUC_path', '', 'Path to raw DUC data.')
+    flags.DEFINE_boolean('write_with_generator', False, 'Whether or not to write with generator, which will batch the examples together.')
     flags.DEFINE_string('custom_dataset_path', 'example_custom_dataset/', 'Path to custom dataset. Format of custom dataset must be:\n'
                         + 'One file for each topic...\n'
                         + 'Distinct articles will be separated by one blank line (two carriage returns \\n)...\n'

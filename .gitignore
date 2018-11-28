@@ -4,5 +4,7 @@
 .vscode
 .idea
 hidden/
+stuff/
+src/
 tf_data_merge_indices/
-
+data/

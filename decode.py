@@ -32,8 +32,12 @@ from tqdm import tqdm
 from absl import flags
 from absl import logging
 import logging as log
+import rouge_functions
 
 import importance_features
+import convert_data
+from batcher import create_batch
+import attn_selections
 
 FLAGS = flags.FLAGS
 
@@ -82,6 +86,8 @@ class BeamSearchDecoder(object):
             if not os.path.exists(self._rouge_ref_dir): os.mkdir(self._rouge_ref_dir)
             self._rouge_dec_dir = os.path.join(self._decode_dir, "decoded")
             if not os.path.exists(self._rouge_dec_dir): os.mkdir(self._rouge_dec_dir)
+            self._human_dir = os.path.join(self._decode_dir, "human_readable")
+            if not os.path.exists(self._human_dir): os.mkdir(self._human_dir)
 
 
     def decode(self):
@@ -96,39 +102,30 @@ class BeamSearchDecoder(object):
                 logging.info("Output has been saved in %s and %s.", self._rouge_ref_dir, self._rouge_dec_dir)
                 if len(os.listdir(self._rouge_ref_dir)) != 0:
                     logging.info("Now starting ROUGE eval...")
-                    results_dict = rouge_eval(self._rouge_ref_dir, self._rouge_dec_dir)
-                    rouge_log(results_dict, self._decode_dir)
+                    results_dict = rouge_functions.rouge_eval(self._rouge_ref_dir, self._rouge_dec_dir)
+                    rouge_functions.rouge_log(results_dict, self._decode_dir)
                 return
 
             original_article = batch.original_articles[0]	# string
             original_abstract = batch.original_abstracts[0]	# string
             all_original_abstract_sents = batch.all_original_abstracts_sents[0]
+            raw_article_sents = batch.raw_article_sents[0]
 
             article_withunks = data.show_art_oovs(original_article, self._vocab) # string
             abstract_withunks = data.show_abs_oovs(original_abstract, self._vocab, (batch.art_oovs[0] if FLAGS.pointer_gen else None)) # string
 
-            # Run beam search to get best Hypothesis
-            best_hyp = beam_search.run_beam_search(self._sess, self._model, self._vocab, batch, counter, self._batcher._hps)
-
-            # Extract the output ids from the hypothesis and convert back to words
-            output_ids = [int(t) for t in best_hyp.tokens[1:]]
-            decoded_words = data.outputids2words(output_ids, self._vocab, (batch.art_oovs[0] if FLAGS.pointer_gen else None))
-
-            # Remove the [STOP] token from decoded_words, if necessary
-            try:
-                fst_stop_idx = decoded_words.index(data.STOP_DECODING) # index of the (first) [STOP] symbol
-                decoded_words = decoded_words[:fst_stop_idx]
-            except ValueError:
-                decoded_words = decoded_words
-            decoded_output = ' '.join(decoded_words) # single string
+            decoded_words, decoded_output, best_hyp = decode_example(self._sess, self._model, self._vocab, batch, counter, self._batcher._hps)
 
             if FLAGS.single_pass:
-                self.write_for_rouge(all_original_abstract_sents, decoded_words, counter) # write ref summary and decoded summary to file, to eval with pyrouge later
-                # self.write_for_attnvis(article_withunks, abstract_withunks, decoded_words, best_hyp.attn_dists, best_hyp.p_gens) # write info to .json file for visualization tool
+                if counter < 1000:
+                    self.write_for_human(raw_article_sents, all_original_abstract_sents, decoded_words, counter)
+                rouge_functions.write_for_rouge(all_original_abstract_sents, None, counter, self._rouge_ref_dir, self._rouge_dec_dir, decoded_words=decoded_words) # write ref summary and decoded summary to file, to eval with pyrouge later
+                if FLAGS.attn_vis:
+                    self.write_for_attnvis(article_withunks, abstract_withunks, decoded_words, best_hyp.attn_dists, best_hyp.p_gens, counter) # write info to .json file for visualization tool
                 counter += 1 # this is how many examples we've decoded
             else:
                 print_results(article_withunks, abstract_withunks, decoded_output) # log output to screen
-                self.write_for_attnvis(article_withunks, abstract_withunks, decoded_words, best_hyp.attn_dists, best_hyp.p_gens) # write info to .json file for visualization tool
+                self.write_for_attnvis(article_withunks, abstract_withunks, decoded_words, best_hyp.attn_dists, best_hyp.p_gens, counter) # write info to .json file for visualization tool
 
                 # Check if SECS_UNTIL_NEW_CKPT has elapsed; if so return so we can load a new checkpoint
                 t1 = time.time()
@@ -137,15 +134,90 @@ class BeamSearchDecoder(object):
                     _ = util.load_ckpt(self._saver, self._sess)
                     t0 = time.time()
 
-    def write_for_rouge(self, all_reference_sents, decoded_words, ex_index):
-        """Write output to file in correct format for eval with pyrouge. This is called in single_pass mode.
+    def decode_iteratively(self, example_generator, total, names_to_types, ssi_list, hps):
+        attn_vis_idx = 0
+        for example_idx, example in enumerate(tqdm(example_generator, total=total)):
+            raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs = util.unpack_tf_example(
+                example, names_to_types)
+            article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+            groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
 
-        Args:
-            all_reference_sents: list of list of strings
-            decoded_words: list of strings
-            ex_index: int, the index with which to label the files
-        """
-        # First, divide decoded output into sentences
+            if ssi_list is None:    # this is if we are doing the upper bound evaluation (ssi_list comes straight from the groundtruth)
+                sys_ssi = groundtruth_similar_source_indices_list
+                if FLAGS.singles_and_pairs == 'singles':
+                    sys_ssi = util.enforce_sentence_limit(sys_ssi, 1)
+                elif FLAGS.singles_and_pairs == 'singles':
+                    sys_ssi = util.enforce_sentence_limit(sys_ssi, 2)
+            else:
+                gt_ssi, sys_ssi, ext_len = ssi_list[example_idx]
+                if gt_ssi != groundtruth_similar_source_indices_list:
+                    raise Exception('Example %d has different groundtruth source indices: ' + str(groundtruth_similar_source_indices_list) + ' || ' + str(gt_ssi))
+                if FLAGS.dataset_name == 'xsum':
+                    sys_ssi = [sys_ssi[0]]
+
+            final_decoded_words = []
+            final_decoded_outpus = ''
+            best_hyps = []
+            for ssi_idx, ssi in enumerate(sys_ssi):
+                selected_raw_article_sents = util.reorder(raw_article_sents, ssi)
+                selected_article_text = ' '.join( [' '.join(sent) for sent in util.reorder(article_sent_tokens, ssi)] )
+                selected_doc_indices_str = '0 ' * len(selected_article_text.split())
+                if FLAGS.upper_bound:
+                    selected_groundtruth_summ_sent = [[groundtruth_summ_sents[0][ssi_idx]]]
+                else:
+                    selected_groundtruth_summ_sent = groundtruth_summ_sents
+
+                batch = create_batch(selected_article_text, selected_groundtruth_summ_sent, selected_doc_indices_str, selected_raw_article_sents, FLAGS.batch_size, hps, self._vocab)
+
+                original_article = batch.original_articles[0]  # string
+                original_abstract = batch.original_abstracts[0]  # string
+                article_withunks = data.show_art_oovs(original_article, self._vocab)  # string
+                abstract_withunks = data.show_abs_oovs(original_abstract, self._vocab,
+                                                       (batch.art_oovs[0] if FLAGS.pointer_gen else None))  # string
+                # article_withunks = data.show_art_oovs(original_article, self._vocab) # string
+                # abstract_withunks = data.show_abs_oovs(original_abstract, self._vocab, (batch.art_oovs[0] if FLAGS.pointer_gen else None)) # string
+
+                decoded_words, decoded_output, best_hyp = decode_example(self._sess, self._model, self._vocab, batch, example_idx, hps)
+                final_decoded_words.extend(decoded_words)
+                final_decoded_outpus += decoded_output
+                best_hyps.append(best_hyp)
+
+                if FLAGS.attn_vis and example_idx < 200:
+                    self.write_for_attnvis(article_withunks, abstract_withunks, decoded_words, best_hyp.attn_dists,
+                                           best_hyp.p_gens,
+                                           attn_vis_idx)  # write info to .json file for visualization tool
+                    attn_vis_idx += 1
+
+                if len(final_decoded_words) >= 100:
+                    break
+
+            if example_idx < 1000:
+                self.write_for_human(raw_article_sents, groundtruth_summ_sents, final_decoded_words, example_idx)
+
+            if example_idx % 100 == 0:
+                attn_dir = os.path.join(self._decode_dir, 'attn_vis_data')
+                attn_selections.process_attn_selections(attn_dir, self._decode_dir, self._vocab)
+
+            rouge_functions.write_for_rouge(groundtruth_summ_sents, None, example_idx, self._rouge_ref_dir, self._rouge_dec_dir, decoded_words=final_decoded_words, log=False) # write ref summary and decoded summary to file, to eval with pyrouge later
+            # if FLAGS.attn_vis:
+            #     self.write_for_attnvis(article_withunks, abstract_withunks, decoded_words, best_hyp.attn_dists, best_hyp.p_gens, example_idx) # write info to .json file for visualization tool
+            example_idx += 1 # this is how many examples we've decoded
+
+        logging.info("Decoder has finished reading dataset for single_pass.")
+        logging.info("Output has been saved in %s and %s.", self._rouge_ref_dir, self._rouge_dec_dir)
+        if len(os.listdir(self._rouge_ref_dir)) != 0:
+            if FLAGS.dataset_name == 'xsum':
+                l_param = 40
+            else:
+                l_param = 100
+            logging.info("Now starting ROUGE eval...")
+            results_dict = rouge_functions.rouge_eval(self._rouge_ref_dir, self._rouge_dec_dir, l_param=l_param)
+            rouge_functions.rouge_log(results_dict, self._decode_dir)
+
+
+
+    def write_for_human(self, raw_article_sents, all_reference_sents, decoded_words, ex_index):
+
         decoded_sents = []
         while len(decoded_words) > 0:
             try:
@@ -162,24 +234,21 @@ class BeamSearchDecoder(object):
         all_reference_sents = [[make_html_safe(w) for w in abstract] for abstract in all_reference_sents]
 
         # Write to file
-        decoded_file = os.path.join(self._rouge_dec_dir, "%06d_decoded.txt" % ex_index)
+        human_file = os.path.join(self._human_dir, '%06d_human.txt' % ex_index)
 
-        for abs_idx, abs in enumerate(all_reference_sents):
-            ref_file = os.path.join(self._rouge_ref_dir, "%06d_reference.%s.txt" % (
-                ex_index, chr(ord('A') + abs_idx)))
-            with open(ref_file, "w") as f:
+        with open(human_file, "w") as f:
+            f.write('Human Summary:\n--------------------------------------------------------------\n')
+            for abs_idx, abs in enumerate(all_reference_sents):
                 for idx,sent in enumerate(abs):
                     f.write(sent+"\n")
-                    # f.write(sent) if idx==len(abs)-1 else f.write(sent+"\n")
-        with open(decoded_file, "w") as f:
-            for idx,sent in enumerate(decoded_sents):
-                f.write(sent+"\n")
-                # f.write(sent) if idx==len(decoded_sents)-1 else f.write(sent+"\n")
+            f.write('\nSystem Summary:\n--------------------------------------------------------------\n')
+            for sent in decoded_sents:
+                f.write(sent + '\n')
+            f.write('\nArticle:\n--------------------------------------------------------------\n')
+            for sent in raw_article_sents:
+                f.write(sent + '\n')
 
-        logging.info("Wrote example %i to file" % ex_index)
-
-
-    def write_for_attnvis(self, article, abstract, decoded_words, attn_dists, p_gens):
+    def write_for_attnvis(self, article, abstract, decoded_words, attn_dists, p_gens, ex_index):
         """Write some data to json file, which can be read into the in-browser attention visualizer tool:
             https://github.com/abisee/attn_vis
 
@@ -200,10 +269,11 @@ class BeamSearchDecoder(object):
         }
         if FLAGS.pointer_gen:
             to_write['p_gens'] = p_gens
-        output_fname = os.path.join(self._decode_dir, 'attn_vis_data.json')
+        util.create_dirs(os.path.join(self._decode_dir, 'attn_vis_data'))
+        output_fname = os.path.join(self._decode_dir, 'attn_vis_data', '%06d.json' % ex_index)
         with open(output_fname, 'w') as output_file:
             json.dump(to_write, output_file)
-        logging.info('Wrote visualization data to %s', output_fname)
+        # logging.info('Wrote visualization data to %s', output_fname)
 
     def calc_importance_features(self, data_path, hps, model_save_path, docs_desired):
         """Calculate sentence-level features and save as a dataset"""
@@ -275,6 +345,23 @@ class BeamSearchDecoder(object):
 
 
 
+def decode_example(sess, model, vocab, batch, counter, hps):
+    # Run beam search to get best Hypothesis
+    best_hyp = beam_search.run_beam_search(sess, model, vocab, batch, counter, hps)
+
+    # Extract the output ids from the hypothesis and convert back to words
+    output_ids = [int(t) for t in best_hyp.tokens[1:]]
+    decoded_words = data.outputids2words(output_ids, vocab, (batch.art_oovs[0] if FLAGS.pointer_gen else None))
+
+    # Remove the [STOP] token from decoded_words, if necessary
+    try:
+        fst_stop_idx = decoded_words.index(data.STOP_DECODING) # index of the (first) [STOP] symbol
+        decoded_words = decoded_words[:fst_stop_idx]
+    except ValueError:
+        decoded_words = decoded_words
+    decoded_output = ' '.join(decoded_words) # single string
+    return decoded_words, decoded_output, best_hyp
+
 
 def print_results(article, abstract, decoded_output):
     """Prints the article, the reference summmary and the decoded summary to screen"""
@@ -290,54 +377,6 @@ def make_html_safe(s):
     s.replace("<", "&lt;")
     s.replace(">", "&gt;")
     return s
-
-
-def rouge_eval(ref_dir, dec_dir):
-    """Evaluate the files in ref_dir and dec_dir with pyrouge, returning results_dict"""
-    r = pyrouge.Rouge155()
-#   r.model_filename_pattern = '#ID#_reference.txt'
-    r.model_filename_pattern = '#ID#_reference.[A-Z].txt'
-    r.system_filename_pattern = '(\d+)_decoded.txt'
-    r.model_dir = ref_dir
-    r.system_dir = dec_dir
-    log.getLogger('global').setLevel(log.WARNING) # silence pyrouge logging
-    rouge_args = ['-e', r._data_dir,
-         '-c',
-         '95',
-         '-2', '4',        # This is the only one we changed (changed the max skip from -1 to 4)
-         '-U',
-         '-r', '1000',
-         '-n', '4',
-         '-w', '1.2',
-         '-a',
-         '-l', '100']
-    rouge_args = ' '.join(rouge_args)
-    rouge_results = r.convert_and_evaluate(rouge_args=rouge_args)
-    return r.output_to_dict(rouge_results)
-
-
-def rouge_log(results_dict, dir_to_write):
-    """Log ROUGE results to screen and write to file.
-
-    Args:
-        results_dict: the dictionary returned by pyrouge
-        dir_to_write: the directory where we will write the results to"""
-    log_str = ""
-    for x in ["1","2","l","s4","su4"]:
-        log_str += "\nROUGE-%s:\n" % x
-        for y in ["f_score", "recall", "precision"]:
-            key = "rouge_%s_%s" % (x,y)
-            key_cb = key + "_cb"
-            key_ce = key + "_ce"
-            val = results_dict[key]
-            val_cb = results_dict[key_cb]
-            val_ce = results_dict[key_ce]
-            log_str += "%s: %.4f with confidence interval (%.4f, %.4f)\n" % (key, val, val_cb, val_ce)
-    logging.info(log_str) # log to screen
-    results_file = os.path.join(dir_to_write, "ROUGE_results.txt")
-    logging.info("Writing final ROUGE results to %s...", results_file)
-    with open(results_file, "w") as f:
-        f.write(log_str)
 
 
 def get_decode_dir_name(ckpt_name):

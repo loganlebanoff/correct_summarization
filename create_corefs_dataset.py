@@ -22,7 +22,7 @@ END_TOKENS = ['.', '!', '?', '...', "'", "`", '"', dm_single_close_quote, dm_dou
 SENTENCE_START = '<s>'
 SENTENCE_END = '</s>'
 CHUNK_SIZE = 1000 # num examples per chunk, for the chunked data
-out_full_dir = os.path.join('tf_data/coref/cnn_dm/all')
+out_full_dir = os.path.join('tf_data/with_coref/cnn_dm/all')
 
 all_train_urls = "/home/logan/data/url_lists/all_train.txt"
 all_val_urls = "/home/logan/data/url_lists/all_val.txt"
@@ -32,7 +32,7 @@ cnn_tokenized_stories_dir = '/home/logan/data/cnn_stories_tokenized'
 dm_tokenized_stories_dir = '/home/logan/data/dm_stories_tokenized'
 corefs_dir = '/home/logan/data/corenlp_corefs/processed/cnn_dm'
 
-out_dir = 'tf_data/coref/cnn_dm'
+out_dir = 'tf_data/with_coref/cnn_dm'
 
 # These are the number of .story files we expect there to be in cnn_stories_dir and dm_stories_dir
 num_expected_cnn_stories = 92579

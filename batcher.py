@@ -252,7 +252,7 @@ class Batcher(object):
 
     BATCH_QUEUE_MAX = 100 # max number of batches the batch_queue can hold
 
-    def __init__(self, data_path, vocab, hps, single_pass, cnn_500_dm_500=False):
+    def __init__(self, data_path, vocab, hps, single_pass, cnn_500_dm_500=False, example_generator=None):
         """Initialize the batcher. Start threads that process the data into batches.
 
         Args:
@@ -266,6 +266,7 @@ class Batcher(object):
         self._hps = hps
         self._single_pass = single_pass
         self._cnn_500_dm_500 = cnn_500_dm_500
+        self._example_generator = example_generator
 
         # Initialize a queue of Batches waiting to be used, and a queue of Examples waiting to be batched
         self._batch_queue = Queue.Queue(self.BATCH_QUEUE_MAX)
@@ -322,8 +323,11 @@ class Batcher(object):
     def fill_example_queue(self):
         """Reads data from file and processes into Examples which are then placed into the example queue."""
 
-        input_gen = self.text_generator(
-            data.example_generator(self._data_path, self._single_pass, self._cnn_500_dm_500))
+        if self._example_generator is None:
+            input_gen = self.text_generator(
+                data.example_generator(self._data_path, self._single_pass, self._cnn_500_dm_500))
+        else:
+            input_gen = self.text_generator(self._example_generator)
         # counter = 0
         while True:
             try:
@@ -377,8 +381,8 @@ class Batcher(object):
 
             elif self._hps.mode == 'decode': # beam search decode mode
                 ex = self._example_queue.get()
-                b = [ex for _ in xrange(self._hps.batch_size)]
-                self._batch_queue.put(Batch(b, self._hps, self._vocab))
+                batch = preprocess_batch(ex, self._hps.batch_size, self._hps, self._vocab)
+                self._batch_queue.put(batch)
             else:   # calc features mode
                 inputs = []
                 for _ in xrange(self._hps.batch_size * self._bucketing_cache_size):
@@ -443,5 +447,28 @@ class Batcher(object):
                 continue
             if len(article_text)==0: # See https://github.com/abisee/pointer-generator/issues/1
                 logging.warning('Found an example with empty article text. Skipping it.')
+            elif len(article_text.strip().split()) < 3:
+                print('Article has less than 3 tokens, so skipping')
+            elif len(abstract_texts[0].strip().split()) < 3:
+                print('Abstract has less than 3 tokens, so skipping')
             else:
                 yield (article_text, abstract_texts, doc_indices_text, raw_article_sents)
+
+def preprocess_example(article, groundtruth_summ_sents, doc_indices_str, raw_article_sents, hps, vocab):
+    if len(groundtruth_summ_sents) != 0:
+        abstract_sentences = groundtruth_summ_sents[0]
+    else:
+        abstract_sentences = []
+    doc_indices = [int(idx) for idx in doc_indices_str.strip().split()]
+    example = Example(article, abstract_sentences, groundtruth_summ_sents, doc_indices, raw_article_sents, vocab, hps)  # Process into an Example.
+    return example
+
+def preprocess_batch(ex, batch_size, hps, vocab):
+    b = [ex for _ in xrange(batch_size)]
+    batch = Batch(b, hps, vocab)
+    return batch
+
+def create_batch(article, groundtruth_summ_sents, doc_indices_str, raw_article_sents, batch_size, hps, vocab):
+    ex = preprocess_example(article, groundtruth_summ_sents, doc_indices_str, raw_article_sents, hps, vocab)
+    batch = preprocess_batch(ex, batch_size, hps, vocab)
+    return batch

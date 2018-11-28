@@ -16,6 +16,7 @@
 # ==============================================================================
 
 """This file contains some utility functions"""
+import math
 
 import tensorflow as tf
 import time
@@ -53,7 +54,10 @@ def load_ckpt(saver, sess, ckpt_dir="train"):
     while True:
         try:
             latest_filename = "checkpoint_best" if ckpt_dir=="eval" else None
-            ckpt_dir = os.path.join(FLAGS.pretrained_path, 'train')
+            if FLAGS.use_pretrained:
+                ckpt_dir = os.path.join(FLAGS.pretrained_path, 'train')
+            else:
+                ckpt_dir = os.path.join(FLAGS.log_root, ckpt_dir)
             ckpt_state = tf.train.get_checkpoint_state(ckpt_dir, latest_filename=latest_filename)
             logging.info('Loading checkpoint %s', ckpt_state.model_checkpoint_path)
             saver.restore(sess, ckpt_state.model_checkpoint_path)
@@ -149,8 +153,13 @@ def calc_ROUGE_L_score(candidate, reference, metric='f1'):
     for ref in reference:
         # compute the longest common subsequence
         lcs = my_lcs(ref, candidate)
-        prec.append(lcs / float(len(candidate)))
-        rec.append(lcs / float(len(ref)))
+        try:
+            prec.append(lcs / float(len(candidate)))
+            rec.append(lcs / float(len(ref)))
+        except:
+            print 'Candidate', candidate
+            print 'Reference', ref
+            raise
 
 
     prec_max = max(prec)
@@ -315,7 +324,7 @@ def get_doc_substituted_tfidf_matrix(tfidf_vectorizer, sentences, article_text):
         sent_term_matrix[idx] = val
     return sent_term_matrix
 
-def chunk_file(set_name, out_full_dir, out_dir):
+def chunk_file(set_name, out_full_dir, out_dir, chunk_size=1000):
   in_file = os.path.join(out_full_dir, '%s.bin' % set_name)
   reader = open(in_file, "rb")
   chunk = 0
@@ -323,7 +332,7 @@ def chunk_file(set_name, out_full_dir, out_dir):
   while not finished:
     chunk_fname = os.path.join(out_dir, '%s_%03d.bin' % (set_name, chunk)) # new chunk
     with open(chunk_fname, 'wb') as writer:
-      for _ in range(CHUNK_SIZE):
+      for _ in range(chunk_size):
         len_bytes = reader.read(8)
         if not len_bytes:
           finished = True
@@ -355,10 +364,10 @@ def unpack_tf_example(example, names_to_types):
         return example.features.feature[name].bytes_list.value
     def get_delimited_list(name):
         text = get_string(name)
-        return text.split(' ')
+        return text.strip().split(' ')
     def get_delimited_list_of_lists(name):
         text = get_string(name)
-        return [[int(i) for i in (l.split(' ') if l != '' else [])] for l in text.split(';')]
+        return [[int(i) for i in (l.strip().split(' ') if l != '' else [])] for l in text.strip().split(';')]
     def get_delimited_list_of_tuples(name):
         list_of_lists = get_delimited_list_of_lists(name)
         return [tuple(l) for l in list_of_lists]
@@ -376,7 +385,13 @@ def unpack_tf_example(example, names_to_types):
     res = []
     for name, type in names_to_types:
         if name not in example.features.feature:
-            raise Exception('%s is not a feature of TF Example' % name)
+            if name == 'doc_indices':
+                res.append(None)
+                continue
+            else:
+                return [None] * len(names_to_types)
+                # print example
+                # raise Exception('%s is not a feature of TF Example' % name)
         res.append(func[type](name))
     return res
 
@@ -420,7 +435,9 @@ def calc_MMR(raw_article_sents, article_sent_tokens, summ_tokens, vocab, importa
     mmr = special_squash(combine_sim_and_imp(similarities, importances))
     return mmr
 
-def calc_MMR_source_indices(article_sent_tokens, summ_tokens, vocab, importances_dict):
+def calc_MMR_source_indices(article_sent_tokens, summ_tokens, vocab, importances_dict, qid=None):
+    if qid is not None:
+        importances_dict = importances_dict[qid]
     importances_dict = special_squash_dict(importances_dict)
     similarities = rouge_l_similarity(article_sent_tokens, summ_tokens, vocab, metric='precision')
     similarities_dict = singles_to_singles_pairs(similarities)
@@ -498,16 +515,44 @@ def create_dirs(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)
 
+def reshape_like(to_reshape, thing_with_shape):
+    res = []
+    if len(to_reshape) != len(flatten_list_of_lists(thing_with_shape)):
+        print 'Len of to_reshape (' + str(len(to_reshape)) + ') does not equal len of thing_with_shape (' + str(len(flatten_list_of_lists(thing_with_shape))) + ')'
+    idx = 0
+    for lst in thing_with_shape:
+        list_to_add = []
+        for _ in lst:
+            list_to_add.append(to_reshape[idx])
+            idx += 1
+        res.append(list_to_add)
+    return res
 
+def enforce_sentence_limit(groundtruth_similar_source_indices_list, sentence_limit):
+    enforced_groundtruth_ssi_list = [ssi[:sentence_limit] for ssi in groundtruth_similar_source_indices_list]
+    return enforced_groundtruth_ssi_list
 
+def hist_as_pdf_str(hist):
+    vals, bins = hist
+    length = np.sum(vals)
+    pdf = vals * 100.0 / length
+    return '%.2f\t'*len(pdf) % tuple(pdf.tolist())
 
+def find_largest_ckpt_folder(my_dir):
+    folder_names = os.listdir(my_dir)
+    folder_ckpt_nums = []
+    for folder_name in folder_names:
+        if '-' not in folder_name:
+            ckpt_num = -1
+        else:
+            ckpt_num = int(folder_name.split('-')[-1].split('_')[0])
+        folder_ckpt_nums.append(ckpt_num)
+    max_idx = np.argmax(folder_ckpt_nums)
+    return folder_names[max_idx]
 
-
-
-
-
-
-
+def nCr(n,r):
+    f = math.factorial
+    return f(n) / f(r) / f(n-r)
 
 
 
