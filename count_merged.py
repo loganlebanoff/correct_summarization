@@ -187,6 +187,7 @@ def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_
     return out_str
 
 
+
 def get_summary_text(summary_file):
     with open(summary_file) as f:
         summary_text = f.read()
@@ -302,12 +303,11 @@ def get_shortest_distance(indices1, indices2, relative_to_article, rel_sent_posi
     return min_dist
 
 def get_merge_example(similar_source_indices, article_sent_tokens, summ_sent, corefs):
-    restricted_source_indices = similar_source_indices
-    # restricted_source_indices = []
-    # for source_indices_idx, source_indices in enumerate(similar_source_indices):
-    #     if source_indices_idx >= FLAGS.sentence_limit:
-    #         break
-    #     restricted_source_indices.append(source_indices[0])
+    restricted_source_indices = []
+    for source_indices_idx, source_indices in enumerate(similar_source_indices):
+        if source_indices_idx >= FLAGS.sentence_limit:
+            break
+        restricted_source_indices.append(source_indices[0])
     merged_example_sentences = [' '.join(sent) for sent in util.reorder(article_sent_tokens, restricted_source_indices)]
     merged_example_article_text = ' '.join(merged_example_sentences)
     merged_example_abstracts = [[' '.join(summ_sent)]]
@@ -503,9 +503,6 @@ def main(unused_argv):
             similar_source_indices_list = []
             lcs_paths_list = []
             article_lcs_paths_list = []
-
-            simple_similar_source_indices, lcs_paths_list,article_lcs_paths_list =  get_simple_source_indices_list(
-                summary_sent_tokens, article_sent_tokens, vocab, FLAGS.sentence_limit, FLAGS.min_matched_tokens)
 
             for summ_sent in summary_sent_tokens:
                 similarities = get_sent_similarities(summ_sent, article_sent_tokens, vocab)
