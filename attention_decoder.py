@@ -137,7 +137,7 @@ def attention_decoder(decoder_inputs, initial_state, encoder_states, enc_padding
 
                     if use_coverage: # first step of training
                         coverage = tf.expand_dims(tf.expand_dims(attn_dist,2),2) # initialize coverage
-                    pre_attn_dist = None
+                    pre_attn_dist = attn_dist
 
                 # Calculate the context vector from attn_dist and encoder_states
                 context_vector = math_ops.reduce_sum(array_ops.reshape(attn_dist, [batch_size, -1, 1, 1]) * encoder_states, [1, 2]) # shape (batch_size, attn_size).

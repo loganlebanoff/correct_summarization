@@ -63,7 +63,7 @@ flags.DEFINE_float('max_grad_norm', 2.0, 'for gradient clipping')
 flags.DEFINE_boolean('pointer_gen', True, 'If True, use pointer-generator model. If False, use baseline model.')
 
 # Coverage hyperparameters
-flags.DEFINE_boolean('coverage', True, 'Use coverage mechanism. Note, the experiments reported in the ACL paper train WITHOUT coverage until converged, and then train for a short phase WITH coverage afterwards. i.e. to reproduce the results in the ACL paper, turn this off for most of training then turn on for a short phase at the end.')
+flags.DEFINE_boolean('coverage', False, 'Use coverage mechanism. Note, the experiments reported in the ACL paper train WITHOUT coverage until converged, and then train for a short phase WITH coverage afterwards. i.e. to reproduce the results in the ACL paper, turn this off for most of training then turn on for a short phase at the end.')
 flags.DEFINE_float('cov_loss_wt', 1.0, 'Weight of coverage loss (lambda in the paper). If zero, then no incentive to minimize coverage loss.')
 
 # Utility flags, for restoring and changing checkpoints
@@ -88,8 +88,8 @@ flags.DEFINE_boolean('attn_vis', False, 'If true, then output attention visualiz
 
 flags.DEFINE_string('singles_and_pairs', 'singles',
                     'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
-flags.DEFINE_string('ssi_exp_name', 'lambdamart_singles',
-                    'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
+# flags.DEFINE_string('ssi_exp_name', 'lambdamart_singles',
+#                     'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
 flags.DEFINE_boolean('upper_bound', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('cnn_dm_pg', False, 'If true, use PG trained on CNN/DM for testing.')
 
@@ -118,6 +118,8 @@ def main(unused_argv):
         pretrained_dataset = 'cnn_dm'
     else:
         pretrained_dataset = FLAGS.dataset_name
+    if FLAGS.dataset_name == 'duc_2004':
+        pretrained_dataset = 'cnn_dm'
     if FLAGS.singles_and_pairs == 'both':
         FLAGS.exp_name = FLAGS.dataset_name + '_' + FLAGS.exp_name + '_both'
         FLAGS.pretrained_path = os.path.join(FLAGS.log_root, pretrained_dataset + '_sent')
@@ -130,7 +132,7 @@ def main(unused_argv):
         FLAGS.exp_name = FLAGS.exp_name + '_upperbound'
         ssi_list = None     # this is if we are doing the upper bound evaluation (ssi_list comes straight from the groundtruth)
     else:
-        my_log_dir = os.path.join(log_dir, FLAGS.ssi_exp_name)
+        my_log_dir = os.path.join(log_dir, '%s_lambdamart_%s' % (FLAGS.dataset_name, FLAGS.singles_and_pairs))
         with open(os.path.join(my_log_dir, 'ssi.pkl')) as f:
             ssi_list = cPickle.load(f)
     if FLAGS.cnn_dm_pg:
@@ -155,7 +157,7 @@ def main(unused_argv):
     FLAGS.actual_log_root = FLAGS.log_root
     FLAGS.log_root = os.path.join(FLAGS.log_root, FLAGS.exp_name)
 
-    original_dataset_name = 'xsum' if 'xsum' in FLAGS.dataset_name else 'cnn_dm' if 'cnn_dm' in FLAGS.dataset_name else ''
+    original_dataset_name = 'xsum' if 'xsum' in FLAGS.dataset_name else 'cnn_dm' if 'cnn_dm' in FLAGS.dataset_name or 'duc_2004' in FLAGS.dataset_name else ''
     vocab = Vocab(FLAGS.vocab_path + '_' + original_dataset_name, FLAGS.vocab_size) # create a vocabulary
 
     # If in decode mode, set batch_size = beam_size
@@ -190,7 +192,7 @@ def main(unused_argv):
     source_dir = os.path.join(FLAGS.data_root, dataset_articles)
     source_files = sorted(glob.glob(source_dir + '/' + dataset_split + '*'))
 
-    total = len(source_files) * 1000 if 'cnn' or 'newsroom' in dataset_articles else len(source_files)
+    total = len(source_files) * 1000 if 'cnn' in dataset_articles or 'xsum' in dataset_articles else len(source_files)
     example_generator = data.example_generator(source_dir + '/' + dataset_split + '*', True, False,
                                                should_check_valid=False)
     # batcher = Batcher(None, vocab, hps, single_pass=FLAGS.single_pass)

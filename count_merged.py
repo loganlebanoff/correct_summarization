@@ -127,13 +127,13 @@ def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_
                 if source_indices_idx == 0:
                     # print summ_sent_idx
                     try:
-                        color = hard_highlight_colors[summ_sent_idx]
+                        color = hard_highlight_colors[min(summ_sent_idx, len(highlight_colors)-1)]
                     except:
                         print summ_sent_idx
                         print summary_sent_tokens
                         print '\n'
                 else:
-                    color = highlight_colors[summ_sent_idx]
+                    color = highlight_colors[min(summ_sent_idx, len(highlight_colors)-1)]
                 # if token_idx in lcs_paths[source_indices_idx]:
                 # if lcs_paths_list is not None:
                 #     lcs_paths_list[summ_sent_idx][source_indices_idx]
@@ -187,29 +187,6 @@ def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_
     return out_str
 
 
-
-def save_fusions_to_file(out_str):
-    name = FLAGS.dataset_name + '_' + FLAGS.exp_name
-    if FLAGS.coreference_replacement:
-        name += '_coref'
-    file_name = os.path.join(html_dir, name + '.html')
-    with open(file_name, 'wb') as f:
-        f.write(out_str)
-
-
-def get_nGram(l, n = 2):
-    l = list(l)
-    return set(zip(*[l[i:] for i in range(n)]))
-
-def get_tf_example(source_file):
-    reader = open(source_file, 'rb')
-    len_bytes = reader.read(8)
-    if not len_bytes: return  # finished reading this file
-    str_len = struct.unpack('q', len_bytes)[0]
-    example_str = struct.unpack('%ds' % str_len, reader.read(str_len))[0]
-    e = example_pb2.Example.FromString(example_str)
-    return e
-
 def get_summary_text(summary_file):
     with open(summary_file) as f:
         summary_text = f.read()
@@ -228,17 +205,6 @@ def get_summary_from_example(e):
     summary_text = '\n'.join(all_abstract_sentences[abstract_idx])
     return summary_text
 
-
-def get_human_summary_texts(summary_file):
-    summary_texts = []
-    e = get_tf_example(summary_file)
-    for abstract in e.features.feature['abstract'].bytes_list.value:
-        summary_texts.append(abstract)  # the abstracts texts was saved under the key 'abstract' in the data files
-    all_abstract_sentences = [[sent.strip() for sent in data.abstract2sents(
-        abstract)] for abstract in summary_texts]
-    summary_text = '\n'.join(all_abstract_sentences[0])
-    return summary_text
-
 def split_into_tokens(text):
     tokens = text.split()
     tokens = [t for t in tokens if t != '<s>' and t != '</s>']
@@ -248,45 +214,7 @@ def split_into_sent_tokens(text):
     sent_tokens = [[t for t in tokens.strip().split() if t != '<s>' and t != '</s>'] for tokens in text.strip().split('\n')]
     return sent_tokens
 
-def limit_to_n_tokens(sent_tokens, n):
-    res = []
-    count = 0
-    for sent in sent_tokens:
-        out_sent = []
-        for token in sent:
-            if count < n:
-                out_sent.append(token)
-                count += 1
-        if len(out_sent) > 0:
-            res.append(out_sent)
-    return res
-
-def split_by_periods(tokens):
-    period_indices = [idx for idx in range(len(tokens)) if tokens[idx] == '.']
-    cur_idx = 0
-    sents = []
-    for period_idx in period_indices:
-        sent = tokens[cur_idx:period_idx]
-        cur_idx = period_idx + 1
-        sents.append(sent)
-    # sent = tokens[cur_idx:len(tokens)]
-    # sents.append(sent)
-    sents = [sent for sent in sents if len(sent) > 0]
-    return sents
-
-def does_sent_appear_in_source(sent_tokens, article_tokens):
-    len_sent_grams = list(get_nGram(article_tokens, n=len(sent_tokens)))
-    return tuple(sent_tokens) in len_sent_grams
-
-def find_extracted_phrase(article_sent_tokens, summ_sent, top_sent_idx):
-    article_sent = article_sent_tokens[top_sent_idx]
-    match = SequenceMatcher(None, summ_sent, article_sent).find_longest_match(0, len(summ_sent), 0, len(article_sent))
-    start_idx = match.a
-    end_idx = start_idx + match.size
-    return start_idx, end_idx
-
-def get_sent_similarities(summ_sent, article_sent_tokens, vocab, only_rouge_l=False):
-    remove_stop_words = True
+def get_sent_similarities(summ_sent, article_sent_tokens, vocab, only_rouge_l=False, remove_stop_words=True):
     similarity_matrix = util.rouge_l_similarity_matrix(article_sent_tokens, [summ_sent], vocab, 'recall')
     similarities = np.squeeze(similarity_matrix, 1)
 
@@ -298,9 +226,9 @@ def get_sent_similarities(summ_sent, article_sent_tokens, vocab, only_rouge_l=Fa
 
     return similarities
 
-def get_top_similar_sent(summ_sent, article_sent_tokens, vocab):
+def get_top_similar_sent(summ_sent, article_sent_tokens, vocab, remove_stop_words=True):
     try:
-        similarities = get_sent_similarities(summ_sent, article_sent_tokens, vocab)
+        similarities = get_sent_similarities(summ_sent, article_sent_tokens, vocab, remove_stop_words=remove_stop_words)
         top_similarity = np.max(similarities)
     except:
         print summ_sent
@@ -309,21 +237,7 @@ def get_top_similar_sent(summ_sent, article_sent_tokens, vocab):
     sent_indices = [sent_idx for sent_idx, sent_sim in enumerate(similarities) if sent_sim == top_similarity]
     return sent_indices, top_similarity
 
-def get_similar_source_sents(summ_sent, article_sent_tokens, vocab, threshold):
-    top_sent_indices, top_similarity = get_top_similar_sent(summ_sent, article_sent_tokens, vocab)
-    if top_similarity >= threshold:
-        return [top_sent_indices], None, None
-    else:
-        top_sent_idx = top_sent_indices[0]
-        start_idx, end_idx = find_extracted_phrase(article_sent_tokens, summ_sent, top_sent_idx)
-        leftover_sent = summ_sent[:start_idx] + summ_sent[end_idx:]
-        if len(leftover_sent) >= 3:
-            second_sent_indices, second_similarity = get_top_similar_sent(leftover_sent, article_sent_tokens, vocab)
-            return [top_sent_indices, second_sent_indices], start_idx, end_idx
-        else:
-            return [top_sent_indices], None, None
-
-def get_similar_source_sents_by_lcs(summ_sent, selection, article_sent_tokens, vocab, similarities, depth, sentence_limit, min_matched_tokens):
+def get_similar_source_sents_by_lcs(summ_sent, selection, article_sent_tokens, vocab, similarities, depth, sentence_limit, min_matched_tokens, remove_stop_words=True):
     remove_unigrams = True
     if sentence_limit == 1:
         if depth > 2:
@@ -331,12 +245,12 @@ def get_similar_source_sents_by_lcs(summ_sent, selection, article_sent_tokens, v
     elif len(selection) < 3 or depth >= sentence_limit:      # base case: when summary sentence is too short
         return [], [], []
     partial_summ_sent = util.reorder(summ_sent, selection)
-    top_sent_indices, top_similarity = get_top_similar_sent(partial_summ_sent, article_sent_tokens, vocab)
+    top_sent_indices, top_similarity = get_top_similar_sent(partial_summ_sent, article_sent_tokens, vocab, remove_stop_words)
     top_similarities = util.reorder(similarities, top_sent_indices)
     top_sent_indices = [x for _, x in sorted(zip(top_similarities, top_sent_indices), key=lambda pair: pair[0])][::-1]
     top_sent_idx = top_sent_indices[0]
     if remove_unigrams:
-        nonstopword_matches, _ = util.matching_unigrams(partial_summ_sent, article_sent_tokens[top_sent_idx], should_remove_stop_words=True)
+        nonstopword_matches, _ = util.matching_unigrams(partial_summ_sent, article_sent_tokens[top_sent_idx], should_remove_stop_words=remove_stop_words)
         lcs_len, (summ_lcs_path, article_lcs_path) = util.matching_unigrams(partial_summ_sent, article_sent_tokens[top_sent_idx])
     else:
         lcs_len, (summ_lcs_path, article_lcs_path) = util.lcs(partial_summ_sent, article_sent_tokens[top_sent_idx])
@@ -347,7 +261,7 @@ def get_similar_source_sents_by_lcs(summ_sent, selection, article_sent_tokens, v
 
     sent_indices, lcs_paths, article_lcs_paths = get_similar_source_sents_by_lcs(
         summ_sent, leftover_selection, article_sent_tokens, vocab, similarities, depth+1,
-        sentence_limit, min_matched_tokens)   # recursive call
+        sentence_limit, min_matched_tokens, remove_stop_words)   # recursive call
 
     sent_indices = [top_sent_indices] + sent_indices      # append my result to the recursive collection
     lcs_paths = [new_selection] + lcs_paths
@@ -388,11 +302,12 @@ def get_shortest_distance(indices1, indices2, relative_to_article, rel_sent_posi
     return min_dist
 
 def get_merge_example(similar_source_indices, article_sent_tokens, summ_sent, corefs):
-    restricted_source_indices = []
-    for source_indices_idx, source_indices in enumerate(similar_source_indices):
-        if source_indices_idx >= FLAGS.sentence_limit:
-            break
-        restricted_source_indices.append(source_indices[0])
+    restricted_source_indices = similar_source_indices
+    # restricted_source_indices = []
+    # for source_indices_idx, source_indices in enumerate(similar_source_indices):
+    #     if source_indices_idx >= FLAGS.sentence_limit:
+    #         break
+    #     restricted_source_indices.append(source_indices[0])
     merged_example_sentences = [' '.join(sent) for sent in util.reorder(article_sent_tokens, restricted_source_indices)]
     merged_example_article_text = ' '.join(merged_example_sentences)
     merged_example_abstracts = [[' '.join(summ_sent)]]
@@ -497,9 +412,11 @@ def main(unused_argv):
         name = FLAGS.dataset_name + '_' + FLAGS.exp_name
         if FLAGS.coreference_replacement:
             name += '_coref'
-        file_name = os.path.join(html_dir, name + '.html')
+        highlight_file_name = os.path.join(html_dir, FLAGS.dataset_name + '_' + FLAGS.exp_name)
+        if FLAGS.consider_stopwords:
+            highlight_file_name += '_stopwords'
         if FLAGS.highlight_sents_in_article:
-            extracted_sents_in_article_html_file = open(os.path.join(html_dir, FLAGS.dataset_name + '_' + FLAGS.exp_name + '_extracted_sents.html'), 'wb')
+            extracted_sents_in_article_html_file = open(highlight_file_name + '_extracted_sents.html', 'wb')
         if FLAGS.kaiqiang:
             kaiqiang_article_texts = []
             kaiqiang_abstract_texts = []
@@ -510,6 +427,8 @@ def main(unused_argv):
             lambdamart_out_dir = os.path.join(lambdamart_dir, FLAGS.dataset_name)
             if FLAGS.sentence_limit == 1:
                 lambdamart_out_dir += '_singles'
+            if FLAGS.consider_stopwords:
+                lambdamart_out_dir += '_stopwords'
             lambdamart_out_full_dir = os.path.join(lambdamart_out_dir, 'all')
             util.create_dirs(lambdamart_out_full_dir)
             lambdamart_writer = open(os.path.join(lambdamart_out_full_dir, dataset_split + '.bin'), 'wb')
@@ -585,11 +504,14 @@ def main(unused_argv):
             lcs_paths_list = []
             article_lcs_paths_list = []
 
+            simple_similar_source_indices, lcs_paths_list,article_lcs_paths_list =  get_simple_source_indices_list(
+                summary_sent_tokens, article_sent_tokens, vocab, FLAGS.sentence_limit, FLAGS.min_matched_tokens)
+
             for summ_sent in summary_sent_tokens:
                 similarities = get_sent_similarities(summ_sent, article_sent_tokens, vocab)
                 similar_source_indices, lcs_paths, article_lcs_paths = get_similar_source_sents_by_lcs(
                     summ_sent, list(xrange(len(summ_sent))), article_sent_tokens, vocab, similarities, 0,
-                    FLAGS.sentence_limit, FLAGS.min_matched_tokens)
+                    FLAGS.sentence_limit, FLAGS.min_matched_tokens, not FLAGS.consider_stopwords)
 
                 similar_source_indices_list_plus_empty.append(similar_source_indices)
                 lcs_paths_list.append(lcs_paths)
@@ -701,6 +623,8 @@ def main(unused_argv):
             out_dir = os.path.join(data_dir, FLAGS.dataset_name + '_sent')
             if FLAGS.sentence_limit == 1:
                 out_dir += '_singles'
+            if FLAGS.consider_stopwords:
+                out_dir += '_stopwords'
             util.create_dirs(out_dir)
             if FLAGS.coreference_replacement:
                 out_dir += '_coref'
@@ -712,6 +636,8 @@ def main(unused_argv):
             # html_str = FLAGS.dataset + ' | ' + FLAGS.exp_name + '<br><br><br>' + html_str
             # save_fusions_to_file(html_str)
             ssi_path = os.path.join(ssi_dir, FLAGS.dataset_name)
+            if FLAGS.consider_stopwords:
+                ssi_path += '_stopwords'
             util.create_dirs(ssi_path)
             if FLAGS.dataset_name == 'duc_2004' and FLAGS.abstract_idx != 0:
                 abstract_idx_str = '_%d' % FLAGS.abstract_idx
@@ -761,6 +687,8 @@ if __name__ == '__main__':
     flags.DEFINE_integer('top_n_sents', -1, 'Number of sentences to take from the beginning of the article. Use -1 to run on entire article.')
     flags.DEFINE_integer('min_matched_tokens', 2, 'Number of tokens required that still counts a source sentence as matching a summary sentence.')
     flags.DEFINE_integer('abstract_idx', 0, 'Which human abstract to process on. Only applies to duc_2004.')
+    flags.DEFINE_boolean('consider_stopwords', False, 'Which human abstract to process on. Only applies to duc_2004.')
+    flags.DEFINE_boolean('lemmatize', True, 'Which human abstract to process on. Only applies to duc_2004.')
 
     app.run(main)
 

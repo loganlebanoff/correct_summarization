@@ -1,3 +1,5 @@
+import cPickle
+
 import util
 import os
 import sys
@@ -12,7 +14,7 @@ from data import Vocab
 import random
 from tqdm import tqdm
 import nltk
-from count_merged import get_sent_similarities, get_similar_source_sents_by_lcs, html_highlight_sents_in_article
+from count_merged import get_sent_similarities, get_similar_source_sents_by_lcs, html_highlight_sents_in_article, get_simple_source_indices_list
 
 
 random.seed(222)
@@ -39,7 +41,7 @@ def create_gradient(match_indices):
     gradients = [g if match_indices[g_idx] is not None else '' for g_idx, g in enumerate(gradients)]
     return gradients
 
-def create_html(article_lst, match_indices, decoded_lst, abstract_lst, file_idx, ssi, lcs_paths_list, article_lcs_paths_list):
+def create_html(article_lst, match_indices, decoded_lst, abstract_lst, file_idx, ssi, lcs_paths_list, article_lcs_paths_list, summary_sent_tokens, article_sent_tokens):
     colors = create_gradient(match_indices)
     '''<script>document.body.addEventListener("keydown", function (event) {
     if (event.keyCode === 39) {
@@ -79,6 +81,8 @@ def create_html(article_lst, match_indices, decoded_lst, abstract_lst, file_idx,
 ''' % (file_idx-1, file_idx+1)
     for dec_idx, dec in enumerate(decoded_lst):
         html += '<span style="background-color:#%s;">%s </span>' % (colors[dec_idx], dec)
+        if dec == '.' and dec_idx < len(decoded_lst) - 2:
+            html += '<br>'
 
     html += '<br><br>'
 
@@ -95,8 +99,7 @@ def create_html(article_lst, match_indices, decoded_lst, abstract_lst, file_idx,
 
     html += '<br><br><br>'
 
-    article_sent_tokens = [article_lst]
-    extracted_sents_in_article_html = html_highlight_sents_in_article(abstract_lst, ssi,
+    extracted_sents_in_article_html = html_highlight_sents_in_article(summary_sent_tokens, ssi,
                                                                       article_sent_tokens,
                                                                       lcs_paths_list=lcs_paths_list, article_lcs_paths_list=article_lcs_paths_list)
     if 'israel' in extracted_sents_in_article_html:
@@ -115,14 +118,19 @@ def create_html(article_lst, match_indices, decoded_lst, abstract_lst, file_idx,
 
     return html
 
-def process_attn_selections(attn_dir, decode_dir, vocab):
+def process_attn_selections(attn_dir, decode_dir, vocab, extraction_eval=False):
 
     html_dir = os.path.join(decode_dir, 'extr_vis')
-
     util.create_dirs(html_dir)
-
     file_names = sorted(glob.glob(os.path.join(attn_dir, '*')))
-    # assert len(ref_sents) == len(file_names)
+
+    if extraction_eval:
+        ssi_dir = os.path.join('data/ssi', FLAGS.dataset_name, 'test_ssi.pkl')
+        with open(ssi_dir) as f:
+            ssi_list = cPickle.load(f)
+        if len(ssi_list) != len(file_names):
+            raise Exception('len of ssi_list does not equal len file_names: ', len(ssi_list), len(file_names))
+    triplet_ssi_list = []
     for file_idx, file_name in enumerate(tqdm(file_names)):
         with open(file_name) as f:
             data = json.load(f)
@@ -141,13 +149,13 @@ def process_attn_selections(attn_dir, decode_dir, vocab):
             sentence_limit = 1
         else:
             sentence_limit = 2
-        summary_sent_tokens = [abstract_lst]
-        article_sent_tokens = [article_lst]
-        similarities = get_sent_similarities(abstract_lst, article_sent_tokens, vocab)
-        similar_source_indices, lcs_paths, article_lcs_paths = get_similar_source_sents_by_lcs(
-            abstract_lst, list(xrange(len(abstract_lst))), article_sent_tokens, vocab, similarities, 0,
-            sentence_limit, min_matched_tokens)
-        similar_source_indices_list = similar_source_indices
+        summary_sent_tokens = [nltk.tokenize.word_tokenize(sent) for sent in nltk.tokenize.sent_tokenize(' '.join(abstract_lst))]
+        decoded_sent_tokens = [nltk.tokenize.word_tokenize(sent) for sent in nltk.tokenize.sent_tokenize(' '.join(decoded_lst))]
+        article_sent_tokens = [nltk.tokenize.word_tokenize(sent) for sent in nltk.tokenize.sent_tokenize(' '.join(article_lst))]
+        gt_ssi_list, lcs_paths_list, article_lcs_paths_list = get_simple_source_indices_list(summary_sent_tokens, article_sent_tokens, vocab, sentence_limit,
+                                       min_matched_tokens)
+        sys_ssi_list, _, _ = get_simple_source_indices_list(decoded_sent_tokens, article_sent_tokens, vocab, sentence_limit,
+                                       min_matched_tokens)
 
 
         match_indices = []
@@ -160,11 +168,22 @@ def process_attn_selections(attn_dir, decode_dir, vocab):
                 best_match_idx = art_match_indices[np.argmax(art_attns)]
                 match_indices.append(best_match_idx)
 
-        html = create_html(article_lst, match_indices, decoded_lst, summary_sent_tokens, file_idx, similar_source_indices_list, [lcs_paths], [article_lcs_paths])
+        html = create_html(article_lst, match_indices, decoded_lst, [abstract_lst], file_idx, gt_ssi_list, lcs_paths_list, article_lcs_paths_list, summary_sent_tokens, article_sent_tokens)
         with open(os.path.join(html_dir, '%06d.html' % file_idx), 'wb') as f:
             f.write(html)
 
-        a=0
+        if extraction_eval:
+            triplet_ssi_list.append((ssi_list[file_idx], sys_ssi_list, -1))
+
+    if extraction_eval:
+        print 'Evaluating Lambdamart model F1 score...'
+        suffix = util.all_sent_selection_eval(triplet_ssi_list)
+        print suffix
+        with open(os.path.join(decode_dir, 'extraction_results.txt'), 'wb') as f:
+            f.write(suffix)
+
+
+    a=0
 
 def main(unused_argv):
 
@@ -182,7 +201,7 @@ def main(unused_argv):
     FLAGS.actual_log_root = FLAGS.log_root
     FLAGS.log_root = os.path.join(FLAGS.log_root, FLAGS.exp_name)
 
-    original_dataset_name = 'xsum' if 'xsum' in FLAGS.dataset_name else 'cnn_dm' if 'cnn_dm' in FLAGS.dataset_name else ''
+    original_dataset_name = 'xsum' if 'xsum' in FLAGS.dataset_name else 'cnn_dm' if 'cnn_dm' in FLAGS.dataset_name or 'duc_2004' in FLAGS.dataset_name else ''
     vocab = Vocab(FLAGS.vocab_path + '_' + original_dataset_name, FLAGS.vocab_size) # create a vocabulary
 
     # If in decode mode, set batch_size = beam_size
@@ -221,9 +240,10 @@ def main(unused_argv):
     # decode_dir = decoder._decode_dir
     ckpt_folder = util.find_largest_ckpt_folder(FLAGS.log_root)
     decode_dir = os.path.join(FLAGS.log_root, ckpt_folder)
+    print decode_dir
     attn_dir = os.path.join(decode_dir, 'attn_vis_data')
 
-    process_attn_selections(attn_dir, decode_dir, vocab)
+    process_attn_selections(attn_dir, decode_dir, vocab, extraction_eval=True)
 
 
 if __name__ == '__main__':

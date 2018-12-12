@@ -17,7 +17,12 @@ import util
 from scipy import sparse
 from count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
 import cPickle
-from profilestats import profile
+# from profilestats import profile
+
+if 'dataset_name' in flags.FLAGS:
+    flags_already_done = True
+else:
+    flags_already_done = False
 
 FLAGS = flags.FLAGS
 if 'singles_and_pairs' not in flags.FLAGS:
@@ -33,15 +38,23 @@ if 'first_k' not in flags.FLAGS:
 if 'upper_bound' not in flags.FLAGS:
     flags.DEFINE_boolean('upper_bound', False, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
 if 'use_pair_criteria' not in flags.FLAGS:
-    flags.DEFINE_boolean('use_pair_criteria', True, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
+    flags.DEFINE_boolean('use_pair_criteria', False, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
+if 'pca' not in flags.FLAGS:
+    flags.DEFINE_boolean('pca', False, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
+if 'num_instances' not in flags.FLAGS:
+    flags.DEFINE_integer('num_instances', -1, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
+if 'sent_position_criteria' not in flags.FLAGS:
+    flags.DEFINE_boolean('sent_position_criteria', True, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
 
-FLAGS(sys.argv)
+if not flags_already_done:
+    FLAGS(sys.argv)
 
 from preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
-    Lambdamart_Instance, format_to_lambdamart, filter_pairs_by_criteria, get_rel_sent_indices
+    Lambdamart_Instance, format_to_lambdamart, filter_pairs_by_criteria, get_rel_sent_indices, filter_pairs_by_sent_position
 
 _exp_name = 'lambdamart'
-model = FLAGS.dataset_name + '_ndcg5_%s_10000' % FLAGS.singles_and_pairs
+if FLAGS.pca:
+    model += '_pca'
 tfidf_model = 'all'
 dataset_split = 'test'
 importance = True
@@ -71,6 +84,10 @@ else:
 if FLAGS.upper_bound:
     exp_name = exp_name + '_upperbound'
 
+if FLAGS.pca:
+    exp_name = exp_name + '_pca'
+
+
 if FLAGS.singles_and_pairs == 'singles':
     sentence_limit = 1
 else:
@@ -83,6 +100,9 @@ else:
 
 temp_in_dir = os.path.join(lambdamart_in_dir, 'lambdamart_' + FLAGS.singles_and_pairs)
 temp_out_dir = os.path.join(lambdamart_out_dir, 'lambdamart_' + FLAGS.singles_and_pairs)
+if FLAGS.pca:
+    temp_in_dir += '_pca'
+    temp_out_dir += '_pca'
 temp_in_path = temp_in_dir + '.txt'
 temp_out_path = temp_out_dir + '.txt'
 util.create_dirs(temp_in_dir)
@@ -100,6 +120,13 @@ util.create_dirs(ssi_out_dir)
 tfidf_vec_path = 'data/tfidf/' + tfidf_model + '_tfidf_vec_5.pkl'
 with open(tfidf_vec_path, 'rb') as f:
     tfidf_vectorizer = cPickle.load(f)
+
+pca_vec_path = 'data/tfidf/' + 'all' + '_pca.pkl'
+if FLAGS.pca:
+    with open(pca_vec_path, 'rb') as f:
+        pca = cPickle.load(f)
+else:
+    pca = None
 
 # @profile
 def read_lambdamart_scores(file_path):
@@ -149,15 +176,21 @@ def read_source_indices_from_lambdamart_input(file_path):
 #     return similar_source_indices
 
 # @profile
-def get_features_all_combinations(example_idx, raw_article_sents, article_sent_tokens, corefs, rel_sent_indices, first_k_indices, mmrs, single_feat_len, pair_feat_len, singles_and_pairs):
+def get_features_all_combinations(example_idx, raw_article_sents, article_sent_tokens, corefs, rel_sent_indices, first_k_indices, mmrs, single_feat_len, pair_feat_len, singles_and_pairs, temp_in_path):
     # sent_term_matrix = util.get_tfidf_matrix(raw_article_sents)
     article_text = ' '.join(raw_article_sents)
-    sent_term_matrix = util.get_doc_substituted_tfidf_matrix(tfidf_vectorizer, raw_article_sents, article_text)
+    print 'getting tfidf matrix'
+    sent_term_matrix = util.get_doc_substituted_tfidf_matrix(tfidf_vectorizer, raw_article_sents, article_text, pca)
     doc_vector = np.mean(sent_term_matrix, axis=0)
+    print 'got tfidf matrix'
 
+    print 'getting all pairs...'
     possible_pairs = [x for x in list(itertools.combinations(first_k_indices, 2))]   # all pairs
+    print 'filtering all pairs...'
     if FLAGS.use_pair_criteria:
         possible_pairs = filter_pairs_by_criteria(raw_article_sents, possible_pairs, corefs)
+    if FLAGS.sent_position_criteria:
+        possible_pairs = filter_pairs_by_sent_position(possible_pairs)
     possible_singles = [(i,) for i in first_k_indices]
     if singles_and_pairs == 'pairs':
         all_combinations = possible_pairs
@@ -166,11 +199,19 @@ def get_features_all_combinations(example_idx, raw_article_sents, article_sent_t
     else:
         all_combinations = possible_pairs + possible_singles
     instances = []
-    for source_indices in all_combinations:
-        features = get_features(source_indices, sent_term_matrix, article_sent_tokens, rel_sent_indices,
-                                single_feat_len, pair_feat_len, mmrs, singles_and_pairs)
-        instances.append(Lambdamart_Instance(features, 0, example_idx, source_indices))
-    return instances
+    if sum([1 for sent_idx in rel_sent_indices if sent_idx == 0]) > 1:
+        comb_list = tqdm(all_combinations)
+    else:
+        comb_list = all_combinations
+    with open(temp_in_path, 'w') as f:
+        for inst_id, source_indices in enumerate(comb_list):
+            features = get_features(source_indices, sent_term_matrix, article_sent_tokens, rel_sent_indices,
+                                    single_feat_len, pair_feat_len, mmrs, singles_and_pairs)
+            instance = Lambdamart_Instance(features, 0, example_idx, source_indices)
+            instance.inst_id = inst_id
+            lambdamart_str = format_to_lambdamart(instance, single_feat_len)
+            out_str = lambdamart_str + '\n'
+            f.write(out_str)
 
 # @profile
 def get_sent_or_sents(article_sent_tokens, source_indices):
@@ -213,9 +254,10 @@ def get_best_source_sents(article_sent_tokens, mmr_dict, already_used_source_ind
 
 # @profile
 def get_instances(example_idx, raw_article_sents, article_sent_tokens, corefs, rel_sent_indices, first_k_indices, temp_in_path, temp_out_path, single_feat_len, pair_feat_len, singles_and_pairs):
+    print 'getting tfidf importances'
     tfidfs = util.get_tfidf_importances(tfidf_vectorizer, raw_article_sents)
-    instances = get_features_all_combinations(example_idx, raw_article_sents, article_sent_tokens, corefs, rel_sent_indices, first_k_indices, tfidfs, single_feat_len, pair_feat_len, singles_and_pairs)
-    return instances
+    print 'got tfidf importances'
+    get_features_all_combinations(example_idx, raw_article_sents, article_sent_tokens, corefs, rel_sent_indices, first_k_indices, tfidfs, single_feat_len, pair_feat_len, singles_and_pairs, temp_in_path)
 
 # @profile
 def generate_summary(article_sent_tokens, qid_ssi_to_importances, example_idx):
@@ -255,12 +297,42 @@ def example_generator_extended(example_generator, total, single_feat_len, pair_f
     for example in tqdm(example_generator, total=total):
     # for example in example_generator:
         example_idx += 1
-        if num_instances != -1 and example_idx >= num_instances:
+        if FLAGS.num_instances != -1 and example_idx >= FLAGS.num_instances:
             break
         yield (example, example_idx, single_feat_len, pair_feat_len, singles_and_pairs)
 
 # @profile
 def write_highlighted_html(html, out_dir, example_idx):
+    html = '''
+    
+<button id="btnPrev" class="float-left submit-button" >Prev</button>
+<button id="btnNext" class="float-left submit-button" >Next</button>
+<br><br>
+
+<script type="text/javascript">
+    document.getElementById("btnPrev").onclick = function () {
+        location.href = "%06d_highlighted.html";
+    };
+    document.getElementById("btnNext").onclick = function () {
+        location.href = "%06d_highlighted.html";
+    };
+    
+    document.addEventListener("keyup",function(e){
+   var key = e.which||e.keyCode;
+   switch(key){
+      //left arrow
+      case 37:
+         document.getElementById("btnPrev").click();
+      break;
+      //right arrow
+      case 39:
+         document.getElementById("btnNext").click();
+      break;
+   }
+});
+</script>
+
+''' % (example_idx-1, example_idx+1) + html
     path = os.path.join(out_dir, '%06d_highlighted.html' % example_idx)
     with open(path, 'w') as f:
         f.write(html)
@@ -283,6 +355,8 @@ def write_to_lambdamart_examples_to_file(ex):
     if doc_indices is None:
         doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
     doc_indices = [int(doc_idx) for doc_idx in doc_indices]
+    if len(doc_indices) != len(util.flatten_list_of_lists(article_sent_tokens)):
+        doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
     rel_sent_indices = get_rel_sent_indices(doc_indices, article_sent_tokens)
     groundtruth_similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, sentence_limit)
     groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
@@ -294,21 +368,12 @@ def write_to_lambdamart_examples_to_file(ex):
     else:
         first_k_indices = [idx for idx in range(len(raw_article_sents))]
 
-
-
     if importance:
-        instances = get_instances(example_idx, raw_article_sents, article_sent_tokens, corefs, rel_sent_indices, first_k_indices, temp_in_path, temp_out_path,
+        get_instances(example_idx, raw_article_sents, article_sent_tokens, corefs, rel_sent_indices, first_k_indices, temp_in_path, temp_out_path,
                                     single_feat_len, pair_feat_len, singles_and_pairs)
-    out_str = ''
-    instances = sorted(instances, key=lambda x: (x.qid, x.source_indices))
-    for inst_id, instance in enumerate(instances):
-        instance.inst_id = inst_id
-        lambdamart_str = format_to_lambdamart(instance, single_feat_len)
-        out_str += lambdamart_str + '\n'
-    with open(temp_in_path, 'w') as f:
-        f.write(out_str)
 
-# @profile
+
+
 def evaluate_example(ex):
     example, example_idx, qid_ssi_to_importances, _, _ = ex
     print example_idx
@@ -322,7 +387,8 @@ def evaluate_example(ex):
     groundtruth_summ_sent_tokens = [sent.split(' ') for sent in groundtruth_summ_sents[0]]
 
     if FLAGS.upper_bound:
-        selected_article_sent_indices = util.flatten_list_of_lists(enforced_groundtruth_ssi_list)
+        replaced_ssi_list = util.replace_empty_ssis(enforced_groundtruth_ssi_list, raw_article_sents)
+        selected_article_sent_indices = util.flatten_list_of_lists(replaced_ssi_list)
         summary_sents = [' '.join(sent) for sent in util.reorder(article_sent_tokens, selected_article_sent_indices)]
         similar_source_indices_list = groundtruth_similar_source_indices_list
         ssi_length_extractive = len(similar_source_indices_list)
@@ -346,66 +412,6 @@ def evaluate_example(ex):
     rouge_functions.write_for_rouge(groundtruth_summ_sents, summary_sents, example_idx, ref_dir, dec_dir)
     return (groundtruth_similar_source_indices_list, similar_source_indices_list, ssi_length_extractive)
 
-def sent_selection_eval(ssi_list, operation_on_gt):
-    if FLAGS.dataset_name == 'cnn_dm':
-        sys_max_sent_len = 4
-    elif FLAGS.dataset_name == 'duc_2004':
-        sys_max_sent_len = 5
-    elif FLAGS.dataset_name == 'xsum':
-        sys_max_sent_len = 1
-    sys_pos = 0
-    sys_neg = 0
-    gt_pos = 0
-    gt_neg = 0
-    for gt, sys_, ext_len in ssi_list:
-        gt = operation_on_gt(gt)
-        sys_ = sys_[:sys_max_sent_len]
-        sys_ = util.flatten_list_of_lists(sys_)
-        # sys_ = sys_[:ext_len]
-        for ssi in sys_:
-            if ssi in gt:
-                sys_pos += 1
-            else:
-                sys_neg += 1
-        for ssi in gt:
-            if ssi in sys_:
-                gt_pos += 1
-            else:
-                gt_neg += 1
-    prec = float(sys_pos) / (sys_pos + sys_neg)
-    rec = float(gt_pos) / (gt_pos + gt_neg)
-    if sys_pos + sys_neg == 0 or gt_pos + gt_neg == 0:
-        f1 = 0
-    else:
-        f1 = 2.0 * (prec * rec) / (prec + rec)
-    prec *= 100
-    rec *= 100
-    f1 *= 100
-    suffix = '%.2f\t%.2f\t%.2f\t' % (prec, rec, f1)
-    print 'Lambdamart P/R/F: '
-    print suffix
-    return suffix
-
-def all_sent_selection_eval(ssi_list):
-    def flatten(gt):
-        return util.flatten_list_of_lists(gt)
-    def primary(gt):
-        return util.flatten_list_of_lists(util.enforce_sentence_limit(gt, 1))
-    def secondary(gt):
-        return [ssi[1] for ssi in gt if len(ssi) == 2]
-    # def single(gt):
-    #     return util.flatten_list_of_lists([ssi for ssi in gt if len(ssi) == 1])
-    # def pair(gt):
-    #     return util.flatten_list_of_lists([ssi for ssi in gt if len(ssi) == 2])
-    operations_on_gt = [flatten, primary, secondary]
-    suffixes = []
-    for op in operations_on_gt:
-        suffix = sent_selection_eval(ssi_list, op)
-        suffixes.append(suffix)
-    combined_suffix = '\n' + '\n'.join(suffixes)
-    print combined_suffix
-    return combined_suffix
-
 
 def main(unused_argv):
 # def main(unused_argv):
@@ -420,7 +426,7 @@ def main(unused_argv):
     source_files = sorted(glob.glob(source_dir + '/' + dataset_split + '*'))
     ex_sents = ['single .', 'sentence .']
     article_text = ' '.join(ex_sents)
-    sent_term_matrix = util.get_doc_substituted_tfidf_matrix(tfidf_vectorizer, ex_sents, article_text)
+    sent_term_matrix = util.get_doc_substituted_tfidf_matrix(tfidf_vectorizer, ex_sents, article_text, pca)
     if FLAGS.singles_and_pairs == 'pairs':
         single_feat_len = 0
     else:
@@ -443,7 +449,7 @@ def main(unused_argv):
         ex_list = [ex for ex in ex_gen]
         print 'Converting...'
         # if len(sys.argv) > 1 and sys.argv[1] == '-m':
-        instances_list = list(futures.map(write_to_lambdamart_examples_to_file, ex_list))
+        list(futures.map(write_to_lambdamart_examples_to_file, ex_list))
         # else:
         #     instances_list = []
         #     for ex in tqdm(ex_list):
@@ -476,7 +482,7 @@ def main(unused_argv):
         with open(os.path.join(my_log_dir, 'ssi.pkl')) as f:
             ssi_list = cPickle.load(f)
         print 'Evaluating Lambdamart model F1 score...'
-        suffix = all_sent_selection_eval(ssi_list)
+        suffix = util.all_sent_selection_eval(ssi_list)
         #
         # # for ex in tqdm(ex_list, total=total):
         # #     load_and_evaluate_example(ex)

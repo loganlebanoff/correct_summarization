@@ -32,7 +32,6 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-
 echo "$SINGLES_AND_PAIRS"
 echo "$DATASET_NAME"
 

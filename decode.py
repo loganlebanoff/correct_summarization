@@ -94,10 +94,12 @@ class BeamSearchDecoder(object):
         """Decode examples until data is exhausted (if FLAGS.single_pass) and return, or decode indefinitely, loading latest checkpoint at regular intervals"""
         t0 = time.time()
         counter = 0
+        attn_dir = os.path.join(self._decode_dir, 'attn_vis_data')
         while True:
             batch = self._batcher.next_batch()	# 1 example repeated across batch
             if batch is None: # finished decoding dataset in single_pass mode
                 assert FLAGS.single_pass, "Dataset exhausted, but we are not in single_pass mode"
+                attn_selections.process_attn_selections(attn_dir, self._decode_dir, self._vocab)
                 logging.info("Decoder has finished reading dataset for single_pass.")
                 logging.info("Output has been saved in %s and %s.", self._rouge_ref_dir, self._rouge_dec_dir)
                 if len(os.listdir(self._rouge_ref_dir)) != 0:
@@ -122,6 +124,10 @@ class BeamSearchDecoder(object):
                 rouge_functions.write_for_rouge(all_original_abstract_sents, None, counter, self._rouge_ref_dir, self._rouge_dec_dir, decoded_words=decoded_words) # write ref summary and decoded summary to file, to eval with pyrouge later
                 if FLAGS.attn_vis:
                     self.write_for_attnvis(article_withunks, abstract_withunks, decoded_words, best_hyp.attn_dists, best_hyp.p_gens, counter) # write info to .json file for visualization tool
+
+                    if counter % 1000 == 0:
+                        attn_selections.process_attn_selections(attn_dir, self._decode_dir, self._vocab)
+
                 counter += 1 # this is how many examples we've decoded
             else:
                 print_results(article_withunks, abstract_withunks, decoded_output) # log output to screen
@@ -146,10 +152,19 @@ class BeamSearchDecoder(object):
                 sys_ssi = groundtruth_similar_source_indices_list
                 if FLAGS.singles_and_pairs == 'singles':
                     sys_ssi = util.enforce_sentence_limit(sys_ssi, 1)
-                elif FLAGS.singles_and_pairs == 'singles':
+                elif FLAGS.singles_and_pairs == 'both':
                     sys_ssi = util.enforce_sentence_limit(sys_ssi, 2)
+                sys_ssi = util.replace_empty_ssis(sys_ssi, raw_article_sents)
             else:
                 gt_ssi, sys_ssi, ext_len = ssi_list[example_idx]
+                if FLAGS.singles_and_pairs == 'singles':
+                    sys_ssi = util.enforce_sentence_limit(sys_ssi, 1)
+                    groundtruth_similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, 1)
+                    gt_ssi = util.enforce_sentence_limit(gt_ssi, 1)
+                elif FLAGS.singles_and_pairs == 'both':
+                    sys_ssi = util.enforce_sentence_limit(sys_ssi, 2)
+                    groundtruth_similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, 2)
+                    gt_ssi = util.enforce_sentence_limit(gt_ssi, 2)
                 if gt_ssi != groundtruth_similar_source_indices_list:
                     raise Exception('Example %d has different groundtruth source indices: ' + str(groundtruth_similar_source_indices_list) + ' || ' + str(gt_ssi))
                 if FLAGS.dataset_name == 'xsum':
@@ -248,7 +263,7 @@ class BeamSearchDecoder(object):
             for sent in raw_article_sents:
                 f.write(sent + '\n')
 
-    def write_for_attnvis(self, article, abstract, decoded_words, attn_dists, p_gens, ex_index):
+    def write_for_attnvis(self, article, abstract, decoded_words, attn_dists, p_gens, ex_index, ssi=None):
         """Write some data to json file, which can be read into the in-browser attention visualizer tool:
             https://github.com/abisee/attn_vis
 
@@ -269,6 +284,8 @@ class BeamSearchDecoder(object):
         }
         if FLAGS.pointer_gen:
             to_write['p_gens'] = p_gens
+        if ssi is not None:
+            to_write['ssi'] = ssi
         util.create_dirs(os.path.join(self._decode_dir, 'attn_vis_data'))
         output_fname = os.path.join(self._decode_dir, 'attn_vis_data', '%06d.json' % ex_index)
         with open(output_fname, 'w') as output_file:

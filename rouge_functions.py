@@ -205,6 +205,7 @@ def rouge_log(results_dict, dir_to_write, prefix=None, suffix=None):
     sheets_results_file = os.path.join(dir_to_write, "sheets_results.txt")
     with open(sheets_results_file, "w") as f:
         f.write(sheets_str)
+    return sheets_str
 
 
 

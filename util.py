@@ -310,18 +310,23 @@ def write_to_temp_files(string_list, temp_dir):
     return file_paths
 
 
-def get_doc_substituted_tfidf_matrix(tfidf_vectorizer, sentences, article_text):
+def get_doc_substituted_tfidf_matrix(tfidf_vectorizer, sentences, article_text, pca=None):
     # file_paths = write_to_temp_files([article_text], temp_dir)
     # doc_vec = tfidf_vectorizer.transform(file_paths)
     # file_paths = write_to_temp_files(sentences, temp_dir)
     # sent_term_matrix = tfidf_vectorizer.transform(file_paths)
-    doc_vec = tfidf_vectorizer.transform([article_text])
-    sent_term_matrix = tfidf_vectorizer.transform(sentences)
-    nonzero_rows, nonzero_cols = sent_term_matrix.nonzero()
-    nonzero_indices = zip(nonzero_rows, nonzero_cols)
-    for idx in nonzero_indices:
-        val = doc_vec[0, idx[1]]
-        sent_term_matrix[idx] = val
+
+    sent_term_matrix = tfidf_transform_then_pca(tfidf_vectorizer, sentences, pca)
+
+    # doc_vec = tfidf_vectorizer.transform([article_text])
+    # sent_term_matrix = tfidf_vectorizer.transform(sentences)
+    if pca is None:
+        doc_vec = tfidf_transform_then_pca(tfidf_vectorizer, [article_text], pca)
+        nonzero_rows, nonzero_cols = sent_term_matrix.nonzero()
+        nonzero_indices = zip(nonzero_rows, nonzero_cols)
+        for idx in nonzero_indices:
+            val = doc_vec[0, idx[1]]
+            sent_term_matrix[idx] = val
     return sent_term_matrix
 
 def chunk_file(set_name, out_full_dir, out_dir, chunk_size=1000):
@@ -396,10 +401,10 @@ def unpack_tf_example(example, names_to_types):
     return res
 
 # def get_tfidf_importances(raw_article_sents, tfidf_model_path=None):
-def get_tfidf_importances(tfidf_vectorizer, raw_article_sents):
+def get_tfidf_importances(tfidf_vectorizer, raw_article_sents, pca=None):
     article_text = ' '.join(raw_article_sents)
-    sent_reps = get_doc_substituted_tfidf_matrix(tfidf_vectorizer, raw_article_sents, article_text)
-    cluster_rep = np.mean(sent_reps, axis=0)
+    sent_reps = get_doc_substituted_tfidf_matrix(tfidf_vectorizer, raw_article_sents, article_text, pca)
+    cluster_rep = np.mean(sent_reps, axis=0).reshape(1, -1)
     similarity_matrix = cosine_similarity(sent_reps, cluster_rep)
     return np.squeeze(similarity_matrix, 1)
 
@@ -554,10 +559,92 @@ def nCr(n,r):
     f = math.factorial
     return f(n) / f(r) / f(n-r)
 
+def tfidf_transform_then_pca(tfidf_vectorizer, texts, pca=None):
+    matrix = tfidf_vectorizer.transform(texts)
+    if pca is not None:
+        matrix = pca.transform(matrix)
+    return matrix
 
+# @profile
+def get_first_available_sent(enforced_groundtruth_ssi_list, raw_article_sents, replaced_ssi_list):
+    flat_ssi_list = flatten_list_of_lists(enforced_groundtruth_ssi_list + replaced_ssi_list)
+    if FLAGS.dataset_name == 'xsum':
+        available_range = list(range(1, len(raw_article_sents))) + [0]
+    else:
+        available_range = range(len(raw_article_sents))
+    for sent_idx in available_range:
+        if sent_idx not in flat_ssi_list:
+            return (sent_idx,)
+    return ()       # if we reach here, there are no available sents left
 
+def replace_empty_ssis(enforced_groundtruth_ssi_list, raw_article_sents):
+    replaced_ssi_list = []
+    for ssi in enforced_groundtruth_ssi_list:
+        if len(ssi) == 0:
+            replaced_ssi_list.append(get_first_available_sent(enforced_groundtruth_ssi_list, raw_article_sents, replaced_ssi_list))
+        else:
+            replaced_ssi_list.append(ssi)
+    return replaced_ssi_list
 
+def sent_selection_eval(ssi_list, operation_on_gt):
+    if FLAGS.dataset_name == 'cnn_dm':
+        sys_max_sent_len = 4
+    elif FLAGS.dataset_name == 'duc_2004':
+        sys_max_sent_len = 5
+    elif FLAGS.dataset_name == 'xsum':
+        sys_max_sent_len = 1
+    sys_pos = 0
+    sys_neg = 0
+    gt_pos = 0
+    gt_neg = 0
+    for gt, sys_, ext_len in ssi_list:
+        gt = operation_on_gt(gt)
+        sys_ = sys_[:sys_max_sent_len]
+        sys_ = flatten_list_of_lists(sys_)
+        # sys_ = sys_[:ext_len]
+        for ssi in sys_:
+            if ssi in gt:
+                sys_pos += 1
+            else:
+                sys_neg += 1
+        for ssi in gt:
+            if ssi in sys_:
+                gt_pos += 1
+            else:
+                gt_neg += 1
+    prec = float(sys_pos) / (sys_pos + sys_neg)
+    rec = float(gt_pos) / (gt_pos + gt_neg)
+    if sys_pos + sys_neg == 0 or gt_pos + gt_neg == 0:
+        f1 = 0
+    else:
+        f1 = 2.0 * (prec * rec) / (prec + rec)
+    prec *= 100
+    rec *= 100
+    f1 *= 100
+    suffix = '%.2f\t%.2f\t%.2f\t' % (prec, rec, f1)
+    print 'Lambdamart P/R/F: '
+    print suffix
+    return suffix
 
+def all_sent_selection_eval(ssi_list):
+    def flatten(gt):
+        return flatten_list_of_lists(gt)
+    def primary(gt):
+        return flatten_list_of_lists(enforce_sentence_limit(gt, 1))
+    def secondary(gt):
+        return [ssi[1] for ssi in gt if len(ssi) == 2]
+    # def single(gt):
+    #     return util.flatten_list_of_lists([ssi for ssi in gt if len(ssi) == 1])
+    # def pair(gt):
+    #     return util.flatten_list_of_lists([ssi for ssi in gt if len(ssi) == 2])
+    operations_on_gt = [flatten, primary, secondary]
+    suffixes = []
+    for op in operations_on_gt:
+        suffix = sent_selection_eval(ssi_list, op)
+        suffixes.append(suffix)
+    combined_suffix = '\n' + '\n'.join(suffixes)
+    print combined_suffix
+    return combined_suffix
 
 
 

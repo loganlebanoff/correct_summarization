@@ -12,8 +12,20 @@ import glob
 from tensorflow.core.example import example_pb2
 from scoop import futures
 import cPickle
+import sys
+import spacy
+import HTMLParser
 
-input_dataset = 'all'
+FLAGS = flags.FLAGS
+
+flags.DEFINE_boolean('pca', False,
+                     'If true, save plots of each distribution -- im')
+flags.DEFINE_string('input_dataset', 'all',
+                     'If true, save plots of each distribution -- im')
+
+
+FLAGS(sys.argv)
+
 dataset_split = 'all'
 num_instances = -1,
 random_seed = 123
@@ -110,18 +122,36 @@ def example_generator_extended(example_generator, total):
             break
         yield (example, example_idx)
 
+
+
+# create a spaCy tokenizer
+spacy.load('en')
+lemmatizer = spacy.lang.en.English()
+html_parser = HTMLParser.HTMLParser()
+
+# remove html entities from docs and
+# set everything to lowercase
+def my_preprocessor(doc):
+    return(html_parser.unescape(doc).lower())
+
+# tokenize the doc and lemmatize its tokens
+def my_tokenizer(doc):
+    tokens = lemmatizer(doc)
+    return([token.lemma_ for token in tokens])
+
+
 def main(unused_argv):
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
 
     start_time = time.time()
     np.random.seed(random_seed)
-    util.create_dirs(os.path.join(out_dir, input_dataset))
+    util.create_dirs(os.path.join(out_dir, FLAGS.input_dataset))
 
-    if input_dataset == 'all':
+    if FLAGS.input_dataset == 'all':
         datasets = ['duc_2003', 'duc_2004', 'tac_2008', 'tac_2010', 'tac_2011', 'cnn_dm', 'xsum']
     else:
-        datasets = [input_dataset]
+        datasets = [FLAGS.input_dataset]
     if dataset_split == 'all':
         dataset_splits = ['train', 'val', 'test']
     else:
@@ -147,17 +177,33 @@ def main(unused_argv):
 
             articles = list(futures.map(save_as_txt_file, ex_list))
             all_articles.extend(articles)
-    vec = TfidfVectorizer(input='content', ngram_range=(1,1), min_df=min_df, max_df=0.5, decode_error='ignore')
+    vec = TfidfVectorizer(input='content', ngram_range=(1,1), min_df=min_df, max_df=0.5, decode_error='ignore', preprocessor=my_preprocessor, tokenizer=my_tokenizer)
 
     # list(futures.map(save_as_txt_file, ex_list))
     # file_list = [os.path.join(out_dir, in_dataset, fname) for fname in os.listdir(os.path.join(out_dir, in_dataset))]
     # vec = TfidfVectorizer(input='filename', ngram_range=(1,1), min_df=min_df, max_df=0.5, decode_error='ignore')
     # vec.fit(file_list)
 
-    vec.fit(all_articles)
+    if FLAGS.pca:
+        X = vec.fit_transform(all_articles)
+        suffix = '_pca'
+    else:
+        vec.transform(all_articles)
+        suffix = ''
     print 'Vocabulary size', len(vec.vocabulary_.keys())
-    with open(os.path.join(out_dir, input_dataset + '_tfidf_vec_' + str(min_df) + '.pkl'), 'wb') as f:
+    with open(os.path.join(out_dir, FLAGS.input_dataset + '_tfidf_vec_' + str(min_df) + suffix + '.pkl'), 'wb') as f:
         cPickle.dump(vec, f)
+
+    if FLAGS.pca:
+        print 'Fitting LSA model...'
+        from sklearn.decomposition import TruncatedSVD
+        svd = TruncatedSVD(n_components=100)
+        svd.fit(X)
+        with open(os.path.join(out_dir, FLAGS.input_dataset + '_pca' + '.pkl'), 'wb') as f:
+            cPickle.dump(svd, f)
+
+
+
 
     util.print_execution_time(start_time)
 
