@@ -315,7 +315,7 @@ def main(unused_argv):
     
 if __name__ == '__main__':
     flags.DEFINE_string('dataset_name', 'example_custom_dataset', 'Which dataset to convert from raw data to tf examples')
-    flags.DEFINE_string('out_data_path', 'tf_data', 'Where to put output tf examples')
+    flags.DEFINE_string('out_data_path', '/home/logan/data/tf_data', 'Where to put output tf examples')
     flags.DEFINE_string('TAC_path', '', 'Path to raw TAC data.')
     flags.DEFINE_string('DUC_path', '', 'Path to raw DUC data.')
     flags.DEFINE_boolean('write_with_generator', False, 'Whether or not to write with generator, which will batch the examples together.')

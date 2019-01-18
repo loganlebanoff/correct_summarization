@@ -42,7 +42,7 @@ class bcolors:
 FLAGS = flags.FLAGS
 
 
-data_dir = 'tf_data/with_coref'
+data_dir = '/home/logan/data/tf_data/with_coref'
 log_dir = 'logs/'
 max_enc_steps = 100000
 min_dec_steps = 100
@@ -56,7 +56,7 @@ colors_html = ['blue', 'green', 'gold', 'red']
 html_dir = 'data/highlight'
 ssi_dir = 'data/ssi'
 kaiqiang_dir = 'data/kaiqiang_single_sent_data'
-lambdamart_dir = 'tf_data/with_coref_and_ssi'
+lambdamart_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
 highlight_colors = ['aqua', 'lime', 'yellow', '#FF7676', '#B9968D', '#D7BDE2', '#D6DBDF', '#F852AF', '#00FF8B', '#FD933A', '#8C8DFF', '#965DFF']
 hard_highlight_colors = ['#00BBFF', '#00BB00', '#F4D03F', '#BB5454', '#A16252', '#AF7AC5', '#AEB6BF', '#FF008F', '#0ECA74', '#FF7400', '#6668FF', '#7931FF']
 # hard_highlight_colors = ['blue', 'green', 'orange', 'red']
@@ -187,7 +187,6 @@ def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_
     return out_str
 
 
-
 def get_summary_text(summary_file):
     with open(summary_file) as f:
         summary_text = f.read()
@@ -238,6 +237,10 @@ def get_top_similar_sent(summ_sent, article_sent_tokens, vocab, remove_stop_word
     sent_indices = [sent_idx for sent_idx, sent_sim in enumerate(similarities) if sent_sim == top_similarity]
     return sent_indices, top_similarity
 
+def replace_with_blanks(summ_sent, selection):
+    replaced_summ_sent = [summ_sent[token_idx] if token_idx in selection else '' for token_idx, token in enumerate(summ_sent)]
+    return  replaced_summ_sent
+
 def get_similar_source_sents_by_lcs(summ_sent, selection, article_sent_tokens, vocab, similarities, depth, sentence_limit, min_matched_tokens, remove_stop_words=True):
     remove_unigrams = True
     if sentence_limit == 1:
@@ -245,27 +248,31 @@ def get_similar_source_sents_by_lcs(summ_sent, selection, article_sent_tokens, v
             return [], [], []
     elif len(selection) < 3 or depth >= sentence_limit:      # base case: when summary sentence is too short
         return [], [], []
-    partial_summ_sent = util.reorder(summ_sent, selection)
-    top_sent_indices, top_similarity = get_top_similar_sent(partial_summ_sent, article_sent_tokens, vocab, remove_stop_words)
+
+    # partial_summ_sent = util.reorder(summ_sent, selection)
+    top_sent_indices, top_similarity = get_top_similar_sent(summ_sent, article_sent_tokens, vocab, remove_stop_words)
     top_similarities = util.reorder(similarities, top_sent_indices)
     top_sent_indices = [x for _, x in sorted(zip(top_similarities, top_sent_indices), key=lambda pair: pair[0])][::-1]
     top_sent_idx = top_sent_indices[0]
     if remove_unigrams:
-        nonstopword_matches, _ = util.matching_unigrams(partial_summ_sent, article_sent_tokens[top_sent_idx], should_remove_stop_words=remove_stop_words)
-        lcs_len, (summ_lcs_path, article_lcs_path) = util.matching_unigrams(partial_summ_sent, article_sent_tokens[top_sent_idx])
+        nonstopword_matches, _ = util.matching_unigrams(summ_sent, article_sent_tokens[top_sent_idx], should_remove_stop_words=remove_stop_words)
+        lcs_len, (summ_lcs_path, article_lcs_path) = util.matching_unigrams(summ_sent, article_sent_tokens[top_sent_idx])
     else:
-        lcs_len, (summ_lcs_path, article_lcs_path) = util.lcs(partial_summ_sent, article_sent_tokens[top_sent_idx])
+        lcs_len, (summ_lcs_path, article_lcs_path) = util.lcs(summ_sent, article_sent_tokens[top_sent_idx])
     if len(nonstopword_matches) < min_matched_tokens:
         return [], [], []
-    new_selection = [selection[idx] for idx in summ_lcs_path]
-    leftover_selection = [val for idx, val in enumerate(selection) if idx not in summ_lcs_path]
+    # new_selection = [selection[idx] for idx in summ_lcs_path]
+    # leftover_selection = [val for idx, val in enumerate(selection) if idx not in summ_lcs_path]
+    # partial_summ_sent = replace_with_blanks(summ_sent, leftover_selection)
+    leftover_selection = [idx for idx in range(len(summ_sent)) if idx not in summ_lcs_path]
+    partial_summ_sent = replace_with_blanks(summ_sent, leftover_selection)
 
     sent_indices, lcs_paths, article_lcs_paths = get_similar_source_sents_by_lcs(
-        summ_sent, leftover_selection, article_sent_tokens, vocab, similarities, depth+1,
+        partial_summ_sent, leftover_selection, article_sent_tokens, vocab, similarities, depth+1,
         sentence_limit, min_matched_tokens, remove_stop_words)   # recursive call
 
     sent_indices = [top_sent_indices] + sent_indices      # append my result to the recursive collection
-    lcs_paths = [new_selection] + lcs_paths
+    lcs_paths = [summ_lcs_path] + lcs_paths
     article_lcs_paths = [article_lcs_path] + article_lcs_paths
     return sent_indices, lcs_paths, article_lcs_paths
 
@@ -303,12 +310,12 @@ def get_shortest_distance(indices1, indices2, relative_to_article, rel_sent_posi
     return min_dist
 
 def get_merge_example(similar_source_indices, article_sent_tokens, summ_sent, corefs):
-    restricted_source_indices = []
-    for source_indices_idx, source_indices in enumerate(similar_source_indices):
-        if source_indices_idx >= FLAGS.sentence_limit:
-            break
-        restricted_source_indices.append(source_indices[0])
-    merged_example_sentences = [' '.join(sent) for sent in util.reorder(article_sent_tokens, restricted_source_indices)]
+    # restricted_source_indices = []
+    # for source_indices_idx, source_indices in enumerate(similar_source_indices):
+    #     if source_indices_idx >= FLAGS.sentence_limit:
+    #         break
+    #     restricted_source_indices.append(source_indices[0])
+    merged_example_sentences = [' '.join(sent) for sent in util.reorder(article_sent_tokens, similar_source_indices)]
     merged_example_article_text = ' '.join(merged_example_sentences)
     merged_example_abstracts = [[' '.join(summ_sent)]]
     merge_example = convert_data.make_example(merged_example_article_text, merged_example_abstracts, None, merged_example_sentences, corefs)
@@ -342,17 +349,24 @@ def get_single_sent_features(similar_source_indices, sent_term_matrix, doc_vecto
     sent_len = len(article_sent_tokens[sent_idx])
     return sent_idx, doc_similarity, sent_len
 
-def get_simple_source_indices_list(summary_sent_tokens, article_sent_tokens, vocab, sentence_limit, min_matched_tokens):
+def get_simple_source_indices_list(summary_sent_tokens, article_sent_tokens, vocab, sentence_limit, min_matched_tokens, remove_stop_words=True, lemmatize=True):
+    if lemmatize:
+        article_sent_tokens_lemma = util.lemmatize_sent_tokens(article_sent_tokens)
+        summary_sent_tokens_lemma = util.lemmatize_sent_tokens(summary_sent_tokens)
+    else:
+        article_sent_tokens_lemma = article_sent_tokens
+        summary_sent_tokens_lemma = summary_sent_tokens
+
     similar_source_indices_list = []
     lcs_paths_list = []
     article_lcs_paths_list = []
-    for summ_sent in summary_sent_tokens:
+    for summ_sent in summary_sent_tokens_lemma:
         remove_lcs = True
-        similarities = get_sent_similarities(summ_sent, article_sent_tokens, vocab)
+        similarities = get_sent_similarities(summ_sent, article_sent_tokens_lemma, vocab)
         if remove_lcs:
             similar_source_indices, lcs_paths, article_lcs_paths = get_similar_source_sents_by_lcs(
-                summ_sent, list(xrange(len(summ_sent))), article_sent_tokens, vocab, similarities, 0,
-                sentence_limit, min_matched_tokens)
+                summ_sent, list(xrange(len(summ_sent))), article_sent_tokens_lemma, vocab, similarities, 0,
+                sentence_limit, min_matched_tokens, remove_stop_words=remove_stop_words)
             similar_source_indices_list.append(similar_source_indices)
             lcs_paths_list.append(lcs_paths)
             article_lcs_paths_list.append(article_lcs_paths)
@@ -368,6 +382,12 @@ def main(unused_argv):
 
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
+
+    if FLAGS.only_highlight:
+        FLAGS.sent_dataset = False
+        FLAGS.ssi_dataset = False
+        FLAGS.print_output = False
+        FLAGS.highlight = True
 
     original_dataset_name = 'xsum' if 'xsum' in FLAGS.dataset_name else 'cnn_dm' if ('cnn_dm' in FLAGS.dataset_name or 'duc_2004' in FLAGS.dataset_name) else ''
     vocab = Vocab(FLAGS.vocab_path + '_' + original_dataset_name, FLAGS.vocab_size) # create a vocabulary
@@ -415,7 +435,7 @@ def main(unused_argv):
         highlight_file_name = os.path.join(html_dir, FLAGS.dataset_name + '_' + FLAGS.exp_name)
         if FLAGS.consider_stopwords:
             highlight_file_name += '_stopwords'
-        if FLAGS.highlight_sents_in_article:
+        if FLAGS.highlight:
             extracted_sents_in_article_html_file = open(highlight_file_name + '_extracted_sents.html', 'wb')
         if FLAGS.kaiqiang:
             kaiqiang_article_texts = []
@@ -423,7 +443,7 @@ def main(unused_argv):
             util.create_dirs(kaiqiang_dir)
             kaiqiang_article_file = open(os.path.join(kaiqiang_dir, FLAGS.dataset_name + '_' + dataset_split + '_' + str(FLAGS.min_matched_tokens) + '_articles.txt'), 'wb')
             kaiqiang_abstract_file = open(os.path.join(kaiqiang_dir, FLAGS.dataset_name + '_' + dataset_split + '_' + str(FLAGS.min_matched_tokens)  + '_abstracts.txt'), 'wb')
-        if FLAGS.create_with_coref_and_ssi_dataset:
+        if FLAGS.ssi_dataset:
             lambdamart_out_dir = os.path.join(lambdamart_dir, FLAGS.dataset_name)
             if FLAGS.sentence_limit == 1:
                 lambdamart_out_dir += '_singles'
@@ -500,106 +520,26 @@ def main(unused_argv):
             # summary_sent_tokens = limit_to_n_tokens(summary_sent_tokens, 100)
 
             similar_source_indices_list_plus_empty = []
-            similar_source_indices_list = []
-            lcs_paths_list = []
-            article_lcs_paths_list = []
 
-            for summ_sent in summary_sent_tokens:
-                similarities = get_sent_similarities(summ_sent, article_sent_tokens, vocab)
-                similar_source_indices, lcs_paths, article_lcs_paths = get_similar_source_sents_by_lcs(
-                    summ_sent, list(xrange(len(summ_sent))), article_sent_tokens, vocab, similarities, 0,
-                    FLAGS.sentence_limit, FLAGS.min_matched_tokens, not FLAGS.consider_stopwords)
+            simple_similar_source_indices, lcs_paths_list,article_lcs_paths_list =  get_simple_source_indices_list(
+                summary_sent_tokens, article_sent_tokens, vocab, FLAGS.sentence_limit, FLAGS.min_matched_tokens, not FLAGS.consider_stopwords, lemmatize=FLAGS.lemmatize)
 
-                similar_source_indices_list_plus_empty.append(similar_source_indices)
-                lcs_paths_list.append(lcs_paths)
-                article_lcs_paths_list.append(article_lcs_paths)
-                if len(similar_source_indices) == 0:
-                    continue
-
-                if FLAGS.create_isolated_sent_dataset:
-                    merge_example = get_merge_example(similar_source_indices, article_sent_tokens, summ_sent, corefs)
+            restricted_source_indices = util.enforce_sentence_limit(simple_similar_source_indices, FLAGS.sentence_limit)
+            for summ_sent_idx, summ_sent in enumerate(summary_sent_tokens):
+                if FLAGS.sent_dataset:
+                    if len(restricted_source_indices[summ_sent_idx]) == 0:
+                        continue
+                    merge_example = get_merge_example(restricted_source_indices[summ_sent_idx], article_sent_tokens, summ_sent, corefs)
                     all_merge_examples.append(merge_example)
 
-                if FLAGS.kaiqiang and len(similar_source_indices) == 1:
-                    kaiqiang_article, kaiqiang_abstract = get_kaiqiang_article_abstract(similar_source_indices, raw_article_sents, summ_sent)
-                    # kaiqiang_article_texts.append(kaiqiang_article)
-                    # kaiqiang_abstract_texts.append(kaiqiang_abstract)
-                    kaiqiang_article_file.write(kaiqiang_article + '\n')
-                    kaiqiang_abstract_file.write(kaiqiang_abstract + '\n')
-
-                if FLAGS.print_output:
-                    if len(similar_source_indices) >= 2:
-                        dist = get_shortest_distance(similar_source_indices[0], similar_source_indices[1], False, rel_sent_positions)
-                        distances.append(dist)
-                        if 'doc_indices' in example.features.feature:
-                            rel_dist = get_shortest_distance(similar_source_indices[0], similar_source_indices[1], True, rel_sent_positions)
-                            relative_distances.append(rel_dist)
-
-                    # out_str = ''
-                    # for token_idx, token in enumerate(summ_sent):
-                    #     insert_string = token
-                    #     for source_indices_idx, source_indices in enumerate(similar_source_indices):
-                    #         if source_indices_idx >= len(colors) or source_indices_idx >= FLAGS.sentence_limit:
-                    #             insert_string = token
-                    #             break
-                    #         if token_idx in lcs_paths[source_indices_idx]:
-                    #             insert_string = colors[source_indices_idx] + token + bcolors.ENDC
-                    #             break
-                    #     out_str += insert_string + ' '
-                    # out_str += '\n\n'
-                    # for source_indices_idx, source_indices in enumerate(similar_source_indices):
-                    #     if source_indices_idx >= len(colors) or source_indices_idx >= FLAGS.sentence_limit:
-                    #         break
-                    #     source_sentence = article_sent_tokens[source_indices[0]]
-                    #     for token_idx, token in enumerate(source_sentence):
-                    #         insert_string = token
-                    #         if token_idx in article_lcs_paths[source_indices_idx]:
-                    #             insert_string = colors[source_indices_idx] + token + bcolors.ENDC
-                    #         out_str += insert_string + ' '
-                    #     out_str += '\n\n'
-                    # out_str += '-----------------------------------'
-                    # tqdm.write(out_str)
-                    # a=0
-                    #
-                    # html_str += html_friendly_fusions(summ_sent, similar_source_indices, lcs_paths, article_lcs_paths, article_sent_tokens)
-                    # a=0
-
-
-                # if len(similar_source_indices) == 2:
-                #     dist = get_shortest_distance(similar_source_indices[0], similar_source_indices[1], False, rel_sent_positions)
-                #     distances.append(dist)
-                #     rel_dist = get_shortest_distance(similar_source_indices[0], similar_source_indices[1], True, rel_sent_positions)
-                #     relative_distances.append(rel_dist)
-                #     out_str = ''
-                #     if remove_lcs:
-                #         for token_idx, token in enumerate(summ_sent):
-                #             insert_string = token
-                #             if token_idx in lcs_paths:
-                #                 insert_string = bcolors.OKBLUE + token + bcolors.ENDC
-                #             out_str += insert_string + ' '
-                #     else:
-                #         for token_idx, token in enumerate(summ_sent):
-                #             if token_idx == start_idx:
-                #                 out_str += bcolors.OKBLUE
-                #             if token_idx == end_idx:
-                #                 out_str += bcolors.ENDC
-                #             out_str += token + ' '
-                #     out_str += '\n'
-                #     tqdm.write(out_str)
-                #     a=0
-                #     # print 'Dist', dist
-                num_extracted_list.append(len(similar_source_indices))
-                similar_source_indices_list.append(similar_source_indices)
-
-            simple_similar_source_indices = [ [s[0] for s in sim_source_ind] for sim_source_ind in similar_source_indices_list_plus_empty]
             simple_similar_source_indices_list_plus_empty.append(simple_similar_source_indices)
-            if FLAGS.create_with_coref_and_ssi_dataset:
+            if FLAGS.ssi_dataset:
                 write_lambdamart_example(simple_similar_source_indices, raw_article_sents, summary_text, corefs_str, doc_indices_str, lambdamart_writer)
 
 
-            if FLAGS.highlight_sents_in_article:
-                simple_ssi_plus_empty = [ [s[0] for s in sim_source_ind] for sim_source_ind in similar_source_indices_list_plus_empty]
-                extracted_sents_in_article_html = html_highlight_sents_in_article(summary_sent_tokens, simple_ssi_plus_empty,
+            if FLAGS.highlight:
+                # simple_ssi_plus_empty = [ [s[0] for s in sim_source_ind] for sim_source_ind in simple_similar_source_indices]
+                extracted_sents_in_article_html = html_highlight_sents_in_article(summary_sent_tokens, simple_similar_source_indices,
                                                                                   article_sent_tokens, doc_indices,
                                                                                   lcs_paths_list, article_lcs_paths_list)
                 extracted_sents_in_article_html_file.write(extracted_sents_in_article_html)
@@ -608,7 +548,7 @@ def main(unused_argv):
             instance_idx += 1
 
 
-        if FLAGS.create_with_coref_and_ssi_dataset:
+        if FLAGS.ssi_dataset:
             lambdamart_writer.close()
             if FLAGS.dataset_name == 'cnn_dm' or FLAGS.dataset_name == 'newsroom' or FLAGS.dataset_name == 'xsum':
                 chunk_size = 1000
@@ -616,7 +556,7 @@ def main(unused_argv):
                 chunk_size = 1
             util.chunk_file(dataset_split, lambdamart_out_full_dir, lambdamart_out_dir, chunk_size=chunk_size)
 
-        if FLAGS.create_isolated_sent_dataset:
+        if FLAGS.sent_dataset:
             out_dir = os.path.join(data_dir, FLAGS.dataset_name + '_sent')
             if FLAGS.sentence_limit == 1:
                 out_dir += '_singles'
@@ -643,24 +583,12 @@ def main(unused_argv):
             with open(os.path.join(ssi_path, dataset_split + '_ssi' + abstract_idx_str + '.pkl'), 'wb') as f:
                 cPickle.dump(simple_similar_source_indices_list_plus_empty, f)
 
-            num_extracted_2_or_more = np.sum([1 for num_extracted in num_extracted_list if num_extracted >= 2])
-            num_extracted = [len(ssi) for ssi in util.flatten_list_of_lists(simple_similar_source_indices_list_plus_empty)]
-            hist_num_extracted = np.histogram(num_extracted)
-            print 'Histogram of number of sentences merged: ', hist_num_extracted
-            print 'Percentage of summary sentences that are extracted from 2 or more source sentences %.03f' % (num_extracted_2_or_more*1./len(num_extracted_list))
-            print 'Average distance between those 2 sentences: %.02f' % (np.mean(distances))
-            print 'Average document-level distance between those 2 sentences: %.02f' % (np.mean(relative_distances))
-            hist_distances = np.histogram(distances)
-            hist_rel_distances = np.histogram(relative_distances)
-            print 'Histogram of distances: ', hist_distances
-            print 'Histogram of relative distances: ', hist_rel_distances
-
         if FLAGS.kaiqiang:
             # kaiqiang_article_file.write('\n'.join(kaiqiang_article_texts))
             # kaiqiang_abstract_file.write('\n'.join(kaiqiang_abstract_texts))
             kaiqiang_article_file.close()
             kaiqiang_abstract_file.close()
-        if FLAGS.highlight_sents_in_article:
+        if FLAGS.highlight:
             extracted_sents_in_article_html_file.close()
         a=0
 
@@ -675,16 +603,17 @@ if __name__ == '__main__':
     flags.DEFINE_integer('num_instances', -1, 'Number of instances to run for before stopping. Use -1 to run on all instances.')
     flags.DEFINE_string('vocab_path', 'logs/vocab', 'Path expression to text vocabulary file.')
     flags.DEFINE_boolean('only_rouge_l', False, 'Whether to use only R-L in calculating similarity or whether to average over R-1, R-2, and R-L.')
-    flags.DEFINE_boolean('print_output', True, 'Whether to print and save the merged sentences and statistics.')
-    flags.DEFINE_boolean('create_isolated_sent_dataset', True, 'Whether to save the merged sentences as a dataset.')
     flags.DEFINE_boolean('coreference_replacement', False, 'Whether to print and save the merged sentences and statistics.')
     flags.DEFINE_boolean('kaiqiang', False, 'Whether to save the single sentences as a dataset for Kaiqiang.')
-    flags.DEFINE_boolean('highlight_sents_in_article', False, 'Whether to save an html file that shows the selected sentences as highlighted in the article.')
-    flags.DEFINE_boolean('create_with_coref_and_ssi_dataset', True, 'Whether to save features as a dataset that will be used to predict which sentences should be merged, using the LambdaMART system.')
     flags.DEFINE_integer('top_n_sents', -1, 'Number of sentences to take from the beginning of the article. Use -1 to run on entire article.')
     flags.DEFINE_integer('min_matched_tokens', 2, 'Number of tokens required that still counts a source sentence as matching a summary sentence.')
     flags.DEFINE_integer('abstract_idx', 0, 'Which human abstract to process on. Only applies to duc_2004.')
     flags.DEFINE_boolean('consider_stopwords', False, 'Which human abstract to process on. Only applies to duc_2004.')
+    flags.DEFINE_boolean('print_output', True, 'Whether to print and save the merged sentences and statistics.')
+    flags.DEFINE_boolean('highlight', True, 'Whether to save an html file that shows the selected sentences as highlighted in the article.')
+    flags.DEFINE_boolean('sent_dataset', True, 'Whether to save the merged sentences as a dataset.')
+    flags.DEFINE_boolean('ssi_dataset', True, 'Whether to save features as a dataset that will be used to predict which sentences should be merged, using the LambdaMART system.')
+    flags.DEFINE_boolean('only_highlight', False, 'Which human abstract to process on. Only applies to duc_2004.')
     flags.DEFINE_boolean('lemmatize', True, 'Which human abstract to process on. Only applies to duc_2004.')
 
     app.run(main)

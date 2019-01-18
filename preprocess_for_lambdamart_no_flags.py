@@ -64,7 +64,7 @@ include_sents_dist = True
 include_tfidf_vec = True
 min_matched_tokens = 1
 
-data_dir = 'tf_data/with_coref_and_ssi'
+data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
 log_dir = 'logs/'
 out_dir = 'data/to_lambdamart'
 tfidf_vec_path = 'data/tfidf/' + 'all' + '_tfidf_vec_5.pkl'

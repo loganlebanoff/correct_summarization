@@ -28,7 +28,7 @@ FLAGS = flags.FLAGS
 # Where to find data
 flags.DEFINE_string('dataset_name', 'cnn_dm', 'Which dataset to use. Makes a log dir based on name.\
                                                 Must be one of {tac_2011, tac_2008, duc_2004, duc_tac, cnn_dm} or a custom dataset name')
-flags.DEFINE_string('data_root', 'tf_data/with_coref', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
+flags.DEFINE_string('data_root', '/home/logan/data/tf_data/with_coref', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
 flags.DEFINE_string('vocab_path', 'logs/vocab', 'Path expression to text vocabulary file.')
 flags.DEFINE_string('pretrained_path', 'logs/cnn_dm_sent_singles', 'Directory of pretrained model for PG trained on singles or pairs of sentences.')
 flags.DEFINE_boolean('use_pretrained', True, 'If True, use pretrained model in the path FLAGS.pretrained_path.')
@@ -99,7 +99,7 @@ start_over = True
 
 num_test_examples = 14490
 
-data_dir = 'tf_data/with_coref_and_ssi'
+data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
 temp_dir = 'data/temp/scores'
 lambdamart_in_dir = 'data/temp/to_lambdamart'
 lambdamart_out_dir = 'data/temp/lambdamart_results'

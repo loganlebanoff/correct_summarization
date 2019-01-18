@@ -6,7 +6,7 @@ import json
 
 
 dataset_split = 'test'
-source_dir = '/home/logan/discourse/tf_data/with_coref_and_ssi/cnn_dm'
+source_dir = '/home/logan/data/tf_data/with_coref_and_ssi/cnn_dm'
 
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_lists'), ('summary_text', 'string'), ('corefs', 'json')]
 
@@ -61,7 +61,18 @@ def unpack_tf_example(example, names_to_types):
 source_files = sorted(glob.glob(source_dir + '/' + dataset_split + '*'))
 
 total = len(source_files) * 1000
-example_generator = example_generator(source_dir + '/' + dataset_split + '*', True, False, should_check_valid=False)
+example_generator = example_generator(source_dir + '/' + dataset_split + '*', True)
 for example in tqdm(example_generator, total=total):
     raw_article_sents, similar_source_indices_list, summary_text, corefs = unpack_tf_example(example, names_to_types)
-    print similar_source_indices_list
+    groundtruth_summ_sents = [sent.strip() for sent in summary_text.strip().split('\n')]
+
+    for summary_sent_idx, source_sent_indices in enumerate(similar_source_indices_list):
+        print 'SUMMARY SENTENCE:'
+        print '------------------------------'
+        print groundtruth_summ_sents[summary_sent_idx] + '\n'
+
+        print 'SOURCE SENTENCE(S):'
+        print '------------------------------'
+        for sent_idx in source_sent_indices:
+            print raw_article_sents[sent_idx] + '\n'
+        print ''

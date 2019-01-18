@@ -34,7 +34,7 @@ singles_and_pairs = 'singles'
 include_tfidf_vec = True
 use_pair_criteria = True
 
-data_dir = 'tf_data/merge_indices'
+data_dir = '/home/logan/data/tf_data/merge_indices'
 temp_dir = 'data/temp/scores'
 lambdamart_in_dir = 'data/temp/to_lambdamart'
 lambdamart_out_dir = 'data/temp/lambdamart_results'

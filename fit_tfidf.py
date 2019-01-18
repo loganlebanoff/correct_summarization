@@ -38,7 +38,7 @@ include_sents_dist = True
 lr = False
 min_df = 5
 
-data_dir = 'tf_data'
+data_dir = '/home/logan/data/tf_data'
 log_dir = 'logs/'
 out_dir = 'data/tfidf'
 max_enc_steps = 100000

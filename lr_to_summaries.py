@@ -38,7 +38,7 @@ min_matched_tokens = 2
 singles_and_pairs = 'singles'
 include_tfidf_vec = True
 
-data_dir = 'tf_data/with_coref_and_ssi'
+data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
 model_dir = 'data/lambdamart_models'
 temp_dir = 'data/temp/scores'
 lambdamart_in_dir = 'data/temp/to_lambdamart'

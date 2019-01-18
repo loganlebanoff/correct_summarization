@@ -28,7 +28,7 @@ FLAGS = flags.FLAGS
 # Where to find data
 flags.DEFINE_string('dataset_name', 'cnn_dm', 'Which dataset to use. Makes a log dir based on name.\
                                                 Must be one of {tac_2011, tac_2008, duc_2004, duc_tac, cnn_dm} or a custom dataset name')
-flags.DEFINE_string('data_root', 'tf_data/with_coref_and_ssi', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
+flags.DEFINE_string('data_root', '/home/logan/data/tf_data/with_coref_and_ssi', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
 flags.DEFINE_string('vocab_path', 'logs/vocab', 'Path expression to text vocabulary file.')
 flags.DEFINE_string('pretrained_path', '', 'Directory of pretrained model for PG trained on singles or pairs of sentences.')
 flags.DEFINE_boolean('use_pretrained', True, 'If True, use pretrained model in the path FLAGS.pretrained_path.')
@@ -92,6 +92,8 @@ flags.DEFINE_string('singles_and_pairs', 'singles',
 #                     'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
 flags.DEFINE_boolean('upper_bound', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('cnn_dm_pg', False, 'If true, use PG trained on CNN/DM for testing.')
+flags.DEFINE_boolean('websplit', False, 'If true, use PG trained on Websplit for testing.')
+flags.DEFINE_boolean('lead_baseline', False, 'If true, use PG trained on Websplit for testing.')
 
 _exp_name = 'lambdamart'
 dataset_split = 'test'
@@ -116,6 +118,8 @@ def main(unused_argv):
 
     if FLAGS.cnn_dm_pg:
         pretrained_dataset = 'cnn_dm'
+    elif FLAGS.websplit:
+        pretrained_dataset = 'websplit'
     else:
         pretrained_dataset = FLAGS.dataset_name
     if FLAGS.dataset_name == 'duc_2004':
@@ -137,6 +141,8 @@ def main(unused_argv):
             ssi_list = cPickle.load(f)
     if FLAGS.cnn_dm_pg:
         FLAGS.exp_name = FLAGS.exp_name + '_cnntrained'
+    if FLAGS.websplit:
+        FLAGS.exp_name = FLAGS.exp_name + '_websplittrained'
 
 
 

@@ -38,6 +38,15 @@ import string
 import struct
 import rouge_functions
 import json
+import spacy
+from spacy.tokens import Doc
+from spacy.lang.en import English
+
+nlp = English()
+try:
+    nlp2 = spacy.load('en', disable=['parser', 'ner'])
+except:
+    nlp2 = spacy.load('en_core_web_sm', disable=['parser', 'ner'])
 FLAGS = flags.FLAGS
 
 stop_words = set(stopwords.words('english'))
@@ -220,7 +229,10 @@ def is_stopword_punctuation(word):
     return False
 
 def remove_stopwords_punctuation(sent):
-    new_sent = [token for token in sent if not is_stopword_punctuation(token)]
+    try:
+        new_sent = [token for token in sent if not is_stopword_punctuation(token)]
+    except:
+        a=0
     return new_sent
 
 '''
@@ -429,7 +441,11 @@ def combine_sim_and_imp(logan_similarity, logan_importances, lambda_val=0.6):
 def combine_sim_and_imp_dict(similarities_dict, importances_dict, lambda_val=0.6):
     mmr = {}
     for key in importances_dict.keys():
-        mmr[key] = combine_sim_and_imp(similarities_dict[key], importances_dict[key], lambda_val=lambda_val)
+        try:
+            mmr[key] = combine_sim_and_imp(similarities_dict[key], importances_dict[key], lambda_val=lambda_val)
+        except:
+            a=0
+            raise
     return mmr
 
 def calc_MMR(raw_article_sents, article_sent_tokens, summ_tokens, vocab, importances=None):
@@ -524,11 +540,16 @@ def reshape_like(to_reshape, thing_with_shape):
     res = []
     if len(to_reshape) != len(flatten_list_of_lists(thing_with_shape)):
         print 'Len of to_reshape (' + str(len(to_reshape)) + ') does not equal len of thing_with_shape (' + str(len(flatten_list_of_lists(thing_with_shape))) + ')'
+        raise Exception('error')
     idx = 0
     for lst in thing_with_shape:
         list_to_add = []
         for _ in lst:
-            list_to_add.append(to_reshape[idx])
+
+            try:
+                list_to_add.append(to_reshape[idx])
+            except:
+                a=0
             idx += 1
         res.append(list_to_add)
     return res
@@ -646,7 +667,26 @@ def all_sent_selection_eval(ssi_list):
     print combined_suffix
     return combined_suffix
 
+def lemmatize_sent_tokens(article_sent_tokens):
+    article_sent_tokens_lemma = [[t.lemma_ for t in Doc(nlp.vocab, words=[token.decode('utf-8') for token in sent])] for sent in article_sent_tokens]
 
+    article_sent_tokens_lemma2 = [[t.lemma_ for t in nlp2(' '.join(sent))] for sent in article_sent_tokens]
+    # for a, b in zip(flatten_list_of_lists(article_sent_tokens), flatten_list_of_lists(article_sent_tokens_lemma)):
+    #     if a != b:
+    #         print a + '\t' + b
+
+    # for a, b in zip(article_sent_tokens_lemma, article_sent_tokens_lemma2):
+    #     if len(a) != len(b):
+    #         for j in range(max(len(a) ,len(b))):
+    #             if j >= len(a):
+    #                 print '\t\t' + b[j]
+    #             elif j >= len(b):
+    #                 print a[j] + '\t\t'
+    #             else:
+    #                 print a[j] + '\t' + b[j]
+    #         print '\n\n'
+
+    return article_sent_tokens_lemma
 
 
 

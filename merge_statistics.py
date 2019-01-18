@@ -37,7 +37,7 @@ import convert_data
 import lambdamart_scores_to_summaries
 import preprocess_for_lambdamart_no_flags
 
-data_dir = 'tf_data/with_coref_and_ssi'
+data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 min_matched_tokens = 1
@@ -206,7 +206,8 @@ def main(unused_argv):
         ssi_2d = util.flatten_list_of_lists(ssi_list)
 
         num_extracted = [len(ssi) for ssi in util.flatten_list_of_lists(ssi_list)]
-        hist_num_extracted = np.histogram(num_extracted, bins=6)
+        hist_num_extracted = np.histogram(num_extracted, bins=6, range=(0,5))
+        print hist_num_extracted
         print 'Histogram of number of sentences merged: ', util.hist_as_pdf_str(hist_num_extracted)
 
         distances = [abs(ssi[0]-ssi[1]) for ssi in ssi_2d if len(ssi) >= 2]

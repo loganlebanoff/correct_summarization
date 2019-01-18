@@ -29,7 +29,7 @@ out_dir = '/home/logan/data/multidoc_summarization/sumrepo_duc2004/rouge'
 
 summary_methods = ['Centroid', 'ICSISumm', 'DPP', 'Submodular']
 
-data_dir = 'tf_data'
+data_dir = '/home/logan/data/tf_data'
 log_dir = 'logs/'
 max_enc_steps = 100
 min_dec_steps = 10
