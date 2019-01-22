@@ -149,16 +149,12 @@ class BeamSearchDecoder(object):
             groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
 
             if ssi_list is None:    # this is if we are doing the upper bound evaluation (ssi_list comes straight from the groundtruth)
-                if FLAGS.lead_baseline:
-                    a=0
-                    # sys_ssi =
-                else:
-                    sys_ssi = groundtruth_similar_source_indices_list
-                    if FLAGS.singles_and_pairs == 'singles':
-                        sys_ssi = util.enforce_sentence_limit(sys_ssi, 1)
-                    elif FLAGS.singles_and_pairs == 'both':
-                        sys_ssi = util.enforce_sentence_limit(sys_ssi, 2)
-                    sys_ssi = util.replace_empty_ssis(sys_ssi, raw_article_sents)
+                sys_ssi = groundtruth_similar_source_indices_list
+                if FLAGS.singles_and_pairs == 'singles':
+                    sys_ssi = util.enforce_sentence_limit(sys_ssi, 1)
+                elif FLAGS.singles_and_pairs == 'both':
+                    sys_ssi = util.enforce_sentence_limit(sys_ssi, 2)
+                sys_ssi = util.replace_empty_ssis(sys_ssi, raw_article_sents)
             else:
                 gt_ssi, sys_ssi, ext_len = ssi_list[example_idx]
                 if FLAGS.singles_and_pairs == 'singles':

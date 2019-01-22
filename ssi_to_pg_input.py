@@ -93,7 +93,6 @@ flags.DEFINE_string('singles_and_pairs', 'singles',
 flags.DEFINE_boolean('upper_bound', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('cnn_dm_pg', False, 'If true, use PG trained on CNN/DM for testing.')
 flags.DEFINE_boolean('websplit', False, 'If true, use PG trained on Websplit for testing.')
-flags.DEFINE_boolean('lead_baseline', False, 'If true, use PG trained on Websplit for testing.')
 
 _exp_name = 'lambdamart'
 dataset_split = 'test'

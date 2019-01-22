@@ -995,15 +995,15 @@ def main(_):
         is_training_or_val=True,
         drop_remainder=eval_drop_remainder)
 
-    serving_feature_spec = tf.feature_column.make_parse_example_spec(
-        self.embedding_output)
-    serving_input_receiver_fn = (
-        tf.estimator.export.build_parsing_serving_input_receiver_fn(
-            serving_feature_spec))
-    exporter = tf.estimator.BestExporter(
-        name="best_exporter",
-        serving_input_receiver_fn=serving_input_receiver_fn,
-        exports_to_keep=5)
+    # serving_feature_spec = tf.feature_column.make_parse_example_spec(
+    #     self.embedding_output)
+    # serving_input_receiver_fn = (
+    #     tf.estimator.export.build_parsing_serving_input_receiver_fn(
+    #         serving_feature_spec))
+    # exporter = tf.estimator.BestExporter(
+    #     name="best_exporter",
+    #     serving_input_receiver_fn=serving_input_receiver_fn,
+    #     exports_to_keep=5)
 
   if FLAGS.do_train:
     train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
