@@ -64,10 +64,10 @@ def load_ckpt(saver, sess, ckpt_dir="train"):
         try:
             latest_filename = "checkpoint_best" if ckpt_dir=="eval" else None
             if FLAGS.use_pretrained:
-                ckpt_dir = os.path.join(FLAGS.pretrained_path, 'train')
+                my_ckpt_dir = os.path.join(FLAGS.pretrained_path, 'train')
             else:
-                ckpt_dir = os.path.join(FLAGS.log_root, ckpt_dir)
-            ckpt_state = tf.train.get_checkpoint_state(ckpt_dir, latest_filename=latest_filename)
+                my_ckpt_dir = os.path.join(FLAGS.log_root, ckpt_dir)
+            ckpt_state = tf.train.get_checkpoint_state(my_ckpt_dir, latest_filename=latest_filename)
             logging.info('Loading checkpoint %s', ckpt_state.model_checkpoint_path)
             saver.restore(sess, ckpt_state.model_checkpoint_path)
             return ckpt_state.model_checkpoint_path
@@ -670,7 +670,7 @@ def all_sent_selection_eval(ssi_list):
 def lemmatize_sent_tokens(article_sent_tokens):
     article_sent_tokens_lemma = [[t.lemma_ for t in Doc(nlp.vocab, words=[token.decode('utf-8') for token in sent])] for sent in article_sent_tokens]
 
-    article_sent_tokens_lemma2 = [[t.lemma_ for t in nlp2(' '.join(sent))] for sent in article_sent_tokens]
+    # article_sent_tokens_lemma2 = [[t.lemma_ for t in nlp2(' '.join(sent))] for sent in article_sent_tokens]
     # for a, b in zip(flatten_list_of_lists(article_sent_tokens), flatten_list_of_lists(article_sent_tokens_lemma)):
     #     if a != b:
     #         print a + '\t' + b
@@ -688,7 +688,11 @@ def lemmatize_sent_tokens(article_sent_tokens):
 
     return article_sent_tokens_lemma
 
-
+average_sents_for_dataset = {
+    'cnn_dm': 4,
+    'xsum': 1,
+    'duc_2004': 5
+}
 
 
 

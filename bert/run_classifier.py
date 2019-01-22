@@ -38,13 +38,13 @@ flags.DEFINE_string(
     "for the task.")
 
 flags.DEFINE_string(
-    "bert_config_file", None,
+    "bert_config_file", "/home/logan/models/uncased_L-12_H-768_A-12/bert_config.json",
     "The config json file corresponding to the pre-trained BERT model. "
     "This specifies the model architecture.")
 
 flags.DEFINE_string("task_name", None, "The name of the task to train.")
 
-flags.DEFINE_string("vocab_file", None,
+flags.DEFINE_string("vocab_file", "/home/logan/models/uncased_L-12_H-768_A-12/vocab.txt",
                     "The vocabulary file that the BERT model was trained on.")
 
 flags.DEFINE_string(
@@ -54,11 +54,16 @@ flags.DEFINE_string(
 ## Other parameters
 
 flags.DEFINE_string(
-    "init_checkpoint", None,
+    "init_checkpoint", "/home/logan/models/uncased_L-12_H-768_A-12/bert_model.ckpt",
     "Initial checkpoint (usually from a pre-trained BERT model).")
 
 flags.DEFINE_bool(
     "do_lower_case", True,
+    "Whether to lower case the input text. Should be True for uncased "
+    "models and False for cased models.")
+
+flags.DEFINE_bool(
+    "use_sentence_position_embeddings", True,
     "Whether to lower case the input text. Should be True for uncased "
     "models and False for cased models.")
 
@@ -128,7 +133,7 @@ flags.DEFINE_integer(
 class InputExample(object):
   """A single training/test example for simple sequence classification."""
 
-  def __init__(self, guid, text_a, text_b=None, label=None):
+  def __init__(self, guid, text_a, text_b=None, label=None, sentence_ids=None):
     """Constructs a InputExample.
 
     Args:
@@ -144,6 +149,7 @@ class InputExample(object):
     self.text_a = text_a
     self.text_b = text_b
     self.label = label
+    self.sentence_ids = sentence_ids
 
 
 class PaddingInputExample(object):
@@ -167,11 +173,13 @@ class InputFeatures(object):
                input_mask,
                segment_ids,
                label_id,
+               sentence_ids,
                is_real_example=True):
     self.input_ids = input_ids
     self.input_mask = input_mask
     self.segment_ids = segment_ids
     self.label_id = label_id
+    self.sentence_ids = sentence_ids
     self.is_real_example = is_real_example
 
 
@@ -244,8 +252,9 @@ class MergeProcessor(DataProcessor):
         label = "0"
       else:
         label = tokenization.convert_to_unicode(line[0])
+      sentence_ids = [int(idx) for idx in line[5].split()]
       examples.append(
-          InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
+          InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label, sentence_ids=sentence_ids))
     return examples
 
 
@@ -430,6 +439,7 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
         input_mask=[0] * max_seq_length,
         segment_ids=[0] * max_seq_length,
         label_id=0,
+        sentence_ids=[0] * max_seq_length,
         is_real_example=False)
 
   label_map = {}
@@ -451,6 +461,8 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
     if len(tokens_a) > max_seq_length - 2:
       tokens_a = tokens_a[0:(max_seq_length - 2)]
 
+
+
   # The convention in BERT is:
   # (a) For sequence pairs:
   #  tokens:   [CLS] is this jack ##son ##ville ? [SEP] no it is not . [SEP]
@@ -471,20 +483,26 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   # the entire model is fine-tuned.
   tokens = []
   segment_ids = []
+  sentence_ids = []
   tokens.append("[CLS]")
   segment_ids.append(0)
+  sentence_ids.append(example.sentence_ids[0])
   for token in tokens_a:
     tokens.append(token)
     segment_ids.append(0)
+    sentence_ids.append(example.sentence_ids[0])
   tokens.append("[SEP]")
   segment_ids.append(0)
+  sentence_ids.append(example.sentence_ids[0])
 
   if tokens_b:
     for token in tokens_b:
       tokens.append(token)
       segment_ids.append(1)
+      sentence_ids.append(example.sentence_ids[1])
     tokens.append("[SEP]")
     segment_ids.append(1)
+    sentence_ids.append(example.sentence_ids[1])
 
   input_ids = tokenizer.convert_tokens_to_ids(tokens)
 
@@ -497,10 +515,12 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
     input_ids.append(0)
     input_mask.append(0)
     segment_ids.append(0)
+    sentence_ids.append(0)
 
   assert len(input_ids) == max_seq_length
   assert len(input_mask) == max_seq_length
   assert len(segment_ids) == max_seq_length
+  assert len(sentence_ids) == max_seq_length
 
   label_id = label_map[example.label]
   if ex_index < 5:
@@ -511,6 +531,7 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
     tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
     tf.logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
     tf.logging.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
+    tf.logging.info("sentence_ids: %s" % " ".join([str(x) for x in sentence_ids]))
     tf.logging.info("label: %s (id = %d)" % (example.label, label_id))
 
   feature = InputFeatures(
@@ -518,6 +539,7 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
       input_mask=input_mask,
       segment_ids=segment_ids,
       label_id=label_id,
+      sentence_ids=sentence_ids,
       is_real_example=True)
   return feature
 
@@ -544,6 +566,7 @@ def file_based_convert_examples_to_features(
     features["input_mask"] = create_int_feature(feature.input_mask)
     features["segment_ids"] = create_int_feature(feature.segment_ids)
     features["label_ids"] = create_int_feature([feature.label_id])
+    features["sentence_ids"] = create_int_feature(feature.sentence_ids)
     features["is_real_example"] = create_int_feature(
         [int(feature.is_real_example)])
 
@@ -561,6 +584,7 @@ def file_based_input_fn_builder(input_file, seq_length, is_training_or_val,
       "input_mask": tf.FixedLenFeature([seq_length], tf.int64),
       "segment_ids": tf.FixedLenFeature([seq_length], tf.int64),
       "label_ids": tf.FixedLenFeature([], tf.int64),
+      "sentence_ids": tf.FixedLenFeature([seq_length], tf.int64),
       "is_real_example": tf.FixedLenFeature([], tf.int64),
   }
 
@@ -587,7 +611,7 @@ def file_based_input_fn_builder(input_file, seq_length, is_training_or_val,
     d = tf.data.TFRecordDataset(input_file)
     if is_training_or_val:
       d = d.repeat()
-      d = d.shuffle(buffer_size=100)
+      d = d.shuffle(buffer_size=10000)
 
     d = d.apply(
         tf.contrib.data.map_and_batch(
@@ -618,7 +642,7 @@ def _truncate_seq_pair(tokens_a, tokens_b, max_length):
 
 
 def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
-                 labels, num_labels, use_one_hot_embeddings):
+                 labels, num_labels, use_one_hot_embeddings, sentence_ids):
   """Creates a classification model."""
   model = modeling.BertModel(
       config=bert_config,
@@ -626,7 +650,8 @@ def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
       input_ids=input_ids,
       input_mask=input_mask,
       token_type_ids=segment_ids,
-      use_one_hot_embeddings=use_one_hot_embeddings)
+      use_one_hot_embeddings=use_one_hot_embeddings,
+      sentence_ids=sentence_ids)
 
   # In the demo, we are doing a simple classification task on the entire
   # segment.
@@ -678,6 +703,7 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
     input_mask = features["input_mask"]
     segment_ids = features["segment_ids"]
     label_ids = features["label_ids"]
+    sentence_ids = features["sentence_ids"] if FLAGS.use_sentence_position_embeddings else None
     is_real_example = None
     if "is_real_example" in features:
       is_real_example = tf.cast(features["is_real_example"], dtype=tf.float32)
@@ -688,7 +714,7 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
 
     (total_loss, per_example_loss, logits, probabilities) = create_model(
         bert_config, is_training, input_ids, input_mask, segment_ids, label_ids,
-        num_labels, use_one_hot_embeddings)
+        num_labels, use_one_hot_embeddings, sentence_ids)
 
     tvars = tf.trainable_variables()
     initialized_variable_names = {}
@@ -763,12 +789,14 @@ def input_fn_builder(features, seq_length, is_training, drop_remainder):
   all_input_mask = []
   all_segment_ids = []
   all_label_ids = []
+  all_sentence_ids = []
 
   for feature in features:
     all_input_ids.append(feature.input_ids)
     all_input_mask.append(feature.input_mask)
     all_segment_ids.append(feature.segment_ids)
     all_label_ids.append(feature.label_id)
+    all_sentence_ids.append(feature.sentence_ids)
 
   def input_fn(params):
     """The actual input function."""
@@ -796,6 +824,8 @@ def input_fn_builder(features, seq_length, is_training, drop_remainder):
                 dtype=tf.int32),
         "label_ids":
             tf.constant(all_label_ids, shape=[num_examples], dtype=tf.int32),
+        "sentence_ids":
+            tf.constant(all_sentence_ids, shape=[num_examples, seq_length],  dtype=tf.int32)
     })
 
     if is_training:
@@ -912,7 +942,10 @@ def main(_):
       eval_batch_size=FLAGS.eval_batch_size,
       predict_batch_size=FLAGS.predict_batch_size)
 
-
+  def create_dirs(dir):
+      if not os.path.exists(dir):
+          os.makedirs(dir)
+  create_dirs(estimator.eval_dir())
   # os.makedirs(estimator.eval_dir())  # TODO This should not be expected IMO.
 
   early_stopping = tf.contrib.estimator.stop_if_no_decrease_hook(
@@ -962,6 +995,16 @@ def main(_):
         is_training_or_val=True,
         drop_remainder=eval_drop_remainder)
 
+    serving_feature_spec = tf.feature_column.make_parse_example_spec(
+        self.embedding_output)
+    serving_input_receiver_fn = (
+        tf.estimator.export.build_parsing_serving_input_receiver_fn(
+            serving_feature_spec))
+    exporter = tf.estimator.BestExporter(
+        name="best_exporter",
+        serving_input_receiver_fn=serving_input_receiver_fn,
+        exports_to_keep=5)
+
   if FLAGS.do_train:
     train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
     if not os.path.exists(train_file):
@@ -974,7 +1017,7 @@ def main(_):
     train_input_fn = file_based_input_fn_builder(
         input_file=train_file,
         seq_length=FLAGS.max_seq_length,
-        is_training=True,
+        is_training_or_val=True,
         drop_remainder=True)
     # estimator.train(input_fn=train_input_fn, max_steps=num_train_steps)
     tf.estimator.train_and_evaluate(
@@ -1019,7 +1062,7 @@ def main(_):
     predict_input_fn = file_based_input_fn_builder(
         input_file=predict_file,
         seq_length=FLAGS.max_seq_length,
-        is_training=False,
+        is_training_or_val=False,
         drop_remainder=predict_drop_remainder)
 
     result = estimator.predict(input_fn=predict_input_fn)

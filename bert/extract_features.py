@@ -26,6 +26,7 @@ import re
 import modeling
 import tokenization
 import tensorflow as tf
+from tqdm import tqdm
 
 flags = tf.flags
 
@@ -38,7 +39,7 @@ flags.DEFINE_string("output_file", None, "")
 flags.DEFINE_string("layers", "-1,-2,-3,-4", "")
 
 flags.DEFINE_string(
-    "bert_config_file", None,
+    "bert_config_file", "/home/logan/models/uncased_L-12_H-768_A-12/bert_config.json",
     "The config json file corresponding to the pre-trained BERT model. "
     "This specifies the model architecture.")
 
@@ -49,10 +50,10 @@ flags.DEFINE_integer(
     "than this will be padded.")
 
 flags.DEFINE_string(
-    "init_checkpoint", None,
+    "init_checkpoint", "/home/logan/models/uncased_L-12_H-768_A-12/bert_model.ckpt",
     "Initial checkpoint (usually from a pre-trained BERT model).")
 
-flags.DEFINE_string("vocab_file", None,
+flags.DEFINE_string("vocab_file", "/home/logan/models/uncased_L-12_H-768_A-12/vocab.txt",
                     "The vocabulary file that the BERT model was trained on.")
 
 flags.DEFINE_bool(
@@ -76,6 +77,10 @@ flags.DEFINE_bool(
     "If True, tf.one_hot will be used for embedding lookups, otherwise "
     "tf.nn.embedding_lookup will be used. On TPUs, this should be True "
     "since it is much faster.")
+
+flags.DEFINE_bool(
+    "only_class_embedding", False,
+    "If True, only save the [CLS] embedding to the output jsonl file.")
 
 
 class InputExample(object):
@@ -210,8 +215,9 @@ def model_fn_builder(bert_config, init_checkpoint, layer_indexes, use_tpu,
 def convert_examples_to_features(examples, seq_length, tokenizer):
   """Loads a data file into a list of `InputBatch`s."""
 
+  print("Converting examples to features...")
   features = []
-  for (ex_index, example) in enumerate(examples):
+  for (ex_index, example) in enumerate(tqdm(examples)):
     tokens_a = tokenizer.tokenize(example.text_a)
 
     tokens_b = None
@@ -386,13 +392,17 @@ def main(_):
 
   with codecs.getwriter("utf-8")(tf.gfile.Open(FLAGS.output_file,
                                                "w")) as writer:
-    for result in estimator.predict(input_fn, yield_single_examples=True):
+    for result in tqdm(estimator.predict(input_fn, yield_single_examples=True), total=len(examples)):
       unique_id = int(result["unique_id"])
       feature = unique_id_to_feature[unique_id]
       output_json = collections.OrderedDict()
       output_json["linex_index"] = unique_id
       all_features = []
-      for (i, token) in enumerate(feature.tokens):
+      if FLAGS.only_class_embedding:
+          tokens = [feature.tokens[0]]
+      else:
+          tokens = feature.tokens
+      for (i, token) in enumerate(tokens):
         all_layers = []
         for (j, layer_index) in enumerate(layer_indexes):
           layer_output = result["layer_output_%d" % j]

@@ -150,7 +150,8 @@ class BeamSearchDecoder(object):
 
             if ssi_list is None:    # this is if we are doing the upper bound evaluation (ssi_list comes straight from the groundtruth)
                 if FLAGS.lead_baseline:
-                    sys_ssi =
+                    a=0
+                    # sys_ssi =
                 else:
                     sys_ssi = groundtruth_similar_source_indices_list
                     if FLAGS.singles_and_pairs == 'singles':

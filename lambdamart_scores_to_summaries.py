@@ -45,6 +45,8 @@ if 'num_instances' not in flags.FLAGS:
     flags.DEFINE_integer('num_instances', -1, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
 if 'sent_position_criteria' not in flags.FLAGS:
     flags.DEFINE_boolean('sent_position_criteria', True, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
+if 'lead' not in flags.FLAGS:
+    flags.DEFINE_boolean('lead', False, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
 
 if not flags_already_done:
     FLAGS(sys.argv)
@@ -70,7 +72,6 @@ data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
 temp_dir = 'data/temp/' + FLAGS.dataset_name + '/scores'
 lambdamart_in_dir = 'data/temp/' + FLAGS.dataset_name + '/to_lambdamart'
 lambdamart_out_dir = 'data/temp/' + FLAGS.dataset_name + '/lambdamart_results'
-ssi_out_dir = 'data/temp/' + FLAGS.dataset_name + '/ssi'
 log_dir = 'logs'
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 
@@ -83,6 +84,9 @@ else:
 
 if FLAGS.upper_bound:
     exp_name = exp_name + '_upperbound'
+
+if FLAGS.lead:
+    exp_name = exp_name + '_lead'
 
 if FLAGS.pca:
     exp_name = exp_name + '_pca'
@@ -115,7 +119,6 @@ util.create_dirs(dec_dir)
 util.create_dirs(ref_dir)
 util.create_dirs(html_dir)
 util.create_dirs(temp_dir)
-util.create_dirs(ssi_out_dir)
 
 tfidf_vec_path = 'data/tfidf/' + tfidf_model + '_tfidf_vec_5.pkl'
 with open(tfidf_vec_path, 'rb') as f:
@@ -359,7 +362,7 @@ def write_to_lambdamart_examples_to_file(ex):
     doc_indices = [int(doc_idx) for doc_idx in doc_indices]
     if len(doc_indices) != len(util.flatten_list_of_lists(article_sent_tokens)):
         doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
-    rel_sent_indices = get_rel_sent_indices(doc_indices, article_sent_tokens)
+    rel_sent_indices, _, _ = get_rel_sent_indices(doc_indices, article_sent_tokens)
     groundtruth_similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, sentence_limit)
     groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
     groundtruth_summ_sent_tokens = [sent.split(' ') for sent in groundtruth_summ_sents[0]]
@@ -393,6 +396,13 @@ def evaluate_example(ex):
         selected_article_sent_indices = util.flatten_list_of_lists(replaced_ssi_list)
         summary_sents = [' '.join(sent) for sent in util.reorder(article_sent_tokens, selected_article_sent_indices)]
         similar_source_indices_list = groundtruth_similar_source_indices_list
+        ssi_length_extractive = len(similar_source_indices_list)
+    elif FLAGS.lead:
+        lead_ssi_list = [(idx,) for idx in list(xrange(util.average_sents_for_dataset[FLAGS.dataset_name]))]
+        lead_ssi_list = lead_ssi_list[:len(raw_article_sents)] # make sure the sentence indices don't go past the total number of sentences in the article
+        selected_article_sent_indices = util.flatten_list_of_lists(lead_ssi_list)
+        summary_sents = [' '.join(sent) for sent in util.reorder(article_sent_tokens, selected_article_sent_indices)]
+        similar_source_indices_list = lead_ssi_list
         ssi_length_extractive = len(similar_source_indices_list)
     else:
         summary_sents, similar_source_indices_list, summary_sents_for_html, ssi_length_extractive = generate_summary(article_sent_tokens, qid_ssi_to_importances, example_idx)
@@ -475,8 +485,6 @@ def main(unused_argv):
         print 'Creating list'
         ex_list = [ex for ex in ex_gen]
         ssi_list = list(futures.map(evaluate_example, ex_list))
-        with open(os.path.join(ssi_out_dir, exp_name), 'w') as f:
-            cPickle.dump(ssi_list, f)
 
         # save ssi_list
         with open(os.path.join(my_log_dir, 'ssi.pkl'), 'w') as f:

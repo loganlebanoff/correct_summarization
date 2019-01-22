@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import sys
 import nltk
 import numpy as np
@@ -226,7 +228,7 @@ def get_sent_similarities(summ_sent, article_sent_tokens, vocab, only_rouge_l=Fa
 
     return similarities
 
-def get_top_similar_sent(summ_sent, article_sent_tokens, vocab, remove_stop_words=True):
+def get_top_similar_sent(summ_sent, article_sent_tokens, vocab, remove_stop_words=True, multiple_ssi=False):
     try:
         similarities = get_sent_similarities(summ_sent, article_sent_tokens, vocab, remove_stop_words=remove_stop_words)
         top_similarity = np.max(similarities)
@@ -234,47 +236,60 @@ def get_top_similar_sent(summ_sent, article_sent_tokens, vocab, remove_stop_word
         print summ_sent
         print article_sent_tokens
         raise
-    sent_indices = [sent_idx for sent_idx, sent_sim in enumerate(similarities) if sent_sim == top_similarity]
+    # sent_indices = [sent_idx for sent_idx, sent_sim in enumerate(similarities) if sent_sim == top_similarity]
+    if multiple_ssi:
+        sent_indices = [sent_idx for sent_idx, sent_sim in enumerate(similarities) if sent_sim > top_similarity * 0.75]
+    else:
+        sent_indices = [np.argmax(similarities)]
     return sent_indices, top_similarity
 
 def replace_with_blanks(summ_sent, selection):
     replaced_summ_sent = [summ_sent[token_idx] if token_idx in selection else '' for token_idx, token in enumerate(summ_sent)]
     return  replaced_summ_sent
 
-def get_similar_source_sents_by_lcs(summ_sent, selection, article_sent_tokens, vocab, similarities, depth, sentence_limit, min_matched_tokens, remove_stop_words=True):
+def get_similar_source_sents_by_lcs(summ_sent, selection, article_sent_tokens, vocab, similarities, depth, sentence_limit, min_matched_tokens, remove_stop_words=True, multiple_ssi=False):
     remove_unigrams = True
     if sentence_limit == 1:
         if depth > 2:
-            return [], [], []
+            return [[]], [[]], [[]]
     elif len(selection) < 3 or depth >= sentence_limit:      # base case: when summary sentence is too short
-        return [], [], []
+        return [[]], [[]], [[]]
+
+    all_sent_indices = []
+    all_lcs_paths = []
+    all_article_lcs_paths = []
 
     # partial_summ_sent = util.reorder(summ_sent, selection)
-    top_sent_indices, top_similarity = get_top_similar_sent(summ_sent, article_sent_tokens, vocab, remove_stop_words)
+    top_sent_indices, top_similarity = get_top_similar_sent(summ_sent, article_sent_tokens, vocab, remove_stop_words, multiple_ssi=multiple_ssi)
     top_similarities = util.reorder(similarities, top_sent_indices)
     top_sent_indices = [x for _, x in sorted(zip(top_similarities, top_sent_indices), key=lambda pair: pair[0])][::-1]
-    top_sent_idx = top_sent_indices[0]
-    if remove_unigrams:
-        nonstopword_matches, _ = util.matching_unigrams(summ_sent, article_sent_tokens[top_sent_idx], should_remove_stop_words=remove_stop_words)
-        lcs_len, (summ_lcs_path, article_lcs_path) = util.matching_unigrams(summ_sent, article_sent_tokens[top_sent_idx])
-    else:
-        lcs_len, (summ_lcs_path, article_lcs_path) = util.lcs(summ_sent, article_sent_tokens[top_sent_idx])
-    if len(nonstopword_matches) < min_matched_tokens:
-        return [], [], []
-    # new_selection = [selection[idx] for idx in summ_lcs_path]
-    # leftover_selection = [val for idx, val in enumerate(selection) if idx not in summ_lcs_path]
-    # partial_summ_sent = replace_with_blanks(summ_sent, leftover_selection)
-    leftover_selection = [idx for idx in range(len(summ_sent)) if idx not in summ_lcs_path]
-    partial_summ_sent = replace_with_blanks(summ_sent, leftover_selection)
+    for top_sent_idx in top_sent_indices:
+        # top_sent_idx = top_sent_indices[0]
+        if remove_unigrams:
+            nonstopword_matches, _ = util.matching_unigrams(summ_sent, article_sent_tokens[top_sent_idx], should_remove_stop_words=remove_stop_words)
+            lcs_len, (summ_lcs_path, article_lcs_path) = util.matching_unigrams(summ_sent, article_sent_tokens[top_sent_idx])
+        if len(nonstopword_matches) < min_matched_tokens:
+            continue
+        # new_selection = [selection[idx] for idx in summ_lcs_path]
+        # leftover_selection = [val for idx, val in enumerate(selection) if idx not in summ_lcs_path]
+        # partial_summ_sent = replace_with_blanks(summ_sent, leftover_selection)
+        leftover_selection = [idx for idx in range(len(summ_sent)) if idx not in summ_lcs_path]
+        partial_summ_sent = replace_with_blanks(summ_sent, leftover_selection)
 
-    sent_indices, lcs_paths, article_lcs_paths = get_similar_source_sents_by_lcs(
-        partial_summ_sent, leftover_selection, article_sent_tokens, vocab, similarities, depth+1,
-        sentence_limit, min_matched_tokens, remove_stop_words)   # recursive call
+        sent_indices, lcs_paths, article_lcs_paths = get_similar_source_sents_by_lcs(
+            partial_summ_sent, leftover_selection, article_sent_tokens, vocab, similarities, depth+1,
+            sentence_limit, min_matched_tokens, remove_stop_words)   # recursive call
 
-    sent_indices = [top_sent_indices] + sent_indices      # append my result to the recursive collection
-    lcs_paths = [summ_lcs_path] + lcs_paths
-    article_lcs_paths = [article_lcs_path] + article_lcs_paths
-    return sent_indices, lcs_paths, article_lcs_paths
+        combined_sent_indices = [[top_sent_idx] + indices for indices in sent_indices]      # append my result to the recursive collection
+        combined_lcs_paths = [[summ_lcs_path] + paths for paths in lcs_paths]
+        combined_article_lcs_paths = [[article_lcs_path] + paths for paths in article_lcs_paths]
+
+        all_sent_indices.extend(combined_sent_indices)
+        all_lcs_paths.extend(combined_lcs_paths)
+        all_article_lcs_paths.extend(combined_article_lcs_paths)
+    if len(all_sent_indices) == 0:
+        return [[]], [[]], [[]]
+    return all_sent_indices, all_lcs_paths, all_article_lcs_paths
 
 def cluster_similar_source_sents(article_sent_tokens, similar_source_indices, vocab, threshold):
     chosen_article_sents = [sent for i, sent in enumerate(article_sent_tokens) if i in similar_source_indices]
@@ -324,11 +339,11 @@ def get_merge_example(similar_source_indices, article_sent_tokens, summ_sent, co
 def write_lambdamart_example(simple_similar_source_indices, raw_article_sents, summary_text, corefs_str, doc_indices, writer):
     tf_example = example_pb2.Example()
     source_indices_str = ';'.join([' '.join(str(i) for i in source_indices) for source_indices in simple_similar_source_indices])
-    tf_example.features.feature['similar_source_indices'].bytes_list.value.extend([source_indices_str])
+    tf_example.features.feature['similar_source_indices'].bytes_list.value.extend([source_indices_str.encode("utf8")])
     for sent in raw_article_sents:
         s = sent.encode('utf-8').strip()
         tf_example.features.feature['raw_article_sents'].bytes_list.value.extend([s])
-    tf_example.features.feature['summary_text'].bytes_list.value.extend([summary_text])
+    tf_example.features.feature['summary_text'].bytes_list.value.extend([summary_text.encode("utf8")])
     if doc_indices is not None:
         tf_example.features.feature['doc_indices'].bytes_list.value.extend([doc_indices])
     tf_example.features.feature['corefs'].bytes_list.value.extend([corefs_str])
@@ -349,7 +364,7 @@ def get_single_sent_features(similar_source_indices, sent_term_matrix, doc_vecto
     sent_len = len(article_sent_tokens[sent_idx])
     return sent_idx, doc_similarity, sent_len
 
-def get_simple_source_indices_list(summary_sent_tokens, article_sent_tokens, vocab, sentence_limit, min_matched_tokens, remove_stop_words=True, lemmatize=True):
+def get_simple_source_indices_list(summary_sent_tokens, article_sent_tokens, vocab, sentence_limit, min_matched_tokens, remove_stop_words=True, lemmatize=True, multiple_ssi=False):
     if lemmatize:
         article_sent_tokens_lemma = util.lemmatize_sent_tokens(article_sent_tokens)
         summary_sent_tokens_lemma = util.lemmatize_sent_tokens(summary_sent_tokens)
@@ -366,11 +381,30 @@ def get_simple_source_indices_list(summary_sent_tokens, article_sent_tokens, voc
         if remove_lcs:
             similar_source_indices, lcs_paths, article_lcs_paths = get_similar_source_sents_by_lcs(
                 summ_sent, list(xrange(len(summ_sent))), article_sent_tokens_lemma, vocab, similarities, 0,
-                sentence_limit, min_matched_tokens, remove_stop_words=remove_stop_words)
+                sentence_limit, min_matched_tokens, remove_stop_words=remove_stop_words, multiple_ssi=multiple_ssi)
             similar_source_indices_list.append(similar_source_indices)
             lcs_paths_list.append(lcs_paths)
             article_lcs_paths_list.append(article_lcs_paths)
-    simple_similar_source_indices = [tuple([s[0] for s in sim_source_ind]) for sim_source_ind in similar_source_indices_list]
+    deduplicated_similar_source_indices_list = []
+    for sim_source_ind in similar_source_indices_list:
+        dedup_sim_source_ind = []
+        for ssi in sim_source_ind:
+            if not (ssi in dedup_sim_source_ind or ssi[::-1] in dedup_sim_source_ind):
+                dedup_sim_source_ind.append(ssi)
+        deduplicated_similar_source_indices_list.append(dedup_sim_source_ind)
+    # for sim_source_ind_idx, sim_source_ind in enumerate(deduplicated_similar_source_indices_list):
+    #     if len(sim_source_ind) > 1:
+    #         print ' '.join(summary_sent_tokens[sim_source_ind_idx])
+    #         print '-----------'
+    #         for ssi in sim_source_ind:
+    #             for idx in ssi:
+    #                 print ' '.join(article_sent_tokens[idx])
+    #             print '-------------'
+    #         print '\n\n'
+    #         a=0
+    simple_similar_source_indices = [tuple(sim_source_ind[0]) for sim_source_ind in deduplicated_similar_source_indices_list]
+    lcs_paths_list = [tuple(sim_source_ind[0]) for sim_source_ind in lcs_paths_list]
+    article_lcs_paths_list = [tuple(sim_source_ind[0]) for sim_source_ind in article_lcs_paths_list]
     return simple_similar_source_indices, lcs_paths_list, article_lcs_paths_list
 
 ngram_orders = [1, 2, 3, 4, 'sentence']
@@ -522,7 +556,8 @@ def main(unused_argv):
             similar_source_indices_list_plus_empty = []
 
             simple_similar_source_indices, lcs_paths_list,article_lcs_paths_list =  get_simple_source_indices_list(
-                summary_sent_tokens, article_sent_tokens, vocab, FLAGS.sentence_limit, FLAGS.min_matched_tokens, not FLAGS.consider_stopwords, lemmatize=FLAGS.lemmatize)
+                summary_sent_tokens, article_sent_tokens, vocab, FLAGS.sentence_limit, FLAGS.min_matched_tokens, not FLAGS.consider_stopwords, lemmatize=FLAGS.lemmatize,
+                multiple_ssi=FLAGS.multiple_ssi)
 
             restricted_source_indices = util.enforce_sentence_limit(simple_similar_source_indices, FLAGS.sentence_limit)
             for summ_sent_idx, summ_sent in enumerate(summary_sent_tokens):
@@ -615,6 +650,7 @@ if __name__ == '__main__':
     flags.DEFINE_boolean('ssi_dataset', True, 'Whether to save features as a dataset that will be used to predict which sentences should be merged, using the LambdaMART system.')
     flags.DEFINE_boolean('only_highlight', False, 'Which human abstract to process on. Only applies to duc_2004.')
     flags.DEFINE_boolean('lemmatize', True, 'Which human abstract to process on. Only applies to duc_2004.')
+    flags.DEFINE_boolean('multiple_ssi', False, 'Allow multiple singles are pairs to be chosen for each summary sentence, rather than just the top similar sentence.')
 
     app.run(main)
 

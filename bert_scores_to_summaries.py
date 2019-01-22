@@ -62,9 +62,8 @@ min_matched_tokens = 2
 include_tfidf_vec = True
 
 data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
-temp_dir = 'data/temp/' + FLAGS.dataset_name + '/scores'
 bert_in_dir = os.path.join('data', 'bert', FLAGS.dataset_name, FLAGS.singles_and_pairs, 'input')
-bert_scores_dir = os.path.join('data', 'bert', FLAGS.dataset_name, FLAGS.singles_and_pairs, 'output')
+bert_scores_dir = os.path.join('data', 'bert', FLAGS.dataset_name, FLAGS.singles_and_pairs, 'output', 'saved')
 ssi_out_dir = 'data/temp/' + FLAGS.dataset_name + '/ssi'
 log_dir = 'logs'
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
@@ -106,7 +105,6 @@ html_dir = os.path.join(my_log_dir, 'hightlighted_html')
 util.create_dirs(dec_dir)
 util.create_dirs(ref_dir)
 util.create_dirs(html_dir)
-util.create_dirs(temp_dir)
 util.create_dirs(ssi_out_dir)
 
 # @profile
@@ -326,8 +324,6 @@ def main(unused_argv):
     print 'Creating list'
     ex_list = [ex for ex in ex_gen]
     ssi_list = list(futures.map(evaluate_example, ex_list))
-    with open(os.path.join(ssi_out_dir, exp_name), 'w') as f:
-        cPickle.dump(ssi_list, f)
 
     # save ssi_list
     with open(os.path.join(my_log_dir, 'ssi.pkl'), 'w') as f:

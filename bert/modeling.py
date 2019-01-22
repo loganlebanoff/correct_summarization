@@ -134,6 +134,7 @@ class BertModel(object):
                input_mask=None,
                token_type_ids=None,
                use_one_hot_embeddings=True,
+               sentence_ids=None,
                scope=None):
     """Constructor for BertModel.
 
@@ -169,6 +170,9 @@ class BertModel(object):
     if token_type_ids is None:
       token_type_ids = tf.zeros(shape=[batch_size, seq_length], dtype=tf.int32)
 
+    # if sentence_ids is None:
+    #     sentence_ids = tf.zeros(shape=[batch_size, seq_length], dtype=tf.int32)
+
     with tf.variable_scope(scope, default_name="bert"):
       with tf.variable_scope("embeddings"):
         # Perform embedding lookup on the word ids.
@@ -188,6 +192,10 @@ class BertModel(object):
             token_type_ids=token_type_ids,
             token_type_vocab_size=config.type_vocab_size,
             token_type_embedding_name="token_type_embeddings",
+            use_sentence_ids=(sentence_ids is not None),
+            sentence_ids=sentence_ids,
+            sentence_id_vocab_size=512,
+            sentence_id_embedding_name="sentence_position_embeddings",
             use_position_embeddings=True,
             position_embedding_name="position_embeddings",
             initializer_range=config.initializer_range,
@@ -432,6 +440,10 @@ def embedding_postprocessor(input_tensor,
                             token_type_ids=None,
                             token_type_vocab_size=16,
                             token_type_embedding_name="token_type_embeddings",
+                            use_sentence_ids=False,
+                            sentence_ids=None,
+                            sentence_id_vocab_size=512,
+                            sentence_id_embedding_name="sentence_position_embeddings",
                             use_position_embeddings=True,
                             position_embedding_name="position_embeddings",
                             initializer_range=0.02,
@@ -487,6 +499,23 @@ def embedding_postprocessor(input_tensor,
     token_type_embeddings = tf.reshape(token_type_embeddings,
                                        [batch_size, seq_length, width])
     output += token_type_embeddings
+
+  if use_sentence_ids:
+    if sentence_ids is None:
+      raise ValueError("`sentence_ids` must be specified if"
+                       "`use_sentence_ids` is True.")
+    sequence_id_table = tf.get_variable(
+        name=sentence_id_embedding_name,
+        shape=[sentence_id_vocab_size, width],
+        initializer=create_initializer(initializer_range))
+    # This vocab will be small so we always do one-hot here, since it is always
+    # faster for a small vocabulary.
+    flat_sentence_ids = tf.reshape(sentence_ids, [-1])
+    sentence_one_hot_ids = tf.one_hot(flat_sentence_ids, depth=sentence_id_vocab_size)
+    sequence_id_embeddings = tf.matmul(sentence_one_hot_ids, sequence_id_table)
+    sequence_id_embeddings = tf.reshape(sequence_id_embeddings,
+                                       [batch_size, seq_length, width])
+    output += sequence_id_embeddings
 
   if use_position_embeddings:
     assert_op = tf.assert_less_equal(seq_length, max_position_embeddings)
