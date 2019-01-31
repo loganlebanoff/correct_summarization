@@ -184,14 +184,14 @@ def read_source_indices_from_lambdamart_input(file_path):
 def get_features_all_combinations(example_idx, raw_article_sents, article_sent_tokens, corefs, rel_sent_indices, first_k_indices, mmrs, single_feat_len, pair_feat_len, singles_and_pairs, temp_in_path):
     # sent_term_matrix = util.get_tfidf_matrix(raw_article_sents)
     article_text = ' '.join(raw_article_sents)
-    print 'getting tfidf matrix'
+    # print 'getting tfidf matrix'
     sent_term_matrix = util.get_doc_substituted_tfidf_matrix(tfidf_vectorizer, raw_article_sents, article_text, pca)
     doc_vector = np.mean(sent_term_matrix, axis=0)
-    print 'got tfidf matrix'
+    # print 'got tfidf matrix'
 
-    print 'getting all pairs...'
+    # print 'getting all pairs...'
     possible_pairs = [x for x in list(itertools.combinations(first_k_indices, 2))]   # all pairs
-    print 'filtering all pairs...'
+    # print 'filtering all pairs...'
     if FLAGS.use_pair_criteria:
         possible_pairs = filter_pairs_by_criteria(raw_article_sents, possible_pairs, corefs)
     if FLAGS.sent_position_criteria:
@@ -259,9 +259,9 @@ def get_best_source_sents(article_sent_tokens, mmr_dict, already_used_source_ind
 
 # @profile
 def get_instances(example_idx, raw_article_sents, article_sent_tokens, corefs, rel_sent_indices, first_k_indices, temp_in_path, temp_out_path, single_feat_len, pair_feat_len, singles_and_pairs):
-    print 'getting tfidf importances'
+    # print 'getting tfidf importances'
     tfidfs = util.get_tfidf_importances(tfidf_vectorizer, raw_article_sents)
-    print 'got tfidf importances'
+    # print 'got tfidf importances'
     get_features_all_combinations(example_idx, raw_article_sents, article_sent_tokens, corefs, rel_sent_indices, first_k_indices, tfidfs, single_feat_len, pair_feat_len, singles_and_pairs, temp_in_path)
 
 # @profile
@@ -412,7 +412,7 @@ def evaluate_example(ex):
             summary_sent_tokens = [sent.split(' ') for sent in summary_sents_for_html_trunc]
             extracted_sents_in_article_html = html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_list_trunc,
                                             article_sent_tokens, doc_indices=doc_indices)
-            write_highlighted_html(extracted_sents_in_article_html, html_dir, example_idx)
+            # write_highlighted_html(extracted_sents_in_article_html, html_dir, example_idx)
 
             groundtruth_ssi_list, lcs_paths_list, article_lcs_paths_list = get_simple_source_indices_list(
                                             groundtruth_summ_sent_tokens,

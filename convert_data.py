@@ -16,6 +16,7 @@ from absl import flags
 from absl import app
 from tqdm import tqdm
 import json
+import util
 import sys
 reload(sys)
 sys.setdefaultencoding('utf8')
@@ -24,6 +25,9 @@ FLAGS = flags.FLAGS
 
 p_start_tag = '<P>'
 p_end_tag = '</P>'
+
+kaiqiang_dataset_names = ['gigaword', 'cnndm_1to1', 'newsroom', 'websplit']
+kaiqiang_data_dir = '/home/logan/data'
 
 def fix_bracket_token(token):
     if token == '(':
@@ -92,12 +96,18 @@ def process_dataset(dataset_name, out_data_path, should_write_with_generator, TA
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     if should_write_with_generator:
-        # dataset_splits = ['test', 'val', 'train']
-        dataset_splits = ['test', 'val']
+        dataset_splits = ['test', 'val', 'train']
+        # dataset_splits = ['test', 'val']
         for dataset_split in dataset_splits:
-            multidoc_dirnames = [name for name in sorted(os.listdir(article_dir)) if dataset_split in name]
-            gen = multidoc_generator(multidoc_dirnames, article_dir, abstract_dir, is_tac, is_custom_dataset)
-            write_with_generator(gen, len(multidoc_dirnames), out_dir, dataset_split)
+            if dataset_name in kaiqiang_dataset_names:
+                gen = gigaword_generator(dataset_name, dataset_split)
+                article_path = os.path.join(kaiqiang_data_dir, dataset_name, dataset_split + '.Ndocument')
+                num_examples = sum(1 for line in open(article_path))
+            else:
+                multidoc_dirnames = [name for name in sorted(os.listdir(article_dir)) if dataset_split in name]
+                gen = multidoc_generator(multidoc_dirnames, article_dir, abstract_dir, is_tac, is_custom_dataset)
+                num_examples = len(multidoc_dirnames)
+            write_with_generator(gen, num_examples, out_dir, dataset_split)
     else:
         multidoc_dirnames = sorted(os.listdir(article_dir))
         out_idx = 1
@@ -113,6 +123,47 @@ def multidoc_generator(multidoc_dirnames, article_dir, abstract_dir, is_tac, is_
                                                                               abstract_dir, is_tac, is_custom_dataset)
         example = make_example(article, abstracts, doc_indices, raw_article_sents, None)
         yield example
+
+def gigaword_generator(dataset_name, dataset_split):
+    article_path = os.path.join(kaiqiang_data_dir, dataset_name, dataset_split + '.Ndocument')
+    abstract_path = os.path.join(kaiqiang_data_dir, dataset_name, dataset_split + '.Nsummary')
+    giga_article_lines = [line.strip() for line in open(article_path).readlines()]
+    giga_abstract_lines = [line.strip() for line in open(abstract_path).readlines()]
+
+    if len(giga_article_lines) != len(giga_abstract_lines):
+        util.print_vars(giga_article_lines, giga_abstract_lines)
+        raise Exception('len(article_lines) != len(abstract_lines)')
+    for article_idx in range(len(giga_abstract_lines)):
+        article_line = giga_article_lines[article_idx]
+        abstract_line = giga_abstract_lines[article_idx]
+
+        article = ''
+        doc_indices = ''
+        raw_article_sents = []
+
+        orig_sent = article_line
+        tokenized_sent = process_sent(orig_sent)
+        # if is_quote(tokenized_sent):
+        #     continue
+        sent = ' '.join(tokenized_sent)
+        article += sent + ' '
+
+        doc_indices_for_tokens = [0] * len(tokenized_sent)
+        doc_indices_str = ' '.join(str(x) for x in doc_indices_for_tokens)
+        doc_indices += doc_indices_str + ' '
+        raw_article_sents.append(orig_sent)
+
+        article = article.encode('utf-8').strip()
+
+        abstracts_unprocessed = [[abstract_line]]
+        abstracts = []
+        for abstract_lines in abstracts_unprocessed:
+            abstract = process_abstract(abstract_lines)
+            abstracts.append(abstract)
+        # yield article, abstracts, doc_indices, raw_article_sents
+        example = make_example(article, abstracts, doc_indices, raw_article_sents, None)
+        yield example
+
 
 def combine_duc_2003_tac_2008_tac_2010(out_data_path):
     out_dir = os.path.join(out_data_path, 'duc_tac')
@@ -318,7 +369,7 @@ if __name__ == '__main__':
     flags.DEFINE_string('out_data_path', '/home/logan/data/tf_data', 'Where to put output tf examples')
     flags.DEFINE_string('TAC_path', '', 'Path to raw TAC data.')
     flags.DEFINE_string('DUC_path', '', 'Path to raw DUC data.')
-    flags.DEFINE_boolean('write_with_generator', False, 'Whether or not to write with generator, which will batch the examples together.')
+    flags.DEFINE_boolean('write_with_generator', True, 'Whether or not to write with generator, which will batch the examples together.')
     flags.DEFINE_string('custom_dataset_path', 'example_custom_dataset/', 'Path to custom dataset. Format of custom dataset must be:\n'
                         + 'One file for each topic...\n'
                         + 'Distinct articles will be separated by one blank line (two carriage returns \\n)...\n'

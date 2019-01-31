@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+from __future__ import unicode_literals
+
 import itertools
 import os
 from tqdm import tqdm
@@ -26,8 +31,8 @@ if 'num_instances' not in flags.FLAGS:
 
 FLAGS(sys.argv)
 
-import convert_data
-import preprocess_for_lambdamart_no_flags
+# import convert_data
+# import preprocess_for_lambdamart_no_flags
 
 data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
@@ -35,19 +40,6 @@ names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices
 min_matched_tokens = 1
 np.random.seed(123)
 
-def get_bert_example(raw_article_sents, ssi):
-    is_pair = len(ssi) == 2
-    first_sent = raw_article_sents[ssi[0]]
-    if is_pair:
-        second_sent = raw_article_sents[ssi[1]]
-    else:
-        second_sent = ''
-    return first_sent, second_sent
-
-
-def get_string_bert_example(raw_article_sents, ssi, label, example_idx, inst_id):
-    first_sent, second_sent = get_bert_example(raw_article_sents, ssi)
-    return '\t'.join([str(label), first_sent, second_sent, str(example_idx), str(inst_id), ' '.join([str(i) for i in ssi])]) + '\n'
 
 
 def main(unused_argv):
@@ -96,15 +88,16 @@ def main(unused_argv):
                     break
                 raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(
                     example, names_to_types)
-                article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
-                groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
-                if doc_indices is None or (dataset_name != 'duc_2004' and len(doc_indices) != len(util.flatten_list_of_lists(article_sent_tokens))):
-                    doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
-                doc_indices = [int(doc_idx) for doc_idx in doc_indices]
-                rel_sent_indices = preprocess_for_lambdamart_no_flags.get_rel_sent_indices(doc_indices, article_sent_tokens)
-                similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, FLAGS.sentence_limit)
+                # article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+                # groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
+                # if doc_indices is None or (dataset_name != 'duc_2004' and len(doc_indices) != len(util.flatten_list_of_lists(article_sent_tokens))):
+                #     doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
+                # doc_indices = [int(doc_idx) for doc_idx in doc_indices]
+                # rel_sent_indices, _, _ = preprocess_for_lambdamart_no_flags.get_rel_sent_indices(doc_indices, article_sent_tokens)
+                # similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, FLAGS.sentence_limit)
 
-                writer.write(' '.join(raw_article_sents) + '\n')
+                article = ' '.join(raw_article_sents)
+                writer.write(article.encode('utf-8') + '\n'.encode('utf-8'))
 
 
 

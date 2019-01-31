@@ -35,7 +35,7 @@ flags.DEFINE_boolean('use_pretrained', True, 'If True, use pretrained model in t
 
 # Where to save output
 flags.DEFINE_string('log_root', 'logs', 'Root directory for all logging.')
-flags.DEFINE_string('exp_name', 'pg_lambdamart', 'Name for experiment. Logs will be saved in a directory with this name, under log_root.')
+flags.DEFINE_string('exp_name', 'pg_', 'Name for experiment. Logs will be saved in a directory with this name, under log_root.')
 
 # Don't change these settings
 flags.DEFINE_string('mode', 'decode', 'must be one of train/eval/decode')
@@ -93,6 +93,7 @@ flags.DEFINE_string('singles_and_pairs', 'singles',
 flags.DEFINE_boolean('upper_bound', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('cnn_dm_pg', False, 'If true, use PG trained on CNN/DM for testing.')
 flags.DEFINE_boolean('websplit', False, 'If true, use PG trained on Websplit for testing.')
+flags.DEFINE_boolean('use_bert', True, 'If true, use PG trained on Websplit for testing.')
 
 _exp_name = 'lambdamart'
 dataset_split = 'test'
@@ -115,6 +116,7 @@ def main(unused_argv):
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
 
+    extractor = 'bert' if FLAGS.use_bert else 'lambdamart'
     if FLAGS.cnn_dm_pg:
         pretrained_dataset = 'cnn_dm'
     elif FLAGS.websplit:
@@ -124,18 +126,18 @@ def main(unused_argv):
     if FLAGS.dataset_name == 'duc_2004':
         pretrained_dataset = 'cnn_dm'
     if FLAGS.singles_and_pairs == 'both':
-        FLAGS.exp_name = FLAGS.dataset_name + '_' + FLAGS.exp_name + '_both'
+        FLAGS.exp_name = FLAGS.dataset_name + '_' + FLAGS.exp_name + extractor + '_both'
         FLAGS.pretrained_path = os.path.join(FLAGS.log_root, pretrained_dataset + '_sent')
         dataset_articles = FLAGS.dataset_name
     else:
-        FLAGS.exp_name = FLAGS.dataset_name + '_' + FLAGS.exp_name + '_singles'
+        FLAGS.exp_name = FLAGS.dataset_name + '_' + FLAGS.exp_name + extractor + '_singles'
         FLAGS.pretrained_path = os.path.join(FLAGS.log_root, pretrained_dataset + '_sent' + '_singles')
         dataset_articles = FLAGS.dataset_name + '_singles'
     if FLAGS.upper_bound:
         FLAGS.exp_name = FLAGS.exp_name + '_upperbound'
         ssi_list = None     # this is if we are doing the upper bound evaluation (ssi_list comes straight from the groundtruth)
     else:
-        my_log_dir = os.path.join(log_dir, '%s_lambdamart_%s' % (FLAGS.dataset_name, FLAGS.singles_and_pairs))
+        my_log_dir = os.path.join(log_dir, '%s_%s_%s' % (FLAGS.dataset_name, extractor, FLAGS.singles_and_pairs))
         with open(os.path.join(my_log_dir, 'ssi.pkl')) as f:
             ssi_list = cPickle.load(f)
     if FLAGS.cnn_dm_pg:

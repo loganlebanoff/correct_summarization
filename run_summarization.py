@@ -37,6 +37,7 @@ import time
 from tensorflow.python import debug as tf_debug
 from tqdm import tqdm
 import numpy as np
+import glob
 
 random.seed(222)
 FLAGS = flags.FLAGS
@@ -354,7 +355,13 @@ def main(unused_argv):
     FLAGS.actual_log_root = FLAGS.log_root
     FLAGS.log_root = os.path.join(FLAGS.log_root, FLAGS.exp_name)
 
-    original_dataset_name = 'xsum' if 'xsum' in FLAGS.dataset_name else 'cnn_dm' if 'cnn_dm' in FLAGS.dataset_name or 'duc_2004' in FLAGS.dataset_name else ''
+    vocab_datasets = [os.path.basename(file_path).split('vocab_')[1] for file_path in glob.glob(FLAGS.vocab_path + '*')]
+    original_dataset_name = [file_name for file_name in vocab_datasets if file_name in FLAGS.dataset_name]
+    if len(original_dataset_name) > 1:
+        raise Exception('Too many choices for vocab file')
+    if len(original_dataset_name) < 1:
+        raise Exception('No vocab file for dataset created. Run make_vocab.py --dataset_name=<my original dataset name>')
+    original_dataset_name = original_dataset_name[0]
     vocab = Vocab(FLAGS.vocab_path + '_' + original_dataset_name, FLAGS.vocab_size) # create a vocabulary
 
     # If in decode mode, set batch_size = beam_size

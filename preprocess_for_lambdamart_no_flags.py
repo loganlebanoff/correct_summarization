@@ -302,7 +302,7 @@ def convert_article_to_lambdamart_features(ex):
     doc_indices = [int(doc_idx) for doc_idx in doc_indices]
     if len(doc_indices) != len(util.flatten_list_of_lists(article_sent_tokens)):
         doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
-    rel_sent_indices = get_rel_sent_indices(doc_indices, article_sent_tokens)
+    rel_sent_indices, _, _ = get_rel_sent_indices(doc_indices, article_sent_tokens)
     if FLAGS.singles_and_pairs == 'singles':
         sentence_limit = 1
     else:

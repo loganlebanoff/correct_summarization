@@ -27,6 +27,7 @@ import modeling
 import tokenization
 import tensorflow as tf
 from tqdm import tqdm
+import os
 
 flags = tf.flags
 
@@ -390,8 +391,12 @@ def main(_):
   input_fn = input_fn_builder(
       features=features, seq_length=FLAGS.max_seq_length)
 
+  if not os.path.exists(os.path.dirname(FLAGS.output_file)):
+    os.makedirs(os.path.dirname(FLAGS.output_file))
   with codecs.getwriter("utf-8")(tf.gfile.Open(FLAGS.output_file,
                                                "w")) as writer:
+    if FLAGS.only_class_embedding:
+        writer.write('Article embeddings:\n')
     for result in tqdm(estimator.predict(input_fn, yield_single_examples=True), total=len(examples)):
       unique_id = int(result["unique_id"])
       feature = unique_id_to_feature[unique_id]

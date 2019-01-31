@@ -56,7 +56,7 @@ def main(unused_argv):
         if doc_indices is None:
             doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
         doc_indices = [int(doc_idx) for doc_idx in doc_indices]
-        rel_sent_indices = preprocess_for_lambdamart_no_flags.get_rel_sent_indices(doc_indices, article_sent_tokens)
+        rel_sent_indices, _, _ = preprocess_for_lambdamart_no_flags.get_rel_sent_indices(doc_indices, article_sent_tokens)
         groundtruth_similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, FLAGS.sentence_limit)
 
 

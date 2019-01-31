@@ -135,6 +135,7 @@ class BertModel(object):
                token_type_ids=None,
                use_one_hot_embeddings=True,
                sentence_ids=None,
+               article_embedding=None,
                scope=None):
     """Constructor for BertModel.
 
@@ -196,6 +197,8 @@ class BertModel(object):
             sentence_ids=sentence_ids,
             sentence_id_vocab_size=512,
             sentence_id_embedding_name="sentence_position_embeddings",
+            use_article_embedding=(article_embedding is not None),
+            article_embedding=article_embedding,
             use_position_embeddings=True,
             position_embedding_name="position_embeddings",
             initializer_range=config.initializer_range,
@@ -444,6 +447,8 @@ def embedding_postprocessor(input_tensor,
                             sentence_ids=None,
                             sentence_id_vocab_size=512,
                             sentence_id_embedding_name="sentence_position_embeddings",
+                            use_article_embedding=False,
+                            article_embedding=None,
                             use_position_embeddings=True,
                             position_embedding_name="position_embeddings",
                             initializer_range=0.02,
@@ -516,6 +521,12 @@ def embedding_postprocessor(input_tensor,
     sequence_id_embeddings = tf.reshape(sequence_id_embeddings,
                                        [batch_size, seq_length, width])
     output += sequence_id_embeddings
+
+  if use_article_embedding:
+    if article_embedding is None:
+      raise ValueError("`article_embedding` must be specified if"
+                       "`use_article_embedding` is True.")
+    output += article_embedding
 
   if use_position_embeddings:
     assert_op = tf.assert_less_equal(seq_length, max_position_embeddings)

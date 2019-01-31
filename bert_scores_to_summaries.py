@@ -63,7 +63,7 @@ include_tfidf_vec = True
 
 data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
 bert_in_dir = os.path.join('data', 'bert', FLAGS.dataset_name, FLAGS.singles_and_pairs, 'input')
-bert_scores_dir = os.path.join('data', 'bert', FLAGS.dataset_name, FLAGS.singles_and_pairs, 'output', 'saved')
+bert_scores_dir = os.path.join('data', 'bert', FLAGS.dataset_name, FLAGS.singles_and_pairs, 'output', 'best')
 ssi_out_dir = 'data/temp/' + FLAGS.dataset_name + '/ssi'
 log_dir = 'logs'
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
@@ -178,7 +178,6 @@ def get_best_source_sents(article_sent_tokens, mmr_dict, already_used_source_ind
     sents = get_sent_or_sents(article_sent_tokens, source_indices)
     return sents, source_indices
 
-# @profile
 def generate_summary(article_sent_tokens, qid_ssi_to_importances, example_idx):
     qid = example_idx
 
@@ -188,7 +187,7 @@ def generate_summary(article_sent_tokens, qid_ssi_to_importances, example_idx):
     similar_source_indices_list = []
     summary_sents_for_html = []
     ssi_length_extractive = None
-    while len(summary_tokens) < 1000:
+    while len(summary_tokens) < 300:
         if len(summary_tokens) >= l_param and ssi_length_extractive is None:
             ssi_length_extractive = len(similar_source_indices_list)
         if FLAGS.dataset_name == 'xsum' and len(summary_tokens) > 0:
@@ -260,7 +259,6 @@ def get_indices_of_first_k_sents_of_each_article(rel_sent_indices, k):
     indices = [idx for idx, rel_sent_idx in enumerate(rel_sent_indices) if rel_sent_idx < k]
     return indices
 
-
 def evaluate_example(ex):
     example, example_idx, qid_ssi_to_importances, _, _ = ex
     print example_idx
@@ -287,14 +285,16 @@ def evaluate_example(ex):
             summary_sent_tokens = [sent.split(' ') for sent in summary_sents_for_html_trunc]
             extracted_sents_in_article_html = html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_list_trunc,
                                             article_sent_tokens, doc_indices=doc_indices)
-            write_highlighted_html(extracted_sents_in_article_html, html_dir, example_idx)
+            # write_highlighted_html(extracted_sents_in_article_html, html_dir, example_idx)
 
             groundtruth_ssi_list, lcs_paths_list, article_lcs_paths_list = get_simple_source_indices_list(
                                             groundtruth_summ_sent_tokens,
                                            article_sent_tokens, None, sentence_limit, min_matched_tokens)
             groundtruth_highlighted_html = html_highlight_sents_in_article(groundtruth_summ_sent_tokens, groundtruth_ssi_list,
                                             article_sent_tokens, lcs_paths_list=lcs_paths_list, article_lcs_paths_list=article_lcs_paths_list, doc_indices=doc_indices)
+
             all_html = '<u>System Summary</u><br><br>' + extracted_sents_in_article_html + '<u>Groundtruth Summary</u><br><br>' + groundtruth_highlighted_html
+            # all_html = '<u>System Summary</u><br><br>' + extracted_sents_in_article_html
             write_highlighted_html(all_html, html_dir, example_idx)
     rouge_functions.write_for_rouge(groundtruth_summ_sents, summary_sents, example_idx, ref_dir, dec_dir)
     return (groundtruth_similar_source_indices_list, similar_source_indices_list, ssi_length_extractive)

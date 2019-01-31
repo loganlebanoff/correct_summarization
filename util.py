@@ -31,8 +31,6 @@ from nltk.stem.porter import PorterStemmer
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import dill
-import random
 import inspect, re
 import string
 import struct
@@ -245,6 +243,7 @@ def get_similarity(enc_tokens, summ_tokens, vocab):
     importances_hat = rouge_l_similarity(enc_tokens, summ_tokens_combined, vocab, metric=metric)
     return importances_hat
 
+# @profile
 def rouge_l_similarity(article_sents, abstract_sents, vocab, metric='f1'):
     sentence_similarity = np.zeros([len(article_sents)], dtype=float)
     abstract_sents_removed_periods = remove_period_ids(abstract_sents, vocab)
@@ -456,6 +455,7 @@ def calc_MMR(raw_article_sents, article_sent_tokens, summ_tokens, vocab, importa
     mmr = special_squash(combine_sim_and_imp(similarities, importances))
     return mmr
 
+# @profile
 def calc_MMR_source_indices(article_sent_tokens, summ_tokens, vocab, importances_dict, qid=None):
     if qid is not None:
         importances_dict = importances_dict[qid]
@@ -663,7 +663,7 @@ def all_sent_selection_eval(ssi_list):
     for op in operations_on_gt:
         suffix = sent_selection_eval(ssi_list, op)
         suffixes.append(suffix)
-    combined_suffix = '\n' + '\n'.join(suffixes)
+    combined_suffix = '\n' + ''.join(suffixes)
     print combined_suffix
     return combined_suffix
 

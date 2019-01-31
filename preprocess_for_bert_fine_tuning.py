@@ -17,7 +17,7 @@ if 'dataset_name' not in flags.FLAGS:
 if 'dataset_split' not in flags.FLAGS:
     flags.DEFINE_string('dataset_split', 'test', 'Which dataset split to use. Must be one of {train, val (or dev), test}')
 if 'sentence_limit' not in flags.FLAGS:
-    flags.DEFINE_integer('sentence_limit', 2, 'Max number of sentences to include for merging.')
+    flags.DEFINE_integer('sentence_limit', 1, 'Max number of sentences to include for merging.')
 if 'singles_and_pairs' not in flags.FLAGS:
     flags.DEFINE_string('singles_and_pairs', 'singles', 'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
 if 'num_instances' not in flags.FLAGS:
@@ -59,6 +59,12 @@ def main(unused_argv):
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
 
+    if FLAGS.singles_and_pairs == 'singles':
+        FLAGS.sentence_limit = 1
+    else:
+        FLAGS.sentence_limit = 2
+
+
     if FLAGS.dataset_name == 'all':
         dataset_names = ['cnn_dm', 'xsum', 'duc_2004']
     else:
@@ -74,24 +80,28 @@ def main(unused_argv):
             if dataset_name == 'duc_2004':
                 dataset_splits = ['test']
             else:
-                dataset_splits = ['test', 'val', 'train']
+                dataset_splits = ['val_test', 'test', 'val', 'train']
         else:
             dataset_splits = [FLAGS.dataset_split]
 
 
         for dataset_split in dataset_splits:
+            if dataset_split == 'val_test':
+                source_dataset_split = 'val'
+            else:
+                source_dataset_split = dataset_split
 
-            source_files = sorted(glob.glob(source_dir + '/' + dataset_split + '*'))
+            source_files = sorted(glob.glob(source_dir + '/' + source_dataset_split + '*'))
 
             total = len(source_files) * 1000
-            example_generator = data.example_generator(source_dir + '/' + dataset_split + '*', True, False,
+            example_generator = data.example_generator(source_dir + '/' + source_dataset_split + '*', True, False,
                                                        should_check_valid=False)
 
             out_dir = os.path.join('data', 'bert', dataset_name, FLAGS.singles_and_pairs, 'input')
             util.create_dirs(out_dir)
 
             writer = open(os.path.join(out_dir, dataset_split) + '.tsv', 'wb')
-            writer.write('\t'.join(['should_merge', 'sent1', 'sent2', 'example_idx', 'ssi']) + '\n')
+            writer.write('\t'.join(['should_merge', 'sent1', 'sent2', 'example_idx', 'inst_id', 'ssi']) + '\n')
             inst_id = 0
             for example_idx, example in enumerate(tqdm(example_generator, total=total)):
                 raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(
@@ -101,7 +111,7 @@ def main(unused_argv):
                 if doc_indices is None or (dataset_name != 'duc_2004' and len(doc_indices) != len(util.flatten_list_of_lists(article_sent_tokens))):
                     doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
                 doc_indices = [int(doc_idx) for doc_idx in doc_indices]
-                rel_sent_indices = preprocess_for_lambdamart_no_flags.get_rel_sent_indices(doc_indices, article_sent_tokens)
+                rel_sent_indices, _, _ = preprocess_for_lambdamart_no_flags.get_rel_sent_indices(doc_indices, article_sent_tokens)
                 similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, FLAGS.sentence_limit)
 
 
@@ -111,8 +121,11 @@ def main(unused_argv):
                 possible_singles = [(i,) for i in range(len(raw_article_sents))]
                 positives = [ssi for ssi in similar_source_indices_list]
 
-                if dataset_split == 'test':
-                    possible_combinations = possible_pairs + possible_singles
+                if dataset_split == 'test' or dataset_split == 'val_test':
+                    if FLAGS.singles_and_pairs == 'singles':
+                        possible_combinations = possible_singles
+                    else:
+                        possible_combinations = possible_pairs + possible_singles
                     negatives = [ssi for ssi in possible_combinations if not (ssi in positives or ssi[::-1] in positives)]
 
                     for ssi in positives:

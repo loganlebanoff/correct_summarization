@@ -16,7 +16,8 @@ flags.DEFINE_string('data_root', '/home/logan/data/tf_data/with_coref_and_ssi', 
 flags.DEFINE_string('dataset_split', 'all', 'Which dataset split to use. Must be one of {train, val, test}')
 
 
-names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json')]
+# names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json')]
+names_to_types = [('raw_article_sents', 'string_list'), ('article', 'string'), ('abstract', 'string_list'), ('doc_indices', 'string')]
 VOCAB_SIZE = 200000
 
 def main(unused_argv):
@@ -35,16 +36,19 @@ def main(unused_argv):
         source_dir = os.path.join(FLAGS.data_root, FLAGS.dataset_name)
         source_files = sorted(glob.glob(source_dir + '/' + dataset_split + '*'))
 
-        total = len(source_files) * 1000 if 'cnn' in FLAGS.dataset_name or 'newsroom' in FLAGS.dataset_name or 'xsum' in FLAGS.dataset_name else len(source_files)
+        total = len(source_files) * 1000
         example_generator = data.example_generator(source_dir + '/' + dataset_split + '*', True, False,
                                                    should_check_valid=False)
 
         for example_idx, example in enumerate(tqdm(example_generator, total=total)):
 
-            raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs = util.unpack_tf_example(
+            # raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs = util.unpack_tf_example(
+            #     example, names_to_types)
+            raw_article_sents, article, abstracts, doc_indices = util.unpack_tf_example(
                 example, names_to_types)
             article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
-            groundtruth_summ_sent_tokens = [sent.strip().split() for sent in groundtruth_summary_text.strip().split('\n')]
+            # groundtruth_summ_sent_tokens = [sent.strip().split() for sent in groundtruth_summary_text.strip().split('\n')]
+            groundtruth_summ_sent_tokens = [[token for token in abstract.strip().split() if token not in ['<s>','</s>']] for abstract in abstracts]
             all_tokens = util.flatten_list_of_lists(article_sent_tokens) + util.flatten_list_of_lists(groundtruth_summ_sent_tokens)
 
             vocab_counter.update(all_tokens)
