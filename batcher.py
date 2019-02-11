@@ -27,12 +27,14 @@ import nltk
 from convert_data import process_sent
 import util
 from absl import logging
+import pg_mmr_functions
 
+max_dec_sents = 10
 
 class Example(object):
     """Class representing a train/val/test example for text summarization."""
 
-    def __init__(self, article, abstract_sentences, all_abstract_sentences, doc_indices, raw_article_sents, vocab, hps):
+    def __init__(self, article, abstract_sentences, all_abstract_sentences, doc_indices, raw_article_sents, ssi, vocab, hps):
         """Initializes the Example, performing tokenization and truncation to produce the encoder, decoder and target sequences, which are stored in self.
 
         Args:
@@ -87,6 +89,27 @@ class Example(object):
             # Overwrite decoder target sequence so it uses the temp article OOV ids
             _, self.target = self.get_dec_inp_targ_seqs(abs_ids_extend_vocab, hps.max_dec_steps, start_decoding, stop_decoding)
 
+        if ssi is not None:
+            # Translate the similar source indices into masks over the encoder input
+            self.ssi_masks = []
+            for source_indices in ssi:
+                ssi_sent_mask = [0.] * len(raw_article_sents)
+                for source_idx in source_indices:
+                    ssi_sent_mask[source_idx] = 1.
+                ssi_mask = pg_mmr_functions.convert_to_word_level(ssi_sent_mask, self.tokenized_sents)
+                self.ssi_masks.append(ssi_mask)
+
+            # Same as self.ssi_masks, but copy the masks so that it is token-level (for each decoder timestep) instead of sentence-level
+            self.ssi_masks_per_timestep = []
+            summary_sent_tokens = [sent.strip().split() for sent in abstract_sentences]
+            if len(self.ssi_masks) != len(summary_sent_tokens):
+                raise Exception('len(self.ssi_masks) != len(summary_sent_tokens)')
+            for sent_idx, sent_tokens in enumerate(summary_sent_tokens):
+                for token in sent_tokens:
+                    self.ssi_masks_per_timestep.append(self.ssi_masks[sent_idx])
+
+            self.sent_indices = pg_mmr_functions.convert_to_word_level(list(range(len(summary_sent_tokens))), summary_sent_tokens).tolist()
+
         # Store the original strings
         self.original_article = article
         self.raw_article_sents = raw_article_sents
@@ -95,6 +118,7 @@ class Example(object):
         self.all_original_abstract_sents = all_abstract_sentences
 
         self.doc_indices = doc_indices
+        self.ssi = ssi
 
 
     def get_dec_inp_targ_seqs(self, sequence, max_len, start_id, stop_id):
@@ -142,6 +166,79 @@ class Example(object):
         while len(self.doc_indices) < max_len:
             self.doc_indices.append(pad_id)
 
+    def pad_ssi(self, max_len, max_enc_len, pad_id):
+        """Pad the encoder input sequence with pad_id up to max_len."""
+        for idx in range(len(self.ssi_masks_per_timestep)):
+            """Pad the encoder input sequence with pad_id up to max_len."""
+            # while len(self.ssi_masks_per_timestep[idx]) < max_enc_len:
+            self.ssi_masks_per_timestep[idx] = np.pad(self.ssi_masks_per_timestep[idx], (0, max_enc_len-len(self.ssi_masks_per_timestep[idx])), 'constant', constant_values=(pad_id, pad_id))
+                # self.ssi_masks_per_timestep[idx].append(pad_id)
+        while len(self.ssi_masks_per_timestep) < max_len:
+            self.ssi_masks_per_timestep.append([pad_id] * max_enc_len)
+        self.ssi_masks_per_timestep = self.ssi_masks_per_timestep[:max_len]
+
+    def pad_ssi_masks(self, max_len, max_enc_len, pad_id):
+        self.ssi_masks_padded = []
+        """Pad the encoder input sequence with pad_id up to max_len."""
+        for idx in range(len(self.ssi_masks)):
+            """Pad the encoder input sequence with pad_id up to max_len."""
+            # self.ssi_masks[idx] = np.pad(self.ssi_masks[idx], (0, max_enc_len-len(self.ssi_masks[idx])), 'constant', constant_values=(pad_id, pad_id))
+            self.ssi_masks_padded.append(np.pad(self.ssi_masks[idx], (0, max_enc_len-len(self.ssi_masks[idx])), 'constant', constant_values=(pad_id, pad_id)))
+        while len(self.ssi_masks_padded) < max_len:
+            self.ssi_masks_padded.append([pad_id] * max_enc_len)
+        self.ssi_masks_padded = self.ssi_masks_padded[:max_len]
+        self.ssi_masks_padded = np.array(self.ssi_masks_padded)
+
+    def pad_sent_indices(self, max_len, pad_id):
+        """Pad decoder input and target sequences with pad_id up to max_len."""
+        while len(self.sent_indices) < max_len:
+            self.sent_indices.append(pad_id)
+        self.sent_indices = self.sent_indices[:max_len]
+
+    def are_ssi_in_max_enc_steps(self, max_len):
+        cur_token_idx = 0
+        sent_idx_at_400 = 100000
+        for sent_idx, sent_tokens in enumerate(self.tokenized_sents):
+            for token in sent_tokens:
+                cur_token_idx += 1
+                if cur_token_idx >= max_len:
+                    sent_idx_at_400 = sent_idx
+                    break
+            if cur_token_idx >= max_len:
+                break
+        for source_indices in self.ssi:
+            for source_idx in source_indices:
+                if source_idx >= sent_idx_at_400:
+                    return False
+        return True
+
+    def fix_outside_and_empty_masks(self, max_enc_steps, max_enc_seq_len):
+        cur_token_idx = 0
+        sent_idx_at_400 = 100000
+        for sent_idx, sent_tokens in enumerate(self.tokenized_sents):
+            for token in sent_tokens:
+                cur_token_idx += 1
+                if cur_token_idx >= max_enc_steps:
+                    sent_idx_at_400 = sent_idx
+                    break
+            if cur_token_idx >= max_enc_steps:
+                break
+        new_masks = []
+        for source_indices_idx, source_indices in enumerate(self.ssi):
+            should_make_all_ones = False
+            for source_idx in source_indices:
+                if source_idx >= sent_idx_at_400:
+                    should_make_all_ones = True
+            if len(source_indices) == 0:
+                should_make_all_ones = True
+
+            if should_make_all_ones:
+                new_masks.append([1] * max_enc_seq_len)
+            else:
+                new_masks.append(self.ssi_masks[source_indices_idx])
+        self.ssi_masks = new_masks
+
+
 
 class Batch(object):
     """Class representing a minibatch of train/val/test examples for text summarization."""
@@ -157,6 +254,8 @@ class Batch(object):
         self.pad_id = vocab.word2id(data.PAD_TOKEN) # id of the PAD token used to pad sequences
         self.init_encoder_seq(example_list, hps) # initialize the input to the encoder
         self.init_decoder_seq(example_list, hps) # initialize the input and targets for the decoder
+        if example_list[0].ssi is not None:
+            self.init_ssi_masks(example_list, hps)
         self.store_orig_strings(example_list) # store the original strings
 
     def init_encoder_seq(self, example_list, hps):
@@ -236,6 +335,41 @@ class Batch(object):
             for j in xrange(ex.dec_len):
                 self.dec_padding_mask[i][j] = 1
 
+    def init_ssi_masks(self, example_list, hps):
+        # Determine the maximum length of the encoder input sequence in this batch
+        max_enc_seq_len = max([ex.enc_len for ex in example_list])
+
+        # # Pad ssi and add to list to stack together
+        # ssi_masks_per_timestep_examples = []
+        # for ex in example_list:
+        #     if not ex.are_ssi_in_max_enc_steps(hps.max_enc_steps):
+        #         ssi_masks_per_timestep = np.ones([hps.max_dec_steps, max_enc_seq_len], dtype=float)
+        #     else:
+        #         ex.pad_ssi(hps.max_dec_steps, max_enc_seq_len, 0.)
+        #         ssi_masks_per_timestep = ex.ssi_masks_per_timestep
+        #     ssi_masks_per_timestep_examples.append(np.array(ssi_masks_per_timestep))
+        #
+        # # WARNING: Possible problem here because we are not explicitly setting the array to be of size "batch_size"
+        # self.ssi_masks_per_timestep = np.stack(ssi_masks_per_timestep_examples)
+        # self.ssi_masks_per_timestep_bool = self.ssi_masks_per_timestep.astype(np.bool)
+
+        for ex in example_list:
+            ex.fix_outside_and_empty_masks(hps.max_enc_steps, max_enc_seq_len)
+        for ex_idx, ex in enumerate(example_list):
+            ex.pad_ssi_masks(max_dec_sents, max_enc_seq_len, 0.)
+
+        self.ssi_masks_padded = np.stack([ex.ssi_masks_padded for ex in example_list])
+        # self.ssi_masks_padded = np.ones([len(example_list), max_dec_sents, max_enc_seq_len], dtype=float)
+
+        batch_sent_indices = []
+        for ex_idx, ex in enumerate(example_list):
+            ex.pad_sent_indices(hps.max_dec_steps, 0)
+            new_sent_indices = []
+            for sent_idx in ex.sent_indices:
+                new_sent_indices.append([ex_idx, sent_idx])
+            batch_sent_indices.append(new_sent_indices)
+        self.batch_sent_indices = np.array(batch_sent_indices, dtype=np.int32)
+
     def store_orig_strings(self, example_list):
         """Store the original article and abstract strings in the Batch object"""
         self.original_articles = [ex.original_article for ex in example_list] # list of lists
@@ -245,6 +379,9 @@ class Batch(object):
         self.original_abstracts = [ex.original_abstract for ex in example_list] # list of lists
         self.original_abstracts_sents = [ex.original_abstract_sents for ex in example_list] # list of list of lists
         self.all_original_abstracts_sents = [ex.all_original_abstract_sents for ex in example_list] # list of list of list of lists
+        if example_list[0].ssi is not None:
+            self.ssis = [ex.ssi for ex in example_list]
+            self.ssi_masks = [ex.ssi_masks for ex in example_list]
 
 
 class Batcher(object):
@@ -325,14 +462,14 @@ class Batcher(object):
 
         if self._example_generator is None:
             input_gen = self.text_generator(
-                data.example_generator(self._data_path, self._single_pass, self._cnn_500_dm_500))
+                data.example_generator(self._data_path, self._single_pass, self._cnn_500_dm_500, is_pg_mmr=self._hps.pg_mmr))
         else:
             input_gen = self.text_generator(self._example_generator)
         # counter = 0
         while True:
             try:
                 (article,
-                 abstracts, doc_indices_str, raw_article_sents) = input_gen.next()  # read the next example from file. article and abstract are both strings.
+                 abstracts, doc_indices_str, raw_article_sents, ssi) = input_gen.next()  # read the next example from file. article and abstract are both strings.
             except StopIteration:  # if there are no more examples:
                 logging.info("The example generator for this example queue filling thread has exhausted data.")
                 if self._single_pass:
@@ -350,7 +487,7 @@ class Batcher(object):
             else:
                 abstract_sentences = []
             doc_indices = [int(idx) for idx in doc_indices_str.strip().split()]
-            example = Example(article, abstract_sentences, all_abstract_sentences, doc_indices, raw_article_sents, self._vocab, self._hps)  # Process into an Example.
+            example = Example(article, abstract_sentences, all_abstract_sentences, doc_indices, raw_article_sents, ssi, self._vocab, self._hps)  # Process into an Example.
             self._example_queue.put(example)  # place the Example in the example queue.
             # print "example num", counter
             # counter += 1
@@ -421,7 +558,6 @@ class Batcher(object):
                     new_t.daemon = True
                     new_t.start()
 
-
     def text_generator(self, example_generator):
         """Generates article and abstract text from tf.Example.
 
@@ -431,20 +567,44 @@ class Batcher(object):
             e = example_generator.next() # e is a tf.Example
             abstract_texts = []
             raw_article_sents = []
-            try:
-                article_text = e.features.feature['article'].bytes_list.value[0] # the article text was saved under the key 'article' in the data files
-                for abstract in e.features.feature['abstract'].bytes_list.value:
-                    abstract_texts.append(abstract) # the abstract text was saved under the key 'abstract' in the data files
-                if 'doc_indices' not in e.features.feature or len(e.features.feature['doc_indices'].bytes_list.value) == 0:
-                    num_words = len(article_text.split())
-                    doc_indices_text = '0 ' * num_words
-                else:
-                    doc_indices_text = e.features.feature['doc_indices'].bytes_list.value[0]
-                for sent in e.features.feature['raw_article_sents'].bytes_list.value:
-                    raw_article_sents.append(sent) # the abstract text was saved under the key 'abstract' in the data files
-            except ValueError:
-                logging.error('Failed to get article or abstract from example')
-                continue
+            if self._hps.pg_mmr:
+                try:
+                    names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json')]
+
+                    raw_article_sents, ssi, groundtruth_summary_text, corefs = util.unpack_tf_example(
+                        e, names_to_types)
+                    article_sent_tokens = [process_sent(sent) for sent in raw_article_sents]
+                    article_text = ' '.join([' '.join(sent) for sent in article_sent_tokens])
+                    abstract_sentences = ['<s> ' + sent.strip() + ' </s>' for sent in groundtruth_summary_text.strip().split('\n')]
+                    abstract_sentences = abstract_sentences[:max_dec_sents]
+                    abstract_texts = [' '.join(abstract_sentences)]
+                    if 'doc_indices' not in e.features.feature or len(e.features.feature['doc_indices'].bytes_list.value) == 0:
+                        num_words = len(article_text.split())
+                        doc_indices_text = '0 ' * num_words
+                    else:
+                        doc_indices_text = e.features.feature['doc_indices'].bytes_list.value[0]
+                    sentence_limit = 1 if self._hps.singles_and_pairs == 'singles' else 2
+                    ssi = util.enforce_sentence_limit(ssi, sentence_limit)
+                    ssi = ssi[:max_dec_sents]
+                except:
+                    logging.error('Failed to get article or abstract from example')
+                    continue
+            else:
+                try:
+                    article_text = e.features.feature['article'].bytes_list.value[0] # the article text was saved under the key 'article' in the data files
+                    for abstract in e.features.feature['abstract'].bytes_list.value:
+                        abstract_texts.append(abstract) # the abstract text was saved under the key 'abstract' in the data files
+                    if 'doc_indices' not in e.features.feature or len(e.features.feature['doc_indices'].bytes_list.value) == 0:
+                        num_words = len(article_text.split())
+                        doc_indices_text = '0 ' * num_words
+                    else:
+                        doc_indices_text = e.features.feature['doc_indices'].bytes_list.value[0]
+                    for sent in e.features.feature['raw_article_sents'].bytes_list.value:
+                        raw_article_sents.append(sent) # the abstract text was saved under the key 'abstract' in the data files
+                    ssi = None
+                except ValueError:
+                    logging.error('Failed to get article or abstract from example')
+                    continue
             if len(article_text)==0: # See https://github.com/abisee/pointer-generator/issues/1
                 logging.warning('Found an example with empty article text. Skipping it.')
             elif len(article_text.strip().split()) < 3:
@@ -452,7 +612,15 @@ class Batcher(object):
             elif len(abstract_texts[0].strip().split()) < 3:
                 print('Abstract has less than 3 tokens, so skipping')
             else:
-                yield (article_text, abstract_texts, doc_indices_text, raw_article_sents)
+                yield (article_text, abstract_texts, doc_indices_text, raw_article_sents, ssi)
+
+
+def get_delimited_list_of_lists(example, name):
+    text = get_string(example, name)
+    return [[int(i) for i in (l.strip().split(' ') if l != '' else [])] for l in text.strip().split(';')]
+
+def get_string(example, name):
+    return example.features.feature[name].bytes_list.value[0]
 
 def preprocess_example(article, groundtruth_summ_sents, doc_indices_str, raw_article_sents, hps, vocab):
     if len(groundtruth_summ_sents) != 0:
@@ -460,7 +628,7 @@ def preprocess_example(article, groundtruth_summ_sents, doc_indices_str, raw_art
     else:
         abstract_sentences = []
     doc_indices = [int(idx) for idx in doc_indices_str.strip().split()]
-    example = Example(article, abstract_sentences, groundtruth_summ_sents, doc_indices, raw_article_sents, vocab, hps)  # Process into an Example.
+    example = Example(article, abstract_sentences, groundtruth_summ_sents, doc_indices, raw_article_sents, None, vocab, hps)  # Process into an Example.
     return example
 
 def preprocess_batch(ex, batch_size, hps, vocab):

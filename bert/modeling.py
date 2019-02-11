@@ -197,8 +197,8 @@ class BertModel(object):
             sentence_ids=sentence_ids,
             sentence_id_vocab_size=512,
             sentence_id_embedding_name="sentence_position_embeddings",
-            use_article_embedding=(article_embedding is not None),
-            article_embedding=article_embedding,
+            # use_article_embedding=(article_embedding is not None),
+            # article_embedding=article_embedding,
             use_position_embeddings=True,
             position_embedding_name="position_embeddings",
             initializer_range=config.initializer_range,
@@ -237,6 +237,8 @@ class BertModel(object):
         # We "pool" the model by simply taking the hidden state corresponding
         # to the first token. We assume that this has been pre-trained
         first_token_tensor = tf.squeeze(self.sequence_output[:, 0:1, :], axis=1)
+        # if article_embedding is not None:
+        #     first_token_tensor = tf.concat([first_token_tensor, article_embedding], axis=-1)
         self.pooled_output = tf.layers.dense(
             first_token_tensor,
             config.hidden_size,

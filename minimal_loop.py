@@ -48,7 +48,12 @@ def main(unused_argv):
     example_generator = data.example_generator(source_dir + '/' + FLAGS.dataset_split + '*', True, False,
                                                should_check_valid=False)
 
+    ssi_sents = []
+    num_summ_tokens = []
+
     for example_idx, example in enumerate(tqdm(example_generator, total=total)):
+        if FLAGS.num_instances != -1 and example_idx >= FLAGS.num_instances:
+            break
         raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(
             example, names_to_types)
         article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
@@ -56,10 +61,14 @@ def main(unused_argv):
         if doc_indices is None:
             doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
         doc_indices = [int(doc_idx) for doc_idx in doc_indices]
-        rel_sent_indices, _, _ = preprocess_for_lambdamart_no_flags.get_rel_sent_indices(doc_indices, article_sent_tokens)
+        # rel_sent_indices, _, _ = preprocess_for_lambdamart_no_flags.get_rel_sent_indices(doc_indices, article_sent_tokens)
         groundtruth_similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, FLAGS.sentence_limit)
 
-
+        groundtruth_summ_sent_tokens = [sent.split(' ') for sent in groundtruth_summ_sents[0]]
+        ssi_sents.append(len(groundtruth_similar_source_indices_list))
+        num_summ_tokens.append(len(util.flatten_list_of_lists(groundtruth_summ_sent_tokens)))
+    print "ssi_sents = %f" % np.max(ssi_sents)
+    print "num_summ_tokens", np.histogram(num_summ_tokens, bins=75)
 
 
 if __name__ == '__main__':

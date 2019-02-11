@@ -20,6 +20,7 @@ import numpy as np
 import data
 from absl import flags
 import pg_mmr_functions
+import util
 
 FLAGS = flags.FLAGS
 
@@ -134,7 +135,7 @@ def run_beam_search(sess, model, vocab, batch, ex_index, hps):
         if FLAGS.pg_mmr:
             if FLAGS.mute_k != -1:
                 prev_mmr = [pg_mmr_functions.mute_all_except_top_k(mmr, FLAGS.mute_k) for mmr in prev_mmr]
-            prev_mmr_for_words = [pg_mmr_functions.convert_to_word_level(mmr, batch, enc_tokens) for mmr in prev_mmr]
+            prev_mmr_for_words = [pg_mmr_functions.convert_to_word_level(mmr, enc_tokens) for mmr in prev_mmr]
         else:
             prev_mmr_for_words = [None for _ in prev_mmr]
 

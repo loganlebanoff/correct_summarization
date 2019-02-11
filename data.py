@@ -22,6 +22,7 @@ import random
 import struct
 import csv
 from tensorflow.core.example import example_pb2
+import util
 
 # <s> and </s> are used in the data files to segment the abstracts into sentences. They don't receive vocab ids.
 SENTENCE_START = '<s>'
@@ -106,27 +107,38 @@ class Vocab(object):
             for i in xrange(self.size()):
                 writer.writerow({"word": self._id_to_word[i]})
 
-def is_valid_example(e):
+def is_valid_example(e, is_pg_mmr=False):
     abstract_texts = []
     raw_article_sents = []
-    try:
-        article_text = e.features.feature['article'].bytes_list.value[0] # the article text was saved under the key 'article' in the data files
-        for abstract in e.features.feature['abstract'].bytes_list.value:
-            abstract_texts.append(abstract) # the abstract text was saved under the key 'abstract' in the data files
-        if 'doc_indices' not in e.features.feature or len(e.features.feature['doc_indices'].bytes_list.value) == 0:
-            num_words = len(article_text.split())
-            doc_indices_text = '0 ' * num_words
-        else:
-            doc_indices_text = e.features.feature['doc_indices'].bytes_list.value[0]
-        for sent in e.features.feature['raw_article_sents'].bytes_list.value:
-            raw_article_sents.append(sent) # the abstract text was saved under the key 'abstract' in the data files
-    except ValueError:
-        return False
-    if len(article_text)==0: # See https://github.com/abisee/pointer-generator/issues/1
-        return False
+    if is_pg_mmr:
+        try:
+            names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json')]
+
+            raw_article_sents, ssi, groundtruth_summary_text, corefs = util.unpack_tf_example(
+                e, names_to_types)
+            if len(raw_article_sents) == 0:
+                return False
+        except ValueError:
+            return False
+    else:
+        try:
+            article_text = e.features.feature['article'].bytes_list.value[0] # the article text was saved under the key 'article' in the data files
+            for abstract in e.features.feature['abstract'].bytes_list.value:
+                abstract_texts.append(abstract) # the abstract text was saved under the key 'abstract' in the data files
+            if 'doc_indices' not in e.features.feature or len(e.features.feature['doc_indices'].bytes_list.value) == 0:
+                num_words = len(article_text.split())
+                doc_indices_text = '0 ' * num_words
+            else:
+                doc_indices_text = e.features.feature['doc_indices'].bytes_list.value[0]
+            for sent in e.features.feature['raw_article_sents'].bytes_list.value:
+                raw_article_sents.append(sent) # the abstract text was saved under the key 'abstract' in the data files
+        except ValueError:
+            return False
+        if len(article_text)==0: # See https://github.com/abisee/pointer-generator/issues/1
+            return False
     return True
 
-def example_generator(data_path, single_pass, cnn_500_dm_500, should_check_valid=True):
+def example_generator(data_path, single_pass, cnn_500_dm_500, should_check_valid=True, is_pg_mmr=False):
     """Generates tf.Examples from data files.
 
         Binary data format: <length><blob>. <length> represents the byte size
@@ -160,7 +172,7 @@ def example_generator(data_path, single_pass, cnn_500_dm_500, should_check_valid
                 str_len = struct.unpack('q', len_bytes)[0]
                 example_str = struct.unpack('%ds' % str_len, reader.read(str_len))[0]
                 e = example_pb2.Example.FromString(example_str)
-                if should_check_valid and is_valid_example(e):
+                if should_check_valid and is_valid_example(e, is_pg_mmr=is_pg_mmr):
                     valid_ex_count += 1
                 yield e
         if single_pass:

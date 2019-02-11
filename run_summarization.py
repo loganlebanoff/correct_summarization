@@ -105,6 +105,11 @@ flags.DEFINE_integer('num_iterations', 60000, 'How many iterations to run. Set t
 
 flags.DEFINE_boolean('attn_vis', False, 'If true, then output attention visualization during decoding.')
 flags.DEFINE_boolean('lambdamart_input', True, 'If true, then do postprocessing to combine sentences from the same example.')
+flags.DEFINE_string('singles_and_pairs', 'none',
+                    'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both, none}.')
+flags.DEFINE_string('original_dataset_name', '',
+                    'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
+
 
 def calc_running_avg_loss(loss, running_avg_loss, summary_writer, step, decay=0.99):
     """Calculate the running average loss via exponential decay.
@@ -341,6 +346,8 @@ def fit_tfidf_vectorizer(hps, vocab):
 def main(unused_argv):
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
+    if FLAGS.pg_mmr:
+        FLAGS.data_root = "/home/logan/data/tf_data/with_coref_and_ssi"
     if FLAGS.dataset_name != "":
         FLAGS.data_path = os.path.join(FLAGS.data_root, FLAGS.dataset_name, FLAGS.dataset_split + '*')
     if not os.path.exists(os.path.join(FLAGS.data_root, FLAGS.dataset_name)) or len(os.listdir(os.path.join(FLAGS.data_root, FLAGS.dataset_name))) == 0:
@@ -355,13 +362,14 @@ def main(unused_argv):
     FLAGS.actual_log_root = FLAGS.log_root
     FLAGS.log_root = os.path.join(FLAGS.log_root, FLAGS.exp_name)
 
-    vocab_datasets = [os.path.basename(file_path).split('vocab_')[1] for file_path in glob.glob(FLAGS.vocab_path + '*')]
+    vocab_datasets = [os.path.basename(file_path).split('vocab_')[1] for file_path in glob.glob(FLAGS.vocab_path + '_*')]
     original_dataset_name = [file_name for file_name in vocab_datasets if file_name in FLAGS.dataset_name]
     if len(original_dataset_name) > 1:
         raise Exception('Too many choices for vocab file')
     if len(original_dataset_name) < 1:
         raise Exception('No vocab file for dataset created. Run make_vocab.py --dataset_name=<my original dataset name>')
     original_dataset_name = original_dataset_name[0]
+    FLAGS.original_dataset_name = original_dataset_name
     vocab = Vocab(FLAGS.vocab_path + '_' + original_dataset_name, FLAGS.vocab_size) # create a vocabulary
 
     # If in decode mode, set batch_size = beam_size
@@ -377,7 +385,7 @@ def main(unused_argv):
     # Make a namedtuple hps, containing the values of the hyperparameters that the model needs
     hparam_list = ['mode', 'lr', 'adagrad_init_acc', 'rand_unif_init_mag', 'trunc_norm_init_std',
                    'max_grad_norm', 'hidden_dim', 'emb_dim', 'batch_size', 'max_dec_steps',
-                   'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input']
+                   'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input', 'pg_mmr', 'singles_and_pairs']
     hps_dict = {}
     for key,val in FLAGS.__flags.iteritems(): # for each flag
         if key in hparam_list: # if it's in the list
@@ -388,7 +396,7 @@ def main(unused_argv):
 
         # Fit the TFIDF vectorizer if not already fitted
         if FLAGS.importance_fn == 'tfidf':
-            tfidf_model_path = os.path.join(FLAGS.actual_log_root, 'tfidf_vectorizer', FLAGS.dataset_name + '.dill')
+            tfidf_model_path = os.path.join(FLAGS.actual_log_root, 'tfidf_vectorizer', FLAGS.original_dataset_name + '.dill')
             if not os.path.exists(tfidf_model_path):
                 print('No TFIDF vectorizer model file found at %s, so fitting the model now.' % tfidf_model_path)
                 tfidf_vectorizer = fit_tfidf_vectorizer(hps, vocab)

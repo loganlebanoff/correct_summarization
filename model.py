@@ -58,7 +58,9 @@ class SummarizationModel(object):
             self.token_inputs = tf.placeholder(tf.int32, [hps.batch_size, None], name='token_inputs')
 
         if FLAGS.pg_mmr:
-            self.mmr_score = tf.placeholder(tf.float32, [hps.batch_size, None], name='mmr_score')
+            # self.mmr_score = tf.placeholder(tf.float32, [hps.batch_size, hps.max_dec_steps, None], name='mmr_score')
+            self.mmr_score = tf.placeholder(tf.bool, [hps.batch_size, 10, None], name='mmr_score')
+            self.batch_sent_indices = tf.placeholder(tf.int32, [hps.batch_size, hps.max_dec_steps, 2], name='batch_sent_indices')
 
 
     def _make_feed_dict(self, batch, just_enc=False):
@@ -79,8 +81,12 @@ class SummarizationModel(object):
             feed_dict[self._dec_batch] = batch.dec_batch
             feed_dict[self._target_batch] = batch.target_batch
             feed_dict[self._dec_padding_mask] = batch.dec_padding_mask
+        if FLAGS.pg_mmr:
+            # feed_dict[self.mmr_score] = batch.ssi_masks_per_timestep
+            feed_dict[self.mmr_score] = batch.ssi_masks_padded      # [batch_size, max_dec_sents, max_enc_len]
+            feed_dict[self.batch_sent_indices] = batch.batch_sent_indices   # [batch_size, max_dec_steps, 2]
         return feed_dict
-
+# tf.boolean_mask
     def _add_encoder(self, encoder_inputs, seq_len):
         """Add a single-layer bidirectional LSTM encoder to the graph.
 
@@ -146,9 +152,10 @@ class SummarizationModel(object):
         cell = tf.contrib.rnn.LSTMCell(hps.hidden_dim, state_is_tuple=True, initializer=self.rand_unif_init)
 
         prev_coverage = self.prev_coverage if hps.mode=="decode" and hps.coverage else None # In decode mode, we run attention_decoder one step at a time and so need to pass in the previous step's coverage vector each time
-        mmr_score =  self.mmr_score if hps.mode=="decode" and FLAGS.pg_mmr else None
+        mmr_score =  self.mmr_score if FLAGS.pg_mmr else None
+        batch_sent_indices = self.batch_sent_indices if FLAGS.pg_mmr else None
 
-        outputs, out_state, attn_dists, p_gens, coverage, pre_attn_dists = attention_decoder(inputs, self._dec_in_state, self._enc_states, self._enc_padding_mask, cell, initial_state_attention=(hps.mode=="decode"), pointer_gen=hps.pointer_gen, use_coverage=hps.coverage, prev_coverage=prev_coverage, mmr_score=mmr_score)
+        outputs, out_state, attn_dists, p_gens, coverage, pre_attn_dists = attention_decoder(inputs, self._dec_in_state, self._enc_states, self._enc_padding_mask, cell, initial_state_attention=(hps.mode=="decode"), pointer_gen=hps.pointer_gen, use_coverage=hps.coverage, prev_coverage=prev_coverage, mmr_masks=mmr_score, batch_sent_indices=batch_sent_indices)
 
         return outputs, out_state, attn_dists, p_gens, coverage, pre_attn_dists
 
@@ -349,10 +356,16 @@ class SummarizationModel(object):
                 'summaries': self._summaries,
                 'loss': self._loss,
                 'global_step': self.global_step,
+                'attn_dists': self.attn_dists,
+                'pre_attn_dists': self.pre_attn_dists,
         }
         if self._hps.coverage:
             to_return['coverage_loss'] = self._coverage_loss
-        return sess.run(to_return, feed_dict)
+        try:
+            result = sess.run(to_return, feed_dict)
+        except:
+            a=0
+        return result
 
     def run_eval_step(self, sess, batch):
         """Runs one evaluation iteration. Returns a dictionary containing summaries, loss, global_step and (optionally) coverage loss."""

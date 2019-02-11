@@ -83,6 +83,12 @@ flags.DEFINE_bool(
     "only_class_embedding", False,
     "If True, only save the [CLS] embedding to the output jsonl file.")
 
+flags.DEFINE_string("dataset_name", 'cnn_dm',
+                    "If using a TPU, the address of the master.")
+
+flags.DEFINE_string("dataset_split", 'all',
+                    "If using a TPU, the address of the master.")
+
 
 class InputExample(object):
 
@@ -219,6 +225,8 @@ def convert_examples_to_features(examples, seq_length, tokenizer):
   print("Converting examples to features...")
   features = []
   for (ex_index, example) in enumerate(tqdm(examples)):
+    # if ex_index >- 100:
+    #     break
     tokens_a = tokenizer.tokenize(example.text_a)
 
     tokens_b = None
@@ -364,15 +372,6 @@ def main(_):
           num_shards=FLAGS.num_tpu_cores,
           per_host_input_for_training=is_per_host))
 
-  examples = read_examples(FLAGS.input_file)
-
-  features = convert_examples_to_features(
-      examples=examples, seq_length=FLAGS.max_seq_length, tokenizer=tokenizer)
-
-  unique_id_to_feature = {}
-  for feature in features:
-    unique_id_to_feature[feature.unique_id] = feature
-
   model_fn = model_fn_builder(
       bert_config=bert_config,
       init_checkpoint=FLAGS.init_checkpoint,
@@ -388,47 +387,67 @@ def main(_):
       config=run_config,
       predict_batch_size=FLAGS.batch_size)
 
-  input_fn = input_fn_builder(
-      features=features, seq_length=FLAGS.max_seq_length)
+  if FLAGS.dataset_split == 'all':
+      dataset_splits = ['test', 'val', 'train']
+  else:
+      dataset_splits = [FLAGS.dataset_split]
 
-  if not os.path.exists(os.path.dirname(FLAGS.output_file)):
-    os.makedirs(os.path.dirname(FLAGS.output_file))
-  with codecs.getwriter("utf-8")(tf.gfile.Open(FLAGS.output_file,
-                                               "w")) as writer:
-    if FLAGS.only_class_embedding:
-        writer.write('Article embeddings:\n')
-    for result in tqdm(estimator.predict(input_fn, yield_single_examples=True), total=len(examples)):
-      unique_id = int(result["unique_id"])
-      feature = unique_id_to_feature[unique_id]
-      output_json = collections.OrderedDict()
-      output_json["linex_index"] = unique_id
-      all_features = []
-      if FLAGS.only_class_embedding:
-          tokens = [feature.tokens[0]]
-      else:
-          tokens = feature.tokens
-      for (i, token) in enumerate(tokens):
-        all_layers = []
-        for (j, layer_index) in enumerate(layer_indexes):
-          layer_output = result["layer_output_%d" % j]
-          layers = collections.OrderedDict()
-          layers["index"] = layer_index
-          layers["values"] = [
-              round(float(x), 6) for x in layer_output[i:(i + 1)].flat
-          ]
-          all_layers.append(layers)
-        features = collections.OrderedDict()
-        features["token"] = token
-        features["layers"] = all_layers
-        all_features.append(features)
-      output_json["features"] = all_features
-      writer.write(json.dumps(output_json) + "\n")
+  for dataset_split in dataset_splits:
+
+      data_root = '/home/logan/discourse/data/bert'
+      input_file = os.path.join(data_root, FLAGS.dataset_name, 'article_embeddings', 'input_article', dataset_split + '.tsv')
+      output_file = os.path.join(data_root, FLAGS.dataset_name, 'article_embeddings', 'output_article', dataset_split + '.jsonl')
+
+      examples = read_examples(input_file)
+
+      features = convert_examples_to_features(
+          examples=examples, seq_length=FLAGS.max_seq_length, tokenizer=tokenizer)
+
+      unique_id_to_feature = {}
+      for feature in features:
+        unique_id_to_feature[feature.unique_id] = feature
+
+      input_fn = input_fn_builder(
+          features=features, seq_length=FLAGS.max_seq_length)
+
+      if not os.path.exists(os.path.dirname(output_file)):
+        os.makedirs(os.path.dirname(output_file))
+      with codecs.getwriter("utf-8")(tf.gfile.Open(output_file,
+                                                   "w")) as writer:
+        if FLAGS.only_class_embedding:
+            writer.write('Article embeddings:\n')
+        for result in tqdm(estimator.predict(input_fn, yield_single_examples=True), total=len(examples)):
+          unique_id = int(result["unique_id"])
+          feature = unique_id_to_feature[unique_id]
+          output_json = collections.OrderedDict()
+          output_json["linex_index"] = unique_id
+          all_features = []
+          if FLAGS.only_class_embedding:
+              tokens = [feature.tokens[0]]
+          else:
+              tokens = feature.tokens
+          for (i, token) in enumerate(tokens):
+            all_layers = []
+            for (j, layer_index) in enumerate(layer_indexes):
+              layer_output = result["layer_output_%d" % j]
+              layers = collections.OrderedDict()
+              layers["index"] = layer_index
+              layers["values"] = [
+                  round(float(x), 6) for x in layer_output[i:(i + 1)].flat
+              ]
+              all_layers.append(layers)
+            features = collections.OrderedDict()
+            features["token"] = token
+            features["layers"] = all_layers
+            all_features.append(features)
+          output_json["features"] = all_features
+          writer.write(json.dumps(output_json) + "\n")
 
 
 if __name__ == "__main__":
-  flags.mark_flag_as_required("input_file")
+  # flags.mark_flag_as_required("input_file")
   flags.mark_flag_as_required("vocab_file")
   flags.mark_flag_as_required("bert_config_file")
   flags.mark_flag_as_required("init_checkpoint")
-  flags.mark_flag_as_required("output_file")
+  # flags.mark_flag_as_required("output_file")
   tf.app.run()

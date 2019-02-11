@@ -84,7 +84,7 @@ flags.DEFINE_string('similarity_fn', 'rouge_l', 'Which similarity function to us
                             sentence similarity or coverage. Must be one of {rouge_l, ngram_similarity}')
 flags.DEFINE_boolean('plot_distributions', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 
-flags.DEFINE_boolean('attn_vis', False, 'If true, then output attention visualization during decoding.')
+flags.DEFINE_boolean('attn_vis', True, 'If true, then output attention visualization during decoding.')
 
 flags.DEFINE_string('singles_and_pairs', 'singles',
                     'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
@@ -206,13 +206,29 @@ def main(unused_argv):
     model = SummarizationModel(decode_model_hps, vocab)
     decoder = BeamSearchDecoder(model, None, vocab)
     decoder.decode_iteratively(example_generator, total, names_to_types, ssi_list, hps)
-    # max_len = 0
+
+    # num_outside = []
     # for example_idx, example in enumerate(tqdm(example_generator, total=total)):
     #     raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs = util.unpack_tf_example(
     #         example, names_to_types)
-    #     if len(raw_article_sents) > max_len:
-    #         max_len = len(raw_article_sents)
-    # print "max len = %d" % max_len
+    #     article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+    #     cur_token_idx = 0
+    #     for sent_idx, sent_tokens in enumerate(article_sent_tokens):
+    #         for token in sent_tokens:
+    #             cur_token_idx += 1
+    #             if cur_token_idx >= 400:
+    #                 sent_idx_at_400 = sent_idx
+    #                 break
+    #         if cur_token_idx >= 400:
+    #             break
+    #
+    #     my_num_outside = 0
+    #     for ssi in groundtruth_similar_source_indices_list:
+    #         for source_idx in ssi:
+    #             if source_idx >= sent_idx_at_400:
+    #                 my_num_outside += 1
+    #     num_outside.append(my_num_outside)
+    # print "num_outside = %d" % np.mean(num_outside)
 
 
     a=0

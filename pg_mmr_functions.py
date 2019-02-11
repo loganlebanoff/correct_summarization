@@ -36,8 +36,9 @@ def get_summ_sents_and_tokens(summ_tokens, batch, vocab):
         token_idx += len(words)
     return sent_words, sent_tokens
 
-def convert_to_word_level(mmr_for_sentences, batch, enc_tokens):
-    mmr = np.ones([len(batch.enc_batch[0])], dtype=float) / len(batch.enc_batch[0])
+def convert_to_word_level(mmr_for_sentences, enc_tokens):
+    num_tokens = len(util.flatten_list_of_lists(enc_tokens))
+    mmr = np.ones([num_tokens], dtype=float) / num_tokens
     # Calculate how much for each word in source
     word_idx = 0
     for sent_idx in range(len(enc_tokens)):
@@ -185,7 +186,7 @@ def get_svr_importances(enc_states, enc_sentences, enc_sent_indices, svr_model, 
     return importances
 
 def get_tfidf_importances(raw_article_sents):
-    tfidf_model_path = os.path.join(FLAGS.actual_log_root, 'tfidf_vectorizer', FLAGS.dataset_name + '.dill')
+    tfidf_model_path = os.path.join(FLAGS.actual_log_root, 'tfidf_vectorizer', FLAGS.original_dataset_name + '.dill')
 
     while True:
         try:

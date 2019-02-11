@@ -15,12 +15,16 @@ import cPickle
 import sys
 import spacy
 import HTMLParser
+from nltk.stem.porter import PorterStemmer
+import dill
 
 FLAGS = flags.FLAGS
 
 flags.DEFINE_boolean('pca', False,
                      'If true, save plots of each distribution -- im')
 flags.DEFINE_string('input_dataset', 'all',
+                     'If true, save plots of each distribution -- im')
+flags.DEFINE_boolean('pg_mmr', False,
                      'If true, save plots of each distribution -- im')
 
 
@@ -39,7 +43,7 @@ lr = False
 min_df = 5
 
 data_dir = '/home/logan/data/tf_data'
-log_dir = 'logs/'
+log_dir = 'logs'
 out_dir = 'data/tfidf'
 max_enc_steps = 100000
 min_dec_steps = 100
@@ -187,12 +191,27 @@ def main(unused_argv):
     if FLAGS.pca:
         X = vec.fit_transform(all_articles)
         suffix = '_pca'
+    elif FLAGS.pg_mmr:
+        stemmer = PorterStemmer()
+
+        class StemmedTfidfVectorizer(TfidfVectorizer):
+            def build_analyzer(self):
+                analyzer = super(TfidfVectorizer, self).build_analyzer()
+                return lambda doc: (stemmer.stem(w) for w in analyzer(doc))
+
+        vec = StemmedTfidfVectorizer(analyzer='word', stop_words='english', ngram_range=(1, 3), max_df=0.7)
+        vec.fit_transform(all_articles)
     else:
-        vec.transform(all_articles)
+        vec.fit_transform(all_articles)
         suffix = ''
     print 'Vocabulary size', len(vec.vocabulary_.keys())
-    with open(os.path.join(out_dir, FLAGS.input_dataset + '_tfidf_vec_' + str(min_df) + suffix + '.pkl'), 'wb') as f:
-        cPickle.dump(vec, f)
+    if FLAGS.pg_mmr:
+        util.create_dirs(os.path.join(log_dir, 'tfidf_vectorizer'))
+        with open(os.path.join(log_dir, 'tfidf_vectorizer', FLAGS.input_dataset + '.dill'), 'wb') as f:
+            dill.dump(vec, f)
+    else:
+        with open(os.path.join(out_dir, FLAGS.input_dataset + '_tfidf_vec_' + str(min_df) + suffix + '.pkl'), 'wb') as f:
+            cPickle.dump(vec, f)
 
     if FLAGS.pca:
         print 'Fitting LSA model...'
