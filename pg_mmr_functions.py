@@ -1,18 +1,18 @@
 import textwrap as tw
 import PIL
 import itertools
-import util
-from util import get_similarity, rouge_l_similarity
-import importance_features
+from . import util
+from .util import get_similarity, rouge_l_similarity
+from . import importance_features
 import dill
 import time
 import random
 import numpy as np
 import os
-import data
+from . import data
 from absl import flags
 from sklearn.metrics.pairwise import cosine_similarity
-import cPickle
+import pickle
 import matplotlib
 if not "DISPLAY" in os.environ:
     matplotlib.use("Agg")
@@ -211,7 +211,7 @@ def get_importances(model, batch, enc_states, vocab, sess, hps):
         elif FLAGS.importance_fn == 'svr':
             if FLAGS.importance_fn == 'svr':
                 with open(os.path.join(FLAGS.actual_log_root, 'svr.pickle'), 'rb') as f:
-                    svr_model = cPickle.load(f)
+                    svr_model = pickle.load(f)
             enc_sent_indices = importance_features.get_sent_indices(enc_sentences, batch.doc_indices[0])
             sent_representations_separate = importance_features.get_separate_enc_states(model, sess, enc_sentences, vocab, hps)
             importances_hat = get_svr_importances(enc_states[0], enc_sentences, enc_sent_indices, svr_model, sent_representations_separate)

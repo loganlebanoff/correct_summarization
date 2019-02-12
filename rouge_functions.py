@@ -1,4 +1,4 @@
-from __future__ import division
+
 import collections
 import six
 import pyrouge
@@ -185,11 +185,11 @@ def rouge_log(results_dict, dir_to_write, prefix=None, suffix=None):
             log_str += "%s: %.4f with confidence interval (%.4f, %.4f)\n" % (key, val, val_cb, val_ce)
     print(log_str) # log to screen
     results_file = os.path.join(dir_to_write, "ROUGE_results.txt")
-    print("Writing final ROUGE results to %s...", results_file)
+    print(("Writing final ROUGE results to %s...", results_file))
     with open(results_file, "w") as f:
         f.write(log_str)
 
-    print "\nROUGE-1, ROUGE-2, ROUGE-SU4 (PRF):\n"
+    print("\nROUGE-1, ROUGE-2, ROUGE-SU4 (PRF):\n")
     sheets_str = ""
     for x in ["1", "2", "su4"]:
         for y in ["precision", "recall", "f_score"]:
@@ -201,7 +201,7 @@ def rouge_log(results_dict, dir_to_write, prefix=None, suffix=None):
         sheets_str = prefix + sheets_str
     if suffix is not None:
         sheets_str = sheets_str + suffix
-    print sheets_str
+    print(sheets_str)
     sheets_results_file = os.path.join(dir_to_write, "sheets_results.txt")
     with open(sheets_results_file, "w") as f:
         f.write(sheets_str)

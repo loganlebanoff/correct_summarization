@@ -1,6 +1,6 @@
-import cPickle
+import pickle
 
-import util
+from . import util
 import os
 import sys
 import numpy as np
@@ -8,13 +8,13 @@ import json
 import glob
 from absl import app, flags, logging
 import tensorflow as tf
-from model import SummarizationModel
+from .model import SummarizationModel
 from collections import namedtuple
-from data import Vocab
+from .data import Vocab
 import random
 from tqdm import tqdm
 import nltk
-from count_merged import get_sent_similarities, get_similar_source_sents_by_lcs, html_highlight_sents_in_article, get_simple_source_indices_list
+from .count_merged import get_sent_similarities, get_similar_source_sents_by_lcs, html_highlight_sents_in_article, get_simple_source_indices_list
 
 
 random.seed(222)
@@ -127,7 +127,7 @@ def process_attn_selections(attn_dir, decode_dir, vocab, extraction_eval=False):
     if extraction_eval:
         ssi_dir = os.path.join('data/ssi', FLAGS.dataset_name, 'test_ssi.pkl')
         with open(ssi_dir) as f:
-            ssi_list = cPickle.load(f)
+            ssi_list = pickle.load(f)
         if len(ssi_list) != len(file_names):
             raise Exception('len of ssi_list does not equal len file_names: ', len(ssi_list), len(file_names))
     triplet_ssi_list = []
@@ -176,9 +176,9 @@ def process_attn_selections(attn_dir, decode_dir, vocab, extraction_eval=False):
             triplet_ssi_list.append((ssi_list[file_idx], sys_ssi_list, -1))
 
     if extraction_eval:
-        print 'Evaluating Lambdamart model F1 score...'
+        print('Evaluating Lambdamart model F1 score...')
         suffix = util.all_sent_selection_eval(triplet_ssi_list)
-        print suffix
+        print(suffix)
         with open(os.path.join(decode_dir, 'extraction_results.txt'), 'wb') as f:
             f.write(suffix)
 
@@ -219,10 +219,10 @@ def main(unused_argv):
                    'max_grad_norm', 'hidden_dim', 'emb_dim', 'batch_size', 'max_dec_steps',
                    'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input']
     hps_dict = {}
-    for key,val in FLAGS.__flags.iteritems(): # for each flag
+    for key,val in FLAGS.__flags.items(): # for each flag
         if key in hparam_list: # if it's in the list
             hps_dict[key] = val.value # add it to the dict
-    hps = namedtuple("HParams", hps_dict.keys())(**hps_dict)
+    hps = namedtuple("HParams", list(hps_dict.keys()))(**hps_dict)
 
     tf.set_random_seed(113) # a seed value for randomness
 
@@ -240,7 +240,7 @@ def main(unused_argv):
     # decode_dir = decoder._decode_dir
     ckpt_folder = util.find_largest_ckpt_folder(FLAGS.log_root)
     decode_dir = os.path.join(FLAGS.log_root, ckpt_folder)
-    print decode_dir
+    print(decode_dir)
     attn_dir = os.path.join(decode_dir, 'attn_vis_data')
 
     process_attn_selections(attn_dir, decode_dir, vocab, extraction_eval=True)

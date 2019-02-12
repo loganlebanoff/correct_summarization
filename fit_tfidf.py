@@ -1,9 +1,9 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 import time
 import numpy as np
-import data
+from . import data
 from tqdm import tqdm
-import util
+from . import util
 from absl import flags
 from absl import app
 import os
@@ -11,10 +11,10 @@ import struct
 import glob
 from tensorflow.core.example import example_pb2
 from scoop import futures
-import cPickle
+import pickle
 import sys
 import spacy
-import HTMLParser
+import html.parser
 from nltk.stem.porter import PorterStemmer
 import dill
 
@@ -49,8 +49,8 @@ max_enc_steps = 100000
 min_dec_steps = 100
 max_dec_steps = 120
 
-dm_single_close_quote = u'\u2019' # unicode
-dm_double_close_quote = u'\u201d'
+dm_single_close_quote = '\u2019' # unicode
+dm_double_close_quote = '\u201d'
 END_TOKENS = ['.', '!', '?', '...', "'", "`", '"', dm_single_close_quote, dm_double_close_quote, ")"] # acceptable ways to end a sentence
 
 names_to_types = [('article', 'string')]
@@ -131,7 +131,7 @@ def example_generator_extended(example_generator, total):
 # create a spaCy tokenizer
 spacy.load('en')
 lemmatizer = spacy.lang.en.English()
-html_parser = HTMLParser.HTMLParser()
+html_parser = html.parser.HTMLParser()
 
 # remove html entities from docs and
 # set everything to lowercase
@@ -175,9 +175,9 @@ def main(unused_argv):
             example_generator = data.example_generator(source_dir + '/' + split + '*', True, False, should_check_valid=False)
             # for example in tqdm(example_generator, total=total):
             ex_gen = example_generator_extended(example_generator, total)
-            print 'Creating list'
+            print('Creating list')
             ex_list = [ex for ex in ex_gen]
-            print 'Converting...'
+            print('Converting...')
 
             articles = list(futures.map(save_as_txt_file, ex_list))
             all_articles.extend(articles)
@@ -204,22 +204,22 @@ def main(unused_argv):
     else:
         vec.fit_transform(all_articles)
         suffix = ''
-    print 'Vocabulary size', len(vec.vocabulary_.keys())
+    print('Vocabulary size', len(list(vec.vocabulary_.keys())))
     if FLAGS.pg_mmr:
         util.create_dirs(os.path.join(log_dir, 'tfidf_vectorizer'))
         with open(os.path.join(log_dir, 'tfidf_vectorizer', FLAGS.input_dataset + '.dill'), 'wb') as f:
             dill.dump(vec, f)
     else:
         with open(os.path.join(out_dir, FLAGS.input_dataset + '_tfidf_vec_' + str(min_df) + suffix + '.pkl'), 'wb') as f:
-            cPickle.dump(vec, f)
+            pickle.dump(vec, f)
 
     if FLAGS.pca:
-        print 'Fitting LSA model...'
+        print('Fitting LSA model...')
         from sklearn.decomposition import TruncatedSVD
         svd = TruncatedSVD(n_components=100)
         svd.fit(X)
         with open(os.path.join(out_dir, FLAGS.input_dataset + '_pca' + '.pkl'), 'wb') as f:
-            cPickle.dump(svd, f)
+            pickle.dump(svd, f)
 
 
 

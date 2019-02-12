@@ -1,12 +1,12 @@
 import collections
 
-import util
+from . import util
 from absl import app, flags
 from tqdm import tqdm
 import os
 import glob
-import data
-import convert_data
+from . import data
+from . import convert_data
 
 FLAGS = flags.FLAGS
 
@@ -53,11 +53,11 @@ def main(unused_argv):
 
             vocab_counter.update(all_tokens)
 
-    print "Writing vocab file..."
+    print("Writing vocab file...")
     with open(os.path.join('logs', "vocab_" + FLAGS.dataset_name), 'w') as writer:
         for word, count in vocab_counter.most_common(VOCAB_SIZE):
             writer.write(word + ' ' + str(count) + '\n')
-    print "Finished writing vocab file"
+    print("Finished writing vocab file")
 
 
 

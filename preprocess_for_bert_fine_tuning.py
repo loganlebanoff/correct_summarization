@@ -4,11 +4,11 @@ from tqdm import tqdm
 import numpy as np
 from absl import flags
 from absl import app
-import cPickle
-import util
+import pickle
+from . import util
 import sys
 import glob
-import data
+from . import data
 
 FLAGS = flags.FLAGS
 
@@ -26,10 +26,10 @@ if 'num_instances' not in flags.FLAGS:
 
 FLAGS(sys.argv)
 
-from preprocess_for_lambdamart_no_flags import filter_pairs_by_sent_position
+from .preprocess_for_lambdamart_no_flags import filter_pairs_by_sent_position
 
-import convert_data
-import preprocess_for_lambdamart_no_flags
+from . import convert_data
+from . import preprocess_for_lambdamart_no_flags
 
 data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
@@ -54,7 +54,7 @@ def get_string_bert_example(raw_article_sents, ssi, label, example_idx, inst_id)
 
 def main(unused_argv):
 
-    print 'Running statistics on %s' % FLAGS.dataset_name
+    print('Running statistics on %s' % FLAGS.dataset_name)
 
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
@@ -116,7 +116,7 @@ def main(unused_argv):
 
 
                 possible_pairs = [x for x in
-                                  list(itertools.combinations(list(xrange(len(raw_article_sents))), 2))]  # all pairs
+                                  list(itertools.combinations(list(range(len(raw_article_sents))), 2))]  # all pairs
                 possible_pairs = filter_pairs_by_sent_position(possible_pairs)
                 possible_singles = [(i,) for i in range(len(raw_article_sents))]
                 positives = [ssi for ssi in similar_source_indices_list]

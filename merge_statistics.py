@@ -5,11 +5,11 @@ from tqdm import tqdm
 import numpy as np
 from absl import flags
 from absl import app
-import cPickle
-import util
+import pickle
+from . import util
 import sys
 import glob
-import data
+from . import data
 from scipy.stats.stats import pearsonr
 import matplotlib
 if not "DISPLAY" in os.environ:
@@ -33,9 +33,9 @@ if 'num_instances' not in flags.FLAGS:
 FLAGS(sys.argv)
 
 
-import convert_data
-import lambdamart_scores_to_summaries
-import preprocess_for_lambdamart_no_flags
+from . import convert_data
+from . import lambdamart_scores_to_summaries
+from . import preprocess_for_lambdamart_no_flags
 
 data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
@@ -55,9 +55,9 @@ plt.rcParams['axes.titlesize'] = 20
 
 util.create_dirs('stuff/plots')
 
-print 'Loading TFIDF vectorizer'
+print('Loading TFIDF vectorizer')
 with open(tfidf_vec_path, 'rb') as f:
-    tfidf_vectorizer = cPickle.load(f)
+    tfidf_vectorizer = pickle.load(f)
 
 def plot_histograms(all_list_of_hist_pairs):
     nrows = len(all_list_of_hist_pairs)
@@ -146,13 +146,13 @@ def plot_histogram(ax, row_idx, col_idx, lst=None, num_bins=None, start_at_0=Fal
 
 
 def plot_positions(primary_pos, secondary_pos, all_pos):
-    print 'Sentence positions (primary (mean, median), secondary (mean, median), all (mean, median)) : ', np.mean(primary_pos), np.median(primary_pos), np.mean(secondary_pos), np.median(secondary_pos), np.mean(all_pos), np.median(all_pos)
+    print('Sentence positions (primary (mean, median), secondary (mean, median), all (mean, median)) : ', np.mean(primary_pos), np.median(primary_pos), np.mean(secondary_pos), np.median(secondary_pos), np.mean(all_pos), np.median(all_pos))
     hist_pos_primary = np.histogram(primary_pos, bins=max(primary_pos)+1)
     hist_pos_secondary = np.histogram(secondary_pos, bins=max(secondary_pos)+1)
     hist_pos_all = np.histogram(all_pos, bins=max(all_pos)+1)
-    print 'Histogram of positions primary:', util.hist_as_pdf_str(hist_pos_primary)
-    print 'Histogram of positions secondary:', util.hist_as_pdf_str(hist_pos_secondary)
-    print 'Histogram of positions all:', util.hist_as_pdf_str(hist_pos_all)
+    print('Histogram of positions primary:', util.hist_as_pdf_str(hist_pos_primary))
+    print('Histogram of positions secondary:', util.hist_as_pdf_str(hist_pos_secondary))
+    print('Histogram of positions all:', util.hist_as_pdf_str(hist_pos_all))
 
     plot_histogram(primary_pos)
     plot_histogram(secondary_pos)
@@ -173,7 +173,7 @@ def get_integral_values_for_histogram(orig_val, rel_sent_indices, doc_sent_indic
 
 def main(unused_argv):
 
-    print 'Running statistics on %s' % FLAGS.dataset_name
+    print('Running statistics on %s' % FLAGS.dataset_name)
 
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
@@ -194,26 +194,26 @@ def main(unused_argv):
         ssi_path = os.path.join(ssi_dir, FLAGS.dataset_name, FLAGS.dataset_split + '_ssi.pkl')
 
         with open(ssi_path) as f:
-            ssi_list = cPickle.load(f)
+            ssi_list = pickle.load(f)
 
         if FLAGS.dataset_name == 'duc_2004':
             for abstract_idx in [1,2,3]:
                 ssi_path = os.path.join(ssi_dir, FLAGS.dataset_name, FLAGS.dataset_split + '_ssi_' + str(abstract_idx) + '.pkl')
                 with open(ssi_path) as f:
-                    temp_ssi_list = cPickle.load(f)
+                    temp_ssi_list = pickle.load(f)
                 ssi_list.extend(temp_ssi_list)
 
         ssi_2d = util.flatten_list_of_lists(ssi_list)
 
         num_extracted = [len(ssi) for ssi in util.flatten_list_of_lists(ssi_list)]
         hist_num_extracted = np.histogram(num_extracted, bins=6, range=(0,5))
-        print hist_num_extracted
-        print 'Histogram of number of sentences merged: ', util.hist_as_pdf_str(hist_num_extracted)
+        print(hist_num_extracted)
+        print('Histogram of number of sentences merged: ', util.hist_as_pdf_str(hist_num_extracted))
 
         distances = [abs(ssi[0]-ssi[1]) for ssi in ssi_2d if len(ssi) >= 2]
-        print 'Distance between sentences (mean, median): ', np.mean(distances), np.median(distances)
+        print('Distance between sentences (mean, median): ', np.mean(distances), np.median(distances))
         hist_dist = np.histogram(distances, bins=max(distances))
-        print 'Histogram of distances:', util.hist_as_pdf_str(hist_dist)
+        print('Histogram of distances:', util.hist_as_pdf_str(hist_dist))
 
         primary_pos = [ssi[0] for ssi in ssi_2d if len(ssi) >= 1]
         secondary_pos = [ssi[1] for ssi in ssi_2d if len(ssi) >= 2]

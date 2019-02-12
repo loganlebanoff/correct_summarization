@@ -20,19 +20,19 @@
 import os
 import tensorflow as tf
 from collections import namedtuple
-from data import Vocab
-from batcher import Batcher
-from model import SummarizationModel
-from decode import BeamSearchDecoder
-import convert_data
-import importance_features
-import cPickle
+from .data import Vocab
+from .batcher import Batcher
+from .model import SummarizationModel
+from .decode import BeamSearchDecoder
+from . import convert_data
+from . import importance_features
+import pickle
 from sklearn.feature_extraction.text import TfidfVectorizer
 from nltk.stem.porter import PorterStemmer
 import dill
 from absl import app, flags, logging
 import random
-import util
+from . import util
 import time
 from tensorflow.python import debug as tf_debug
 from tqdm import tqdm
@@ -144,22 +144,22 @@ def restore_best_model():
 
     # Initialize all vars in the model
     sess = tf.Session(config=util.get_config())
-    print "Initializing all variables..."
+    print("Initializing all variables...")
     sess.run(tf.initialize_all_variables())
 
     # Restore the best model from eval dir
     saver = tf.train.Saver([v for v in tf.all_variables() if "Adagrad" not in v.name])
-    print "Restoring all non-adagrad variables from best model in eval dir..."
+    print("Restoring all non-adagrad variables from best model in eval dir...")
     curr_ckpt = util.load_ckpt(saver, sess, "eval")
-    print "Restored %s." % curr_ckpt
+    print("Restored %s." % curr_ckpt)
 
     # Save this model to train dir and quit
     new_model_name = curr_ckpt.split("/")[-1].replace("bestmodel", "model")
     new_fname = os.path.join(FLAGS.log_root, "train", new_model_name)
-    print "Saving model to %s..." % (new_fname)
+    print("Saving model to %s..." % (new_fname))
     new_saver = tf.train.Saver() # this saver saves all variables that now exist, including Adagrad variables
     new_saver.save(sess, new_fname)
-    print "Saved."
+    print("Saved.")
     exit()
 
 
@@ -169,21 +169,21 @@ def convert_to_coverage_model():
 
     # initialize an entire coverage model from scratch
     sess = tf.Session(config=util.get_config())
-    print "initializing everything..."
+    print("initializing everything...")
     sess.run(tf.global_variables_initializer())
 
     # load all non-coverage weights from checkpoint
     saver = tf.train.Saver([v for v in tf.global_variables() if "coverage" not in v.name and "Adagrad" not in v.name])
-    print "restoring non-coverage variables..."
+    print("restoring non-coverage variables...")
     curr_ckpt = util.load_ckpt(saver, sess)
-    print "restored."
+    print("restored.")
 
     # save this model and quit
     new_fname = curr_ckpt + '_cov_init'
-    print "saving model to %s..." % (new_fname)
+    print("saving model to %s..." % (new_fname))
     new_saver = tf.train.Saver() # this one will save all variables that now exist
     new_saver.save(sess, new_fname)
-    print "saved."
+    print("saved.")
     exit()
 
 def setup_training(model, batcher):
@@ -230,7 +230,7 @@ def run_training(model, batcher, sess_context_manager, sv, summary_writer):
         else:
             initial_iter = model.global_step.eval(sess)
             pbar = tqdm(initial=initial_iter, total=FLAGS.num_iterations)
-            print("Starting at iteration %d" % initial_iter)
+            print(("Starting at iteration %d" % initial_iter))
             for iter_idx in range(initial_iter, FLAGS.num_iterations):
                 run_training_iteration(model, batcher, summary_writer, sess)
                 pbar.update(1)
@@ -351,7 +351,7 @@ def main(unused_argv):
     if FLAGS.dataset_name != "":
         FLAGS.data_path = os.path.join(FLAGS.data_root, FLAGS.dataset_name, FLAGS.dataset_split + '*')
     if not os.path.exists(os.path.join(FLAGS.data_root, FLAGS.dataset_name)) or len(os.listdir(os.path.join(FLAGS.data_root, FLAGS.dataset_name))) == 0:
-        print('No TF example data found at %s so creating it from raw data.' % os.path.join(FLAGS.data_root, FLAGS.dataset_name))
+        print(('No TF example data found at %s so creating it from raw data.' % os.path.join(FLAGS.data_root, FLAGS.dataset_name)))
         convert_data.process_dataset(FLAGS.dataset_name)
 
     logging.set_verbosity(logging.INFO) # choose what level of logging you want
@@ -387,10 +387,10 @@ def main(unused_argv):
                    'max_grad_norm', 'hidden_dim', 'emb_dim', 'batch_size', 'max_dec_steps',
                    'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input', 'pg_mmr', 'singles_and_pairs']
     hps_dict = {}
-    for key,val in FLAGS.__flags.iteritems(): # for each flag
+    for key,val in FLAGS.__flags.items(): # for each flag
         if key in hparam_list: # if it's in the list
             hps_dict[key] = val.value # add it to the dict
-    hps = namedtuple("HParams", hps_dict.keys())(**hps_dict)
+    hps = namedtuple("HParams", list(hps_dict.keys()))(**hps_dict)
 
     if FLAGS.pg_mmr:
 
@@ -398,7 +398,7 @@ def main(unused_argv):
         if FLAGS.importance_fn == 'tfidf':
             tfidf_model_path = os.path.join(FLAGS.actual_log_root, 'tfidf_vectorizer', FLAGS.original_dataset_name + '.dill')
             if not os.path.exists(tfidf_model_path):
-                print('No TFIDF vectorizer model file found at %s, so fitting the model now.' % tfidf_model_path)
+                print(('No TFIDF vectorizer model file found at %s, so fitting the model now.' % tfidf_model_path))
                 tfidf_vectorizer = fit_tfidf_vectorizer(hps, vocab)
                 with open(tfidf_model_path, 'wb') as f:
                     dill.dump(tfidf_vectorizer, f)
@@ -410,22 +410,22 @@ def main(unused_argv):
             dataset_split = 'val'
             if not os.path.exists(importance_model_path):
                 if not os.path.exists(save_path) or len(os.listdir(save_path)) == 0:
-                    print('No importance_feature instances found at %s so creating it from raw data.' % save_path)
+                    print(('No importance_feature instances found at %s so creating it from raw data.' % save_path))
                     decode_model_hps = hps._replace(
                         max_dec_steps=1, batch_size=100, mode='calc_features')  # The model is configured with max_dec_steps=1 because we only ever run one step of the decoder at a time (to do beam search). Note that the batcher is initialized with max_dec_steps equal to e.g. 100 because the batches need to contain the full summaries
                     cnn_dm_train_data_path = os.path.join(FLAGS.data_root, 'cnn_500_dm_500', dataset_split + '*')
                     batcher = Batcher(cnn_dm_train_data_path, vocab, decode_model_hps, single_pass=FLAGS.single_pass, cnn_500_dm_500=True)
                     calc_features(cnn_dm_train_data_path, decode_model_hps, vocab, batcher, save_path)
 
-                print('No importance_feature SVR model found at %s so training it now.' % importance_model_path)
+                print(('No importance_feature SVR model found at %s so training it now.' % importance_model_path))
                 features_list = importance_features.get_features_list(True)
                 sent_reps = importance_features.load_data(os.path.join(save_path, dataset_split + '*'), -1)
-                print 'Loaded %d sentences representations' % len(sent_reps)
+                print('Loaded %d sentences representations' % len(sent_reps))
                 x_y = importance_features.features_to_array(sent_reps, features_list)
                 train_x, train_y = x_y[:,:-1], x_y[:,-1]
                 svr_model = importance_features.run_training(train_x, train_y)
                 with open(importance_model_path, 'wb') as f:
-                    cPickle.dump(svr_model, f)
+                    pickle.dump(svr_model, f)
 
     # Create a batcher object that will create minibatches of data
     batcher = Batcher(FLAGS.data_path, vocab, hps, single_pass=FLAGS.single_pass)
@@ -434,7 +434,7 @@ def main(unused_argv):
 
     # Start decoding on multi-document inputs
     if hps.mode == 'train':
-        print "creating model..."
+        print("creating model...")
         model = SummarizationModel(hps, vocab)
         setup_training(model, batcher)
     elif hps.mode == 'eval':

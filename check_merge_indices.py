@@ -8,14 +8,14 @@ from tqdm import tqdm
 import tensorflow as tf
 from collections import namedtuple
 
-import data
-import util
-from data import Vocab
-from batcher import Batcher, create_batch
-from model import SummarizationModel
-from decode import BeamSearchDecoder, decode_example
-import convert_data
-import cPickle
+from . import data
+from . import util
+from .data import Vocab
+from .batcher import Batcher, create_batch
+from .model import SummarizationModel
+from .decode import BeamSearchDecoder, decode_example
+from . import convert_data
+import pickle
 from sklearn.feature_extraction.text import TfidfVectorizer
 from nltk.stem.porter import PorterStemmer
 import dill
@@ -124,12 +124,12 @@ def main(unused_argv):
 
 
 
-    print 'Running statistics on %s' % FLAGS.exp_name
+    print('Running statistics on %s' % FLAGS.exp_name)
 
     if FLAGS.dataset_name != "":
         FLAGS.data_path = os.path.join(FLAGS.data_root, FLAGS.dataset_name, FLAGS.dataset_split + '*')
     if not os.path.exists(os.path.join(FLAGS.data_root, FLAGS.dataset_name)) or len(os.listdir(os.path.join(FLAGS.data_root, FLAGS.dataset_name))) == 0:
-        print('No TF example data found at %s so creating it from raw data.' % os.path.join(FLAGS.data_root, FLAGS.dataset_name))
+        print(('No TF example data found at %s so creating it from raw data.' % os.path.join(FLAGS.data_root, FLAGS.dataset_name)))
         convert_data.process_dataset(FLAGS.dataset_name)
 
     logging.set_verbosity(logging.INFO) # choose what level of logging you want
@@ -157,10 +157,10 @@ def main(unused_argv):
                    'max_grad_norm', 'hidden_dim', 'emb_dim', 'batch_size', 'max_dec_steps',
                    'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input']
     hps_dict = {}
-    for key,val in FLAGS.__flags.iteritems(): # for each flag
+    for key,val in FLAGS.__flags.items(): # for each flag
         if key in hparam_list: # if it's in the list
             hps_dict[key] = val.value # add it to the dict
-    hps = namedtuple("HParams", hps_dict.keys())(**hps_dict)
+    hps = namedtuple("HParams", list(hps_dict.keys()))(**hps_dict)
 
     tf.set_random_seed(113) # a seed value for randomness
 
@@ -175,7 +175,7 @@ def main(unused_argv):
     source_files = sorted(glob.glob(source_dir + '/' + dataset_split + '*'))
 
     with open(os.path.join(my_log_dir, 'ssi.pkl')) as f:
-        ssi_list = cPickle.load(f)
+        ssi_list = pickle.load(f)
 
     total = len(source_files) * 1000 if 'cnn' or 'newsroom' in dataset_articles else len(source_files)
     example_generator = data.example_generator(source_dir + '/' + dataset_split + '*', True, False,
@@ -195,7 +195,7 @@ def main(unused_argv):
             tqdm.write('Example %d has different len groundtruth source indices from len summ sents: '%example_idx + str(
                 groundtruth_similar_source_indices_list) + ' || ' + str(groundtruth_summ_sents))
             a=0
-    print 'done'
+    print('done')
     a=0
 
 if __name__ == '__main__':

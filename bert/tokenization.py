@@ -14,9 +14,9 @@
 # limitations under the License.
 """Tokenization classes."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+
+
+
 
 import collections
 import re
@@ -87,7 +87,7 @@ def convert_to_unicode(text):
   elif six.PY2:
     if isinstance(text, str):
       return text.decode("utf-8", "ignore")
-    elif isinstance(text, unicode):
+    elif isinstance(text, str):
       return text
     else:
       raise ValueError("Unsupported string type: %s" % (type(text)))
@@ -110,7 +110,7 @@ def printable_text(text):
   elif six.PY2:
     if isinstance(text, str):
       return text
-    elif isinstance(text, unicode):
+    elif isinstance(text, str):
       return text.encode("utf-8")
     else:
       raise ValueError("Unsupported string type: %s" % (type(text)))
@@ -163,7 +163,7 @@ class FullTokenizer(object):
 
   def __init__(self, vocab_file, do_lower_case=True):
     self.vocab = load_vocab(vocab_file)
-    self.inv_vocab = {v: k for k, v in self.vocab.items()}
+    self.inv_vocab = {v: k for k, v in list(self.vocab.items())}
     self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case)
     self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab)
 

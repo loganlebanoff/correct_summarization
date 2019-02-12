@@ -7,14 +7,14 @@ import subprocess
 import itertools
 import glob
 import numpy as np
-import data
+from . import data
 import os
 from collections import defaultdict
-import util
-from preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
+from . import util
+from .preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
     Lambdamart_Instance, format_to_lambdamart
 from scipy import sparse
-from count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
+from .count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn import metrics
 
@@ -57,7 +57,7 @@ def load_data():
 
 
 def main(unused_argv):
-    print 'Running statistics on %s' % exp_name
+    print('Running statistics on %s' % exp_name)
 
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
@@ -69,18 +69,18 @@ def main(unused_argv):
     lr = LogisticRegressionCV()
     lr.fit(train_x, train_y)
     train_acc = lr.score(train_x, train_y)
-    print train_acc
+    print(train_acc)
     test_acc = lr.score(test_x, test_y)
-    print test_acc
+    print(test_acc)
     train_y_pred = lr.predict(train_x)
     y_pred = lr.predict(test_x)
 
-    print 'Training eval'
-    print metrics.classification_report(train_y, train_y_pred)
+    print('Training eval')
+    print(metrics.classification_report(train_y, train_y_pred))
 
-    print 'Testing eval'
-    print '-----------------------------------------------'
-    print metrics.classification_report(test_y, y_pred)
+    print('Testing eval')
+    print('-----------------------------------------------')
+    print(metrics.classification_report(test_y, y_pred))
 
     with open(os.path.join(model_dir, dataset + '.pkl'), 'wb') as f:
         dill.dump(lr, f)

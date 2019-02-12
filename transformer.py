@@ -299,8 +299,8 @@ def run_epoch(data_iter, model, loss_compute):
         tokens += batch.ntokens
         if i % 50 == 1:
             elapsed = time.time() - start
-            print("Epoch Step: %d Loss: %f Tokens per Sec: %f" %
-                    (i, loss / batch.ntokens, tokens / elapsed))
+            print(("Epoch Step: %d Loss: %f Tokens per Sec: %f" %
+                    (i, loss / batch.ntokens, tokens / elapsed)))
             start = time.time()
             tokens = 0
     return total_loss / total_tokens
@@ -551,17 +551,17 @@ for i, batch in enumerate(valid_iter):
     src_mask = (src != SRC.vocab.stoi["<blank>"]).unsqueeze(-2)
     out = greedy_decode(model, src, src_mask,
                         max_len=60, start_symbol=TGT.vocab.stoi["<s>"])
-    print("Translation:\t",)
+    print(("Translation:\t",))
     for i in range(1, out.size(1)):
         sym = TGT.vocab.itos[out[0, i]]
         if sym == "</s>": break
-        print(sym + ' ',)
+        print((sym + ' ',))
     print()
-    print("Target:\t",)
+    print(("Target:\t",))
     for i in range(1, batch.trg.size(0)):
         sym = TGT.vocab.itos[batch.trg.data[i, 0]]
         if sym == "</s>": break
-        print(sym + ' ',)
+        print((sym + ' ',))
     print()
     break
 

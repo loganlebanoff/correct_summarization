@@ -1,6 +1,6 @@
 from tqdm import tqdm
 import glob
-from data import example_generator    # The module "data" is from Abigail See's code
+from .data import example_generator    # The module "data" is from Abigail See's code
 import json
 
 
@@ -67,12 +67,12 @@ for example in tqdm(example_generator, total=total):
     groundtruth_summ_sents = [sent.strip() for sent in summary_text.strip().split('\n')]
 
     for summary_sent_idx, source_sent_indices in enumerate(similar_source_indices_list):
-        print 'SUMMARY SENTENCE:'
-        print '------------------------------'
-        print groundtruth_summ_sents[summary_sent_idx] + '\n'
+        print('SUMMARY SENTENCE:')
+        print('------------------------------')
+        print(groundtruth_summ_sents[summary_sent_idx] + '\n')
 
-        print 'SOURCE SENTENCE(S):'
-        print '------------------------------'
+        print('SOURCE SENTENCE(S):')
+        print('------------------------------')
         for sent_idx in source_sent_indices:
-            print raw_article_sents[sent_idx] + '\n'
-        print ''
+            print(raw_article_sents[sent_idx] + '\n')
+        print('')

@@ -47,7 +47,7 @@ Universe‎
 World‎'''.replace('\xe2', '').replace('\x80\x8e', '').split('\n')
 wiki_top_categories = [cat.strip() for cat in wiki_top_categories]
 
-print wiki_top_categories
+print(wiki_top_categories)
 
 def get_top_category(article):
     if article in reached_categories:
@@ -68,8 +68,8 @@ def get_top_category(article):
     return top_categories
 
 top_categories = get_top_category(orig_article)
-print len(top_categories)
-print top_categories
+print(len(top_categories))
+print(top_categories)
 
 
 

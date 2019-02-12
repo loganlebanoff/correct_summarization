@@ -12,9 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+
+
+
 
 import optimization
 import tensorflow as tf
@@ -34,7 +34,7 @@ class OptimizationTest(tf.test.TestCase):
       grads = tf.gradients(loss, tvars)
       global_step = tf.train.get_or_create_global_step()
       optimizer = optimization.AdamWeightDecayOptimizer(learning_rate=0.2)
-      train_op = optimizer.apply_gradients(zip(grads, tvars), global_step)
+      train_op = optimizer.apply_gradients(list(zip(grads, tvars)), global_step)
       init_op = tf.group(tf.global_variables_initializer(),
                          tf.local_variables_initializer())
       sess.run(init_op)

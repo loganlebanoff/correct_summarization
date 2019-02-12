@@ -1,13 +1,13 @@
 import numpy as np
 import itertools
-import util, data
+from . import util, data
 from sklearn.metrics.pairwise import cosine_similarity
-import batcher
+from . import batcher
 from absl import flags
 from sklearn import svm
 import glob
 import tqdm
-import cPickle
+import pickle
 
 FLAGS = flags.FLAGS
 
@@ -165,9 +165,9 @@ def tokens_to_continuous_text(tokens, vocab, art_oovs):
     if len(split_text) != len(words):
         for i in range(min(len(words), len(split_text))):
             try:
-                print '%s\t%s'%(words[i], split_text[i])
+                print('%s\t%s'%(words[i], split_text[i]))
             except:
-                print 'FAIL\tFAIL'
+                print('FAIL\tFAIL')
         raise Exception('text ('+str(len(text.split()))+
                         ') does not have the same number of tokens as words ('+str(len(words))+')')
 
@@ -214,7 +214,7 @@ def get_separate_enc_states(model, sess, enc_sentences, vocab, hps):
     return reps
 
 def run_training(x, y):
-    print "Starting SVR training"
+    print("Starting SVR training")
     if FLAGS.importance_fn == 'svr':
         clf = svm.SVR()
 
@@ -222,14 +222,14 @@ def run_training(x, y):
     return clf
 
 def load_data(data_path, num_instances):
-    print 'Loading SVR data'
+    print('Loading SVR data')
     filelist = glob.glob(data_path) # get the list of datafiles
     assert filelist, ('Error: Empty filelist at %s' % data_path) # check filelist isn't empty
     filelist = sorted(filelist)
     instances = []
     for file_name in tqdm(filelist):
         with open(file_name) as f:
-            examples = cPickle.load(f)
+            examples = pickle.load(f)
         if num_instances == -1:
             num_instances = np.inf
         remaining_number = num_instances - sum([len(b) for b in instances])
@@ -238,5 +238,5 @@ def load_data(data_path, num_instances):
         else:
             instances.extend(examples[:remaining_number])
             break
-    print 'Finished loading data. Number of instances=%d' % len(instances)
+    print('Finished loading data. Number of instances=%d' % len(instances))
     return instances

@@ -14,9 +14,9 @@
 # limitations under the License.
 """Extract pre-computed feature vectors from BERT."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+
+
+
 
 import codecs
 import collections

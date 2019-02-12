@@ -1,22 +1,22 @@
 from tqdm import tqdm
 from scoop import futures
-import rouge_functions
+from . import rouge_functions
 from absl import flags
 from absl import app
-import convert_data
+from . import convert_data
 import time
 import subprocess
 import itertools
 import glob
 import numpy as np
-import data
+from . import data
 import os
 import sys
 from collections import defaultdict
-import util
+from . import util
 from scipy import sparse
-from count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
-import cPickle
+from .count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
+import pickle
 # from profilestats import profile
 
 if 'dataset_name' in flags.FLAGS:
@@ -51,7 +51,7 @@ if 'lead' not in flags.FLAGS:
 if not flags_already_done:
     FLAGS(sys.argv)
 
-from preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
+from .preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
     Lambdamart_Instance, format_to_lambdamart, filter_pairs_by_criteria, get_rel_sent_indices, filter_pairs_by_sent_position
 
 _exp_name = 'lambdamart'
@@ -122,12 +122,12 @@ util.create_dirs(temp_dir)
 
 tfidf_vec_path = 'data/tfidf/' + tfidf_model + '_tfidf_vec_5.pkl'
 with open(tfidf_vec_path, 'rb') as f:
-    tfidf_vectorizer = cPickle.load(f)
+    tfidf_vectorizer = pickle.load(f)
 
 pca_vec_path = 'data/tfidf/' + 'all' + '_pca.pkl'
 if FLAGS.pca:
     with open(pca_vec_path, 'rb') as f:
-        pca = cPickle.load(f)
+        pca = pickle.load(f)
 else:
     pca = None
 
@@ -249,7 +249,7 @@ def get_best_source_sents(article_sent_tokens, mmr_dict, already_used_source_ind
     else:
         best_value = -9999999
         best_source_indices = ()
-        for key, val in mmr_dict.iteritems():
+        for key, val in mmr_dict.items():
             if val > best_value and not any(i in list(key) for i in already_used_source_indices):
                 best_value = val
                 best_source_indices = key
@@ -350,7 +350,7 @@ def get_indices_of_first_k_sents_of_each_article(rel_sent_indices, k):
 # @profile
 def write_to_lambdamart_examples_to_file(ex):
     example, example_idx, single_feat_len, pair_feat_len, singles_and_pairs = ex
-    print example_idx
+    print(example_idx)
     # example_idx += 1
     temp_in_path = os.path.join(temp_in_dir, '%06d.txt' % example_idx)
     if not FLAGS.start_over and os.path.exists(temp_in_path):
@@ -381,7 +381,7 @@ def write_to_lambdamart_examples_to_file(ex):
 
 def evaluate_example(ex):
     example, example_idx, qid_ssi_to_importances, _, _ = ex
-    print example_idx
+    print(example_idx)
     # example_idx += 1
     qid = example_idx
     raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(example, names_to_types)
@@ -398,7 +398,7 @@ def evaluate_example(ex):
         similar_source_indices_list = groundtruth_similar_source_indices_list
         ssi_length_extractive = len(similar_source_indices_list)
     elif FLAGS.lead:
-        lead_ssi_list = [(idx,) for idx in list(xrange(util.average_sents_for_dataset[FLAGS.dataset_name]))]
+        lead_ssi_list = [(idx,) for idx in list(range(util.average_sents_for_dataset[FLAGS.dataset_name]))]
         lead_ssi_list = lead_ssi_list[:len(raw_article_sents)] # make sure the sentence indices don't go past the total number of sentences in the article
         selected_article_sent_indices = util.flatten_list_of_lists(lead_ssi_list)
         summary_sents = [' '.join(sent) for sent in util.reorder(article_sent_tokens, selected_article_sent_indices)]
@@ -430,7 +430,7 @@ def main(unused_argv):
 
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
-    print 'Running statistics on %s' % exp_name
+    print('Running statistics on %s' % exp_name)
 
     start_time = time.time()
     np.random.seed(random_seed)
@@ -457,9 +457,9 @@ def main(unused_argv):
 
     if FLAGS.mode == 'write_to_file':
         ex_gen = example_generator_extended(example_generator, total, single_feat_len, pair_feat_len, FLAGS.singles_and_pairs)
-        print 'Creating list'
+        print('Creating list')
         ex_list = [ex for ex in ex_gen]
-        print 'Converting...'
+        print('Converting...')
         # if len(sys.argv) > 1 and sys.argv[1] == '-m':
         list(futures.map(write_to_lambdamart_examples_to_file, ex_list))
         # else:
@@ -482,22 +482,22 @@ def main(unused_argv):
     if FLAGS.mode == 'generate_summaries':
         qid_ssi_to_importances = rank_source_sents(temp_in_path, temp_out_path)
         ex_gen = example_generator_extended(example_generator, total, qid_ssi_to_importances, pair_feat_len, FLAGS.singles_and_pairs)
-        print 'Creating list'
+        print('Creating list')
         ex_list = [ex for ex in ex_gen]
         ssi_list = list(futures.map(evaluate_example, ex_list))
 
         # save ssi_list
         with open(os.path.join(my_log_dir, 'ssi.pkl'), 'w') as f:
-            cPickle.dump(ssi_list, f)
+            pickle.dump(ssi_list, f)
         with open(os.path.join(my_log_dir, 'ssi.pkl')) as f:
-            ssi_list = cPickle.load(f)
-        print 'Evaluating Lambdamart model F1 score...'
+            ssi_list = pickle.load(f)
+        print('Evaluating Lambdamart model F1 score...')
         suffix = util.all_sent_selection_eval(ssi_list)
         #
         # # for ex in tqdm(ex_list, total=total):
         # #     load_and_evaluate_example(ex)
         #
-        print 'Evaluating ROUGE...'
+        print('Evaluating ROUGE...')
         results_dict = rouge_functions.rouge_eval(ref_dir, dec_dir, l_param=l_param)
         # print("Results_dict: ", results_dict)
         rouge_functions.rouge_log(results_dict, my_log_dir, suffix=suffix)

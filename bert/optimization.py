@@ -14,9 +14,9 @@
 # limitations under the License.
 """Functions and classes related to optimization (weight updates)."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+
+
+
 
 import re
 import tensorflow as tf
@@ -74,7 +74,7 @@ def create_optimizer(loss, init_lr, num_train_steps, num_warmup_steps, use_tpu):
   (grads, _) = tf.clip_by_global_norm(grads, clip_norm=1.0)
 
   train_op = optimizer.apply_gradients(
-      zip(grads, tvars), global_step=global_step)
+      list(zip(grads, tvars)), global_step=global_step)
 
   # Normally the global step update is done inside of `apply_gradients`.
   # However, `AdamWeightDecayOptimizer` doesn't do this. But if you use

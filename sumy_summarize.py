@@ -1,25 +1,25 @@
 
-from data import Vocab
+from .data import Vocab
 import nltk
 
-import rouge_functions
+from . import rouge_functions
 import itertools
 import os
 from tqdm import tqdm
 import numpy as np
 from absl import flags
 from absl import app
-import cPickle
-import util
+import pickle
+from . import util
 import sys
 import glob
-import data
+from . import data
 from sumy.summarizers.lex_rank import LexRankSummarizer #We're choosing Lexrank, other algorithms are also built in
 from sumy.summarizers.kl import KLSummarizer
 from sumy.summarizers.sum_basic import SumBasicSummarizer
 from sumy.parsers.plaintext import PlaintextParser #We're choosing a plaintext parser here, other parsers available for HTML etc.
 from sumy.nlp.tokenizers import Tokenizer
-from count_merged import get_simple_source_indices_list
+from .count_merged import get_simple_source_indices_list
 
 FLAGS = flags.FLAGS
 
@@ -38,7 +38,7 @@ if 'num_instances' not in flags.FLAGS:
 FLAGS(sys.argv)
 
 
-import convert_data
+from . import convert_data
 
 log_root = 'logs'
 data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
@@ -55,13 +55,13 @@ datasets = ['duc_2004', 'xsum', 'cnn_dm']
 
 def main(unused_argv):
 
-    print 'Running statistics on %s' % FLAGS.dataset_name
+    print('Running statistics on %s' % FLAGS.dataset_name)
 
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
 
     if FLAGS.summarizer == 'all':
-        summary_methods = summarizers.keys()
+        summary_methods = list(summarizers.keys())
     else:
         summary_methods = [FLAGS.summarizer]
     if FLAGS.dataset_name == 'all':
@@ -96,7 +96,7 @@ def main(unused_argv):
                 raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(
                     example, names_to_types)
                 if dataset_name == 'duc_2004':
-                    abs_example = abs_example_generator.next()
+                    abs_example = next(abs_example_generator)
                     groundtruth_summary_texts = util.unpack_tf_example(abs_example, abs_names_to_types)
                     groundtruth_summary_texts = groundtruth_summary_texts[0]
                     groundtruth_summ_sents_list = [[sent.strip() for sent in data.abstract2sents(
@@ -139,17 +139,17 @@ def main(unused_argv):
                 triplet_ssi_list.append((groundtruth_similar_source_indices_list, sys_ssi_list, -1))
 
 
-            print 'Evaluating Lambdamart model F1 score...'
+            print('Evaluating Lambdamart model F1 score...')
             suffix = util.all_sent_selection_eval(triplet_ssi_list)
-            print suffix
+            print(suffix)
 
             results_dict = rouge_functions.rouge_eval(ref_dir, dec_dir)
-            print("Results_dict: ", results_dict)
+            print(("Results_dict: ", results_dict))
             sheets_str = rouge_functions.rouge_log(results_dict, log_dir, suffix=suffix)
             sheets_strs.append(dataset_name + '_' + summary_method + '\n' + sheets_str)
 
     for sheets_str in sheets_strs:
-        print sheets_str + '\n'
+        print(sheets_str + '\n')
 
 
 

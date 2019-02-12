@@ -1,23 +1,23 @@
 from tqdm import tqdm
 from scoop import futures
-import rouge_eval_references
+from . import rouge_eval_references
 from absl import flags
 from absl import app
-import convert_data
+from . import convert_data
 import time
 import subprocess
 import itertools
 import glob
 import numpy as np
-import data
+from . import data
 import os
 from collections import defaultdict
-import util
-from preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
+from . import util
+from .preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
     Lambdamart_Instance, format_to_lambdamart, filter_pairs_by_criteria
 from scipy import sparse
-from count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
-import cPickle
+from .count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
+import pickle
 
 exp_name = 'lambdamart_singles'
 dataset_articles = 'cnn_dm'
@@ -56,7 +56,7 @@ util.create_dirs(temp_dir)
 
 tfidf_vec_path = 'data/tfidf/' + dataset_articles + '_tfidf_vec.pkl'
 with open(tfidf_vec_path, 'rb') as f:
-    tfidf_vectorizer = cPickle.load(f)
+    tfidf_vectorizer = pickle.load(f)
 
 def read_lambdamart_scores(file_path):
     with open(file_path) as f:
@@ -86,7 +86,7 @@ def get_best_lambdamart_score_and_source_indices(data, inst_id_to_source_indices
 
 def get_best_source_indices(qid_to_inst_id, qid_inst_id_to_source_indices):
     out_dict = {}
-    for qid, inst_id in qid_to_inst_id.iteritems():
+    for qid, inst_id in qid_to_inst_id.items():
         out_dict[qid] = qid_inst_id_to_source_indices[qid, inst_id]
     return out_dict
 
@@ -121,13 +121,13 @@ def read_articles_abstracts(source_dir, dataset_split):
     source_files = sorted(glob.glob(source_dir + '/' + dataset_split + '*'))
     example_generator = data.example_generator(source_dir + '/' + dataset_split + '*', True, False, should_check_valid=False)
 
-    print 'Creating list'
+    print('Creating list')
     ex_list = [ex for ex in example_generator]
     a=0
 
 def get_source_indices(example_idx, qid_to_source_indices):
     similar_source_indices = []
-    possible_qids = [example_idx*10 + item for item in list(xrange(10))]
+    possible_qids = [example_idx*10 + item for item in list(range(10))]
     for qid in possible_qids:
         if qid not in qid_to_source_indices:
             break
@@ -149,7 +149,7 @@ def get_features_all_combinations(raw_article_sents, article_sent_tokens, corefs
     sent_term_matrix = util.get_doc_substituted_tfidf_matrix(tfidf_vectorizer, raw_article_sents, article_text)
     doc_vector = np.mean(sent_term_matrix, axis=0)
 
-    possible_pairs = [x for x in list(itertools.combinations(list(xrange(len(raw_article_sents))), 2))]   # all pairs
+    possible_pairs = [x for x in list(itertools.combinations(list(range(len(raw_article_sents))), 2))]   # all pairs
     if use_pair_criteria:
         possible_pairs = filter_pairs_by_criteria(raw_article_sents, possible_pairs, corefs)
     possible_singles = [(i,) for i in range(len(raw_article_sents))]
@@ -211,7 +211,7 @@ def get_best_source_sents(article_sent_tokens, mmr_dict, already_used_source_ind
     else:
         best_value = -9999999
         best_source_indices = ()
-        for key, val in mmr_dict.iteritems():
+        for key, val in mmr_dict.items():
             if val > best_value and not any(i in list(key) for i in already_used_source_indices):
                 best_value = val
                 best_source_indices = key
@@ -260,7 +260,7 @@ def write_highlighted_html(html, out_dir, example_idx):
 
 def load_and_evaluate_example(ex):
     example, example_idx, single_feat_len, pair_feat_len, singles_and_pairs = ex
-    print example_idx
+    print(example_idx)
     # example_idx += 1
     raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs = util.unpack_tf_example(example, names_to_types)
     article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
@@ -292,7 +292,7 @@ def load_and_evaluate_example(ex):
 
 
 def main(unused_argv):
-    print 'Running statistics on %s' % exp_name
+    print('Running statistics on %s' % exp_name)
 
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
@@ -321,14 +321,14 @@ def main(unused_argv):
 
 
     ex_gen = example_generator_extended(example_generator, total, single_feat_len, pair_feat_len, singles_and_pairs)
-    print 'Creating list'
+    print('Creating list')
     ex_list = [ex for ex in ex_gen]
-    print 'Converting...'
+    print('Converting...')
     ssi_list = list(futures.map(load_and_evaluate_example, ex_list))
-    print ssi_list
+    print(ssi_list)
     with open(os.path.join(my_log_dir, 'ssi.pkl'), 'w') as f:
-        cPickle.dump(ssi_list, f)
-    print 'Evaluating Lambdamart model F1 score...'
+        pickle.dump(ssi_list, f)
+    print('Evaluating Lambdamart model F1 score...')
     sys_pos = 0
     sys_neg = 0
     gt_pos = 0
@@ -354,13 +354,13 @@ def main(unused_argv):
     rec *= 100
     f1 *= 100
     prefix = '%.2f\t%.2f\t%.2f\t'
-    print 'Lambdamart P/R/F: '
-    print prefix
+    print('Lambdamart P/R/F: ')
+    print(prefix)
 
     # for ex in tqdm(ex_list, total=total):
     #     load_and_evaluate_example(ex)
 
-    print 'Evaluating ROUGE...'
+    print('Evaluating ROUGE...')
     results_dict = rouge_eval_references.rouge_eval(ref_dir, dec_dir)
     # print("Results_dict: ", results_dict)
     rouge_eval_references.rouge_log(results_dict, my_log_dir, prefix=prefix)

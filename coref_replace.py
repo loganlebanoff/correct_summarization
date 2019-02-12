@@ -4,7 +4,7 @@ from tensorflow.core.example import example_pb2
 import numpy as np
 from tqdm import tqdm
 import copy
-import util
+from . import util
 from absl import flags
 from absl import app
 import sys
@@ -16,8 +16,8 @@ import collections
 import json
 from diff_match_patch import diff_match_patch as Diff
 
-dm_single_close_quote = u'\u2019' # unicode
-dm_double_close_quote = u'\u201d'
+dm_single_close_quote = '\u2019' # unicode
+dm_double_close_quote = '\u201d'
 END_TOKENS = ['.', '!', '?', '...', "'", "`", '"', dm_single_close_quote, dm_double_close_quote, ")"] # acceptable ways to end a sentence
 
 # We use these to separate the summary sentences in the .bin datafiles
@@ -136,14 +136,14 @@ def chunk_all(out_full_dir, out_dir):
     os.mkdir(out_dir)
   # Chunk the data
   for set_name in ['train', 'val', 'test']:
-    print "Splitting %s data into chunks..." % set_name
+    print("Splitting %s data into chunks..." % set_name)
     chunk_file(set_name, out_full_dir, out_dir)
-  print "Saved chunked data in %s" % out_dir
+  print("Saved chunked data in %s" % out_dir)
 
 def get_corefs(coref_file):
     with open(coref_file) as f:
         data = json.load(f)
-    coref_ids = data['corefs'].keys()
+    coref_ids = list(data['corefs'].keys())
     coref_list = [data['corefs'][id] for id in coref_ids]
     return coref_list
 
@@ -180,7 +180,7 @@ def fix_article_sent_tokens(article_sent_tokens):
         for item in sent_tokens:
             if type(item) == list:
                 sent.extend(item)
-            elif isinstance(item, basestring):
+            elif isinstance(item, str):
                 sent.append(item)
             else:
                 raise Exception('Item is not a string or a list: ' + str(item))
@@ -234,7 +234,7 @@ def fix_trailing_apostrophe_s(corefs):
 
 def write_to_bin(url_file, out_dir, dataset_split):
   """Reads the tokenized .story files corresponding to the urls listed in the url_file and writes them to a out_file."""
-  print "Making bin file for URLs listed in %s..." % url_file
+  print("Making bin file for URLs listed in %s..." % url_file)
   url_list = read_text_file(url_file)
   url_hashes = get_url_hashes(url_list)
   file_names = os.listdir(os.path.join(corefs_dir, dataset_split))
@@ -255,7 +255,7 @@ def write_to_bin(url_file, out_dir, dataset_split):
           tqdm.write('Average corefs skipped: %.2f' % np.mean(corefs_skipped_list))
           tqdm.write('Average percent corefs skipped: %.2f' % np.mean(percent_corefs_skipped_list))
       if idx % 1000 == 0:
-          print "Writing story %i of %i; %.2f percent done" % (idx, num_stories, float(idx)*100.0/float(num_stories))
+          print("Writing story %i of %i; %.2f percent done" % (idx, num_stories, float(idx)*100.0/float(num_stories)))
       name = s
       story_fname = name + '.story'
       coref_fname = name + '.article.json'
@@ -266,9 +266,9 @@ def write_to_bin(url_file, out_dir, dataset_split):
       elif os.path.isfile(os.path.join(dm_tokenized_stories_dir, story_fname)):
         story_file = os.path.join(dm_tokenized_stories_dir, story_fname)
       else:
-        print "Error: Couldn't find tokenized story file %s in either tokenized story directories %s and %s. Was there an error during tokenization?" % (story_fname, cnn_tokenized_stories_dir, dm_tokenized_stories_dir)
+        print("Error: Couldn't find tokenized story file %s in either tokenized story directories %s and %s. Was there an error during tokenization?" % (story_fname, cnn_tokenized_stories_dir, dm_tokenized_stories_dir))
         # Check again if tokenized stories directories contain correct number of files
-        print "Checking that the tokenized stories directories %s and %s contain correct number of files..." % (cnn_tokenized_stories_dir, dm_tokenized_stories_dir)
+        print("Checking that the tokenized stories directories %s and %s contain correct number of files..." % (cnn_tokenized_stories_dir, dm_tokenized_stories_dir))
         check_num_stories(cnn_tokenized_stories_dir, num_expected_cnn_stories)
         check_num_stories(dm_tokenized_stories_dir, num_expected_dm_stories)
         raise Exception("Tokenized stories directories %s and %s contain correct number of files but story file %s found in neither." % (cnn_tokenized_stories_dir, dm_tokenized_stories_dir, story_fname))
@@ -277,9 +277,9 @@ def write_to_bin(url_file, out_dir, dataset_split):
       if os.path.isfile(os.path.join(corefs_split_dir, coref_fname)):
         coref_file = os.path.join(corefs_split_dir, coref_fname)
       else:
-        print "Error: Couldn't find coref file %s in either coref directory %s. Was there an error during preprocessing?" % (coref_fname, corefs_split_dir)
+        print("Error: Couldn't find coref file %s in either coref directory %s. Was there an error during preprocessing?" % (coref_fname, corefs_split_dir))
         # Check again if tokenized stories directories contain correct number of files
-        print "Checking that the tokenized stories directory %s contain correct number of files..." % (corefs_split_dir)
+        print("Checking that the tokenized stories directory %s contain correct number of files..." % (corefs_split_dir))
         check_num_stories(corefs_split_dir, num_expected_stories[dataset_split])
         raise Exception("Tokenized stories directory %s contain correct number of files but story file %s found in neither." % (corefs_split_dir, coref_fname))
 
@@ -325,7 +325,7 @@ def write_to_bin(url_file, out_dir, dataset_split):
 
 
   html_writer.close()
-  print "Finished writing file %s\n" % url_file
+  print("Finished writing file %s\n" % url_file)
 
 
 def main(unused_argv):

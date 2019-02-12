@@ -7,12 +7,12 @@ necessary_urls = []
 for url in urls:
   # Get file id
   necessary_urls.append(url.strip().split("/")[-1].split(".")[0])
-print len(necessary_urls), necessary_urls[0]
+print(len(necessary_urls), necessary_urls[0])
 
 file_names = [filename for filename in os.listdir("/home/logan/discourse/data/coref/xsum/processed") if 'train' in filename]
 collected_fileids = [file_name.split(".")[0] for file_name in file_names]
 
-print len(collected_fileids), collected_fileids[0]
+print(len(collected_fileids), collected_fileids[0])
 
 missing_files = list(set(necessary_urls) - set(collected_fileids))
 missing_file_names = ["data/coref/xsum/to_coref/" + file_name + ".bin" for file_name in missing_files]

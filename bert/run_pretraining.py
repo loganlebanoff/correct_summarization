@@ -14,9 +14,9 @@
 # limitations under the License.
 """Run masked LM/next sentence masked_lm pre-training for BERT."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+
+
+
 
 import os
 import modeling

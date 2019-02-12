@@ -1,4 +1,4 @@
-from __future__ import unicode_literals
+
 
 import sys
 import nltk
@@ -7,17 +7,17 @@ import struct
 from tensorflow.core.example import example_pb2
 import os
 import glob
-import convert_data
+from . import convert_data
 from absl import flags
 from absl import app
-import cPickle
-import util
-from data import Vocab
+import pickle
+from . import util
+from .data import Vocab
 from difflib import SequenceMatcher
 import itertools
 from tqdm import tqdm
-import importance_features
-import data
+from . import importance_features
+from . import data
 import json
 import copy
 # from pycorenlp import StanfordCoreNLP
@@ -131,9 +131,9 @@ def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_
                     try:
                         color = hard_highlight_colors[min(summ_sent_idx, len(highlight_colors)-1)]
                     except:
-                        print summ_sent_idx
-                        print summary_sent_tokens
-                        print '\n'
+                        print(summ_sent_idx)
+                        print(summary_sent_tokens)
+                        print('\n')
                 else:
                     color = highlight_colors[min(summ_sent_idx, len(highlight_colors)-1)]
                 # if token_idx in lcs_paths[source_indices_idx]:
@@ -153,7 +153,7 @@ def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_
     for sent_idx, sent in enumerate(article_sent_tokens):
         if doc_indices is not None:
             if cur_token_idx >= len(doc_indices):
-                print "Warning: cur_token_idx is greater than len of doc_indices"
+                print("Warning: cur_token_idx is greater than len of doc_indices")
             elif doc_indices[cur_token_idx] != cur_doc_idx:
                 cur_doc_idx = doc_indices[cur_token_idx]
                 out_str += '<br>'
@@ -172,7 +172,7 @@ def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_
             # elif token_idx in article_lcs_paths[priority]:
             else:
                 insert_string = token + ' '
-                for priority_idx in reversed(range(len(priorities))):
+                for priority_idx in reversed(list(range(len(priorities)))):
                     summ_sent_idx = summ_sent_indices[priority_idx]
                     priority = priorities[priority_idx]
                     if article_lcs_paths_list is None or token_idx in article_lcs_paths_list[summ_sent_idx][priority]:
@@ -233,8 +233,8 @@ def get_top_similar_sent(summ_sent, article_sent_tokens, vocab, remove_stop_word
         similarities = get_sent_similarities(summ_sent, article_sent_tokens, vocab, remove_stop_words=remove_stop_words)
         top_similarity = np.max(similarities)
     except:
-        print summ_sent
-        print article_sent_tokens
+        print(summ_sent)
+        print(article_sent_tokens)
         raise
     # sent_indices = [sent_idx for sent_idx, sent_sim in enumerate(similarities) if sent_sim == top_similarity]
     if multiple_ssi:
@@ -380,7 +380,7 @@ def get_simple_source_indices_list(summary_sent_tokens, article_sent_tokens, voc
         similarities = get_sent_similarities(summ_sent, article_sent_tokens_lemma, vocab)
         if remove_lcs:
             similar_source_indices, lcs_paths, article_lcs_paths = get_similar_source_sents_by_lcs(
-                summ_sent, list(xrange(len(summ_sent))), article_sent_tokens_lemma, vocab, similarities, 0,
+                summ_sent, list(range(len(summ_sent))), article_sent_tokens_lemma, vocab, similarities, 0,
                 sentence_limit, min_matched_tokens, remove_stop_words=remove_stop_words, multiple_ssi=multiple_ssi)
             similar_source_indices_list.append(similar_source_indices)
             lcs_paths_list.append(lcs_paths)
@@ -412,7 +412,7 @@ ngram_orders = [1, 2, 3, 4, 'sentence']
 
 def main(unused_argv):
 
-    print 'Running statistics on %s' % FLAGS.exp_name
+    print('Running statistics on %s' % FLAGS.exp_name)
 
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
@@ -540,7 +540,7 @@ def main(unused_argv):
                     rel_sent_positions = importance_features.get_sent_indices(article_sent_tokens, doc_indices)
                 else:
                     num_tokens_total = sum([len(sent) for sent in article_sent_tokens])
-                    rel_sent_positions = list(xrange(len(raw_article_sents)))
+                    rel_sent_positions = list(range(len(raw_article_sents)))
                     doc_indices = [0] * num_tokens_total
 
             else:
@@ -616,7 +616,7 @@ def main(unused_argv):
             else:
                 abstract_idx_str = ''
             with open(os.path.join(ssi_path, dataset_split + '_ssi' + abstract_idx_str + '.pkl'), 'wb') as f:
-                cPickle.dump(simple_similar_source_indices_list_plus_empty, f)
+                pickle.dump(simple_similar_source_indices_list_plus_empty, f)
 
         if FLAGS.kaiqiang:
             # kaiqiang_article_file.write('\n'.join(kaiqiang_article_texts))

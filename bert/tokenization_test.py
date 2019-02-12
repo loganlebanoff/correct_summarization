@@ -12,9 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+
+
+
 
 import os
 import tempfile
@@ -42,7 +42,7 @@ class TokenizationTest(tf.test.TestCase):
     tokenizer = tokenization.FullTokenizer(vocab_file)
     os.unlink(vocab_file)
 
-    tokens = tokenizer.tokenize(u"UNwant\u00E9d,running")
+    tokens = tokenizer.tokenize("UNwant\u00E9d,running")
     self.assertAllEqual(tokens, ["un", "##want", "##ed", ",", "runn", "##ing"])
 
     self.assertAllEqual(
@@ -52,22 +52,22 @@ class TokenizationTest(tf.test.TestCase):
     tokenizer = tokenization.BasicTokenizer()
 
     self.assertAllEqual(
-        tokenizer.tokenize(u"ah\u535A\u63A8zz"),
-        [u"ah", u"\u535A", u"\u63A8", u"zz"])
+        tokenizer.tokenize("ah\u535A\u63A8zz"),
+        ["ah", "\u535A", "\u63A8", "zz"])
 
   def test_basic_tokenizer_lower(self):
     tokenizer = tokenization.BasicTokenizer(do_lower_case=True)
 
     self.assertAllEqual(
-        tokenizer.tokenize(u" \tHeLLo!how  \n Are yoU?  "),
+        tokenizer.tokenize(" \tHeLLo!how  \n Are yoU?  "),
         ["hello", "!", "how", "are", "you", "?"])
-    self.assertAllEqual(tokenizer.tokenize(u"H\u00E9llo"), ["hello"])
+    self.assertAllEqual(tokenizer.tokenize("H\u00E9llo"), ["hello"])
 
   def test_basic_tokenizer_no_lower(self):
     tokenizer = tokenization.BasicTokenizer(do_lower_case=False)
 
     self.assertAllEqual(
-        tokenizer.tokenize(u" \tHeLLo!how  \n Are yoU?  "),
+        tokenizer.tokenize(" \tHeLLo!how  \n Are yoU?  "),
         ["HeLLo", "!", "how", "Are", "yoU", "?"])
 
   def test_wordpiece_tokenizer(self):
@@ -105,31 +105,31 @@ class TokenizationTest(tf.test.TestCase):
             vocab, ["un", "##want", "##ed", "runn", "##ing"]), [7, 4, 5, 8, 9])
 
   def test_is_whitespace(self):
-    self.assertTrue(tokenization._is_whitespace(u" "))
-    self.assertTrue(tokenization._is_whitespace(u"\t"))
-    self.assertTrue(tokenization._is_whitespace(u"\r"))
-    self.assertTrue(tokenization._is_whitespace(u"\n"))
-    self.assertTrue(tokenization._is_whitespace(u"\u00A0"))
+    self.assertTrue(tokenization._is_whitespace(" "))
+    self.assertTrue(tokenization._is_whitespace("\t"))
+    self.assertTrue(tokenization._is_whitespace("\r"))
+    self.assertTrue(tokenization._is_whitespace("\n"))
+    self.assertTrue(tokenization._is_whitespace("\u00A0"))
 
-    self.assertFalse(tokenization._is_whitespace(u"A"))
-    self.assertFalse(tokenization._is_whitespace(u"-"))
+    self.assertFalse(tokenization._is_whitespace("A"))
+    self.assertFalse(tokenization._is_whitespace("-"))
 
   def test_is_control(self):
-    self.assertTrue(tokenization._is_control(u"\u0005"))
+    self.assertTrue(tokenization._is_control("\u0005"))
 
-    self.assertFalse(tokenization._is_control(u"A"))
-    self.assertFalse(tokenization._is_control(u" "))
-    self.assertFalse(tokenization._is_control(u"\t"))
-    self.assertFalse(tokenization._is_control(u"\r"))
+    self.assertFalse(tokenization._is_control("A"))
+    self.assertFalse(tokenization._is_control(" "))
+    self.assertFalse(tokenization._is_control("\t"))
+    self.assertFalse(tokenization._is_control("\r"))
 
   def test_is_punctuation(self):
-    self.assertTrue(tokenization._is_punctuation(u"-"))
-    self.assertTrue(tokenization._is_punctuation(u"$"))
-    self.assertTrue(tokenization._is_punctuation(u"`"))
-    self.assertTrue(tokenization._is_punctuation(u"."))
+    self.assertTrue(tokenization._is_punctuation("-"))
+    self.assertTrue(tokenization._is_punctuation("$"))
+    self.assertTrue(tokenization._is_punctuation("`"))
+    self.assertTrue(tokenization._is_punctuation("."))
 
-    self.assertFalse(tokenization._is_punctuation(u"A"))
-    self.assertFalse(tokenization._is_punctuation(u" "))
+    self.assertFalse(tokenization._is_punctuation("A"))
+    self.assertFalse(tokenization._is_punctuation(" "))
 
 
 if __name__ == "__main__":

@@ -1,10 +1,10 @@
 import time
 import itertools
-import convert_data
+from . import convert_data
 import numpy as np
-import data
+from . import data
 from tqdm import tqdm
-import util
+from . import util
 from absl import flags
 from absl import app
 import sys
@@ -18,7 +18,7 @@ from tensorflow.core.example import example_pb2
 from scipy import sparse
 from scoop import futures
 from collections import defaultdict
-import cPickle
+import pickle
 # from multiprocessing.dummy import Pool as ThreadPool
 # pool = ThreadPool(12)
 
@@ -51,14 +51,14 @@ max_enc_steps = 100000
 min_dec_steps = 100
 max_dec_steps = 120
 
-dm_single_close_quote = u'\u2019' # unicode
-dm_double_close_quote = u'\u201d'
+dm_single_close_quote = '\u2019' # unicode
+dm_double_close_quote = '\u201d'
 END_TOKENS = ['.', '!', '?', '...', "'", "`", '"', dm_single_close_quote, dm_double_close_quote, ")"] # acceptable ways to end a sentence
 
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_lists'), ('summary_text', 'string')]
 
 with open(tfidf_vec_path, 'rb') as f:
-    tfidf_vectorizer = cPickle.load(f)
+    tfidf_vectorizer = pickle.load(f)
 
 def get_tf_example(source_file):
     reader = open(source_file, 'rb')
@@ -270,7 +270,7 @@ def convert_article_to_lambdamart_features(ex):
     # if num_instances != -1 and example_idx >= num_instances:
     #     break
     example, example_idx, single_feat_len, pair_feat_len = ex
-    print example_idx
+    print(example_idx)
     raw_article_sents, similar_source_indices_list, summary_text = util.unpack_tf_example(example, names_to_types)
     article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
     summ_sent_tokens = [sent.strip().split() for sent in summary_text.strip().split('\n')]
@@ -286,7 +286,7 @@ def convert_article_to_lambdamart_features(ex):
 
     if importance:
         importances = util.special_squash(util.get_tfidf_importances(tfidf_vectorizer, raw_article_sents))
-        possible_pairs = [list(x) for x in list(itertools.combinations(list(xrange(len(raw_article_sents))), 2))]   # all pairs
+        possible_pairs = [list(x) for x in list(itertools.combinations(list(range(len(raw_article_sents))), 2))]   # all pairs
         possible_singles = [[i] for i in range(len(raw_article_sents))]
         possible_combinations = possible_pairs + possible_singles
         positives = [ssi for ssi in similar_source_indices_list]
@@ -334,7 +334,7 @@ def convert_article_to_lambdamart_features(ex):
         mmr_all = util.calc_MMR_all(raw_article_sents, article_sent_tokens, summ_sent_tokens, None) # the size is (# of summary sents, # of article sents)
 
 
-        possible_pairs = [list(x) for x in list(itertools.combinations(list(xrange(len(raw_article_sents))), 2))]   # all pairs
+        possible_pairs = [list(x) for x in list(itertools.combinations(list(range(len(raw_article_sents))), 2))]   # all pairs
         possible_singles = [[i] for i in range(len(raw_article_sents))]
         # negative_pairs = [x for x in possible_pairs if not (x in similar_source_indices_list or x[::-1] in similar_source_indices_list)]
         # negative_singles = [x for x in possible_singles if not (x in similar_source_indices_list or x[::-1] in similar_source_indices_list)]
@@ -342,7 +342,7 @@ def convert_article_to_lambdamart_features(ex):
         # random_negative_pairs = np.random.permutation(len(negative_pairs)).tolist()
         # random_negative_singles = np.random.permutation(len(negative_singles)).tolist()
 
-        all_combinations = list(itertools.product(possible_pairs + possible_singles, list(xrange(len(summ_sent_tokens)))))
+        all_combinations = list(itertools.product(possible_pairs + possible_singles, list(range(len(summ_sent_tokens)))))
         positives = [(similar_source_indices, summ_sent_idx) for summ_sent_idx, similar_source_indices in enumerate(similar_source_indices_list)]
         negatives = [(ssi, ssi_idx) for ssi, ssi_idx in all_combinations if not ((ssi, ssi_idx) in positives or (ssi[::-1], ssi_idx) in positives)]
 
@@ -417,7 +417,7 @@ def example_generator_extended(example_generator, total, single_feat_len, pair_f
 
 # del_all_flags(FLAGS)
 def main(unused_argv):
-    print 'Running statistics on %s' % exp_name
+    print('Running statistics on %s' % exp_name)
 
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
@@ -453,9 +453,9 @@ def main(unused_argv):
         example_generator = data.example_generator(source_dir + '/' + split + '*', True, False, should_check_valid=False)
         # for example in tqdm(example_generator, total=total):
         ex_gen = example_generator_extended(example_generator, total, single_feat_len, pair_feat_len)
-        print 'Creating list'
+        print('Creating list')
         ex_list = [ex for ex in ex_gen]
-        print 'Converting...'
+        print('Converting...')
         # all_features = pool.map(convert_article_to_lambdamart_features, ex_list)
 
 

@@ -12,9 +12,9 @@ import logging as log
 from absl import flags
 from absl import app
 import shutil
-import util
-import data
-import rouge_functions
+from . import util
+from . import data
+from . import rouge_functions
 import tempfile
 tempfile.tempdir = "/home/logan/tmp"
 

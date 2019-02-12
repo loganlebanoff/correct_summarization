@@ -1,4 +1,4 @@
-import util
+from . import util
 import os
 from tqdm import tqdm
 import glob

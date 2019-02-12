@@ -4,11 +4,11 @@ from tqdm import tqdm
 import numpy as np
 from absl import flags
 from absl import app
-import cPickle
-import util
+import pickle
+from . import util
 import sys
 import glob
-import data
+from . import data
 
 FLAGS = flags.FLAGS
 
@@ -25,9 +25,9 @@ if 'num_instances' not in flags.FLAGS:
 FLAGS(sys.argv)
 
 
-import convert_data
-import lambdamart_scores_to_summaries
-import preprocess_for_lambdamart_no_flags
+from . import convert_data
+from . import lambdamart_scores_to_summaries
+from . import preprocess_for_lambdamart_no_flags
 
 data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
@@ -36,7 +36,7 @@ min_matched_tokens = 1
 
 def main(unused_argv):
 
-    print 'Running statistics on %s' % FLAGS.dataset_name
+    print('Running statistics on %s' % FLAGS.dataset_name)
 
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
@@ -67,8 +67,8 @@ def main(unused_argv):
         groundtruth_summ_sent_tokens = [sent.split(' ') for sent in groundtruth_summ_sents[0]]
         ssi_sents.append(len(groundtruth_similar_source_indices_list))
         num_summ_tokens.append(len(util.flatten_list_of_lists(groundtruth_summ_sent_tokens)))
-    print "ssi_sents = %f" % np.max(ssi_sents)
-    print "num_summ_tokens", np.histogram(num_summ_tokens, bins=75)
+    print("ssi_sents = %f" % np.max(ssi_sents))
+    print("num_summ_tokens", np.histogram(num_summ_tokens, bins=75))
 
 
 if __name__ == '__main__':

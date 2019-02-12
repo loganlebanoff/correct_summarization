@@ -1,22 +1,22 @@
 from tqdm import tqdm
 from scoop import futures
-import rouge_functions
+from . import rouge_functions
 from absl import flags
 from absl import app
-import convert_data
+from . import convert_data
 import time
 import subprocess
 import itertools
 import glob
 import numpy as np
-import data
+from . import data
 import os
 import sys
 from collections import defaultdict
-import util
+from . import util
 from scipy import sparse
-from count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
-import cPickle
+from .count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
+import pickle
 # from profilestats import profile
 
 if 'dataset_name' in flags.FLAGS:
@@ -170,7 +170,7 @@ def get_best_source_sents(article_sent_tokens, mmr_dict, already_used_source_ind
     else:
         best_value = -9999999
         best_source_indices = ()
-        for key, val in mmr_dict.iteritems():
+        for key, val in mmr_dict.items():
             if val > best_value and not any(i in list(key) for i in already_used_source_indices):
                 best_value = val
                 best_source_indices = key
@@ -261,7 +261,7 @@ def get_indices_of_first_k_sents_of_each_article(rel_sent_indices, k):
 
 def evaluate_example(ex):
     example, example_idx, qid_ssi_to_importances, _, _ = ex
-    print example_idx
+    print(example_idx)
     # example_idx += 1
     qid = example_idx
     raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(example, names_to_types)
@@ -305,7 +305,7 @@ def main(unused_argv):
 
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
-    print 'Running statistics on %s' % exp_name
+    print('Running statistics on %s' % exp_name)
 
     start_time = time.time()
     np.random.seed(random_seed)
@@ -321,22 +321,22 @@ def main(unused_argv):
 
     qid_ssi_to_importances = rank_source_sents(temp_in_path, temp_out_path)
     ex_gen = example_generator_extended(example_generator, total, qid_ssi_to_importances, None, FLAGS.singles_and_pairs)
-    print 'Creating list'
+    print('Creating list')
     ex_list = [ex for ex in ex_gen]
     ssi_list = list(futures.map(evaluate_example, ex_list))
 
     # save ssi_list
     with open(os.path.join(my_log_dir, 'ssi.pkl'), 'w') as f:
-        cPickle.dump(ssi_list, f)
+        pickle.dump(ssi_list, f)
     with open(os.path.join(my_log_dir, 'ssi.pkl')) as f:
-        ssi_list = cPickle.load(f)
-    print 'Evaluating BERT model F1 score...'
+        ssi_list = pickle.load(f)
+    print('Evaluating BERT model F1 score...')
     suffix = util.all_sent_selection_eval(ssi_list)
     #
     # # for ex in tqdm(ex_list, total=total):
     # #     load_and_evaluate_example(ex)
     #
-    print 'Evaluating ROUGE...'
+    print('Evaluating ROUGE...')
     results_dict = rouge_functions.rouge_eval(ref_dir, dec_dir, l_param=l_param)
     # print("Results_dict: ", results_dict)
     rouge_functions.rouge_log(results_dict, my_log_dir, suffix=suffix)

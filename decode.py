@@ -20,24 +20,24 @@ import glob
 import os
 import time
 
-import cPickle
+import pickle
 import tensorflow as tf
-import beam_search
-import data
+from . import beam_search
+from . import data
 import json
 import pyrouge
-import util
+from . import util
 from sumy.nlp.tokenizers import Tokenizer
 from tqdm import tqdm
 from absl import flags
 from absl import logging
 import logging as log
-import rouge_functions
+from . import rouge_functions
 
-import importance_features
-import convert_data
-from batcher import create_batch
-import attn_selections
+from . import importance_features
+from . import convert_data
+from .batcher import create_batch
+from . import attn_selections
 
 FLAGS = flags.FLAGS
 
@@ -321,8 +321,8 @@ class BeamSearchDecoder(object):
             if doc_counter >= num_documents_desired:
                 save_path = os.path.join(model_save_path, data_split + '_%06d'%file_counter)
                 with open(save_path, 'wb') as f:
-                    cPickle.dump(instances, f)
-                print('Saved features at %s' % save_path)
+                    pickle.dump(instances, f)
+                print(('Saved features at %s' % save_path))
                 return
 
             if batch is None: # finished decoding dataset in single_pass mode
@@ -382,11 +382,11 @@ def decode_example(sess, model, vocab, batch, counter, hps):
 
 def print_results(article, abstract, decoded_output):
     """Prints the article, the reference summmary and the decoded summary to screen"""
-    print ""
+    print("")
     logging.info('ARTICLE:	%s', article)
     logging.info('REFERENCE SUMMARY: %s', abstract)
     logging.info('GENERATED SUMMARY: %s', decoded_output)
-    print ""
+    print("")
 
 
 def make_html_safe(s):

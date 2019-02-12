@@ -9,10 +9,10 @@ from absl import app
 from absl import flags
 from tqdm import tqdm
 
-import convert_data
-import data
-import util
-from create_corefs_dataset import get_corefs, fix_trailing_apostrophe_s, remove_irrelevant
+from . import convert_data
+from . import data
+from . import util
+from .create_corefs_dataset import get_corefs, fix_trailing_apostrophe_s, remove_irrelevant
 
 flags.DEFINE_string('dataset_name', 'all', 'Which dataset to use. Makes a log dir based on name.\
                                                 Must be one of {tac_2011, tac_2008, duc_2004, duc_tac, cnn_dm, all} or a custom dataset name')
@@ -89,7 +89,7 @@ def main(unused_argv):
                 coref_dict = {}
                 for c in coref_files:
                     coref_dict[c.split('/')[-1].split('.json')[0]] = c
-                print len(coref_files), len(source_files)
+                print(len(coref_files), len(source_files))
                 for example_idx, example in enumerate(tqdm(example_generator, total=total)):
                     raw_article_sents, article, abstract, doc_indices = util.unpack_tf_example(example, names_to_types)
                     if raw_article_sents is None:

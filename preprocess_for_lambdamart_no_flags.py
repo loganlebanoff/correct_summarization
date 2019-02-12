@@ -1,11 +1,11 @@
 import scipy
 import time
 import itertools
-import convert_data
+from . import convert_data
 import numpy as np
-import data
+from . import data
 from tqdm import tqdm
-import util
+from . import util
 from absl import flags
 from absl import app
 import sys
@@ -19,7 +19,7 @@ from tensorflow.core.example import example_pb2
 from scipy import sparse
 from scoop import futures
 from collections import defaultdict
-import cPickle
+import pickle
 # from multiprocessing.dummy import Pool as ThreadPool
 # pool = ThreadPool(12)
 
@@ -74,20 +74,20 @@ max_enc_steps = 100000
 min_dec_steps = 100
 max_dec_steps = 120
 
-dm_single_close_quote = u'\u2019' # unicode
-dm_double_close_quote = u'\u201d'
+dm_single_close_quote = '\u2019' # unicode
+dm_double_close_quote = '\u201d'
 END_TOKENS = ['.', '!', '?', '...', "'", "`", '"', dm_single_close_quote, dm_double_close_quote, ")"] # acceptable ways to end a sentence
 
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_lists'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 
-print 'Loading TFIDF vectorizer'
+print('Loading TFIDF vectorizer')
 with open(tfidf_vec_path, 'rb') as f:
-    tfidf_vectorizer = cPickle.load(f)
+    tfidf_vectorizer = pickle.load(f)
 
 if FLAGS.pca:
-    print 'Loading LSA model'
+    print('Loading LSA model')
     with open(pca_vec_path, 'rb') as f:
-        pca = cPickle.load(f)
+        pca = pickle.load(f)
 else:
     pca = None
 
@@ -180,7 +180,7 @@ def get_features(similar_source_indices, sent_term_matrix, article_sent_tokens, 
     elif len(similar_source_indices) == 0:
         return None
     else:
-        print similar_source_indices
+        print(similar_source_indices)
         raise Exception("Shouldn't be here")
     return features
 
@@ -294,7 +294,7 @@ def convert_article_to_lambdamart_features(ex):
     # if num_instances != -1 and example_idx >= num_instances:
     #     break
     example, example_idx, single_feat_len, pair_feat_len, singles_and_pairs, out_path = ex
-    print example_idx
+    print(example_idx)
     raw_article_sents, similar_source_indices_list, summary_text, corefs, doc_indices = util.unpack_tf_example(example, names_to_types)
     article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
     if doc_indices is None:
@@ -321,7 +321,7 @@ def convert_article_to_lambdamart_features(ex):
 
     if importance:
         importances = util.special_squash(util.get_tfidf_importances(tfidf_vectorizer, raw_article_sents, pca))
-        possible_pairs = [x for x in list(itertools.combinations(list(xrange(len(raw_article_sents))), 2))]   # all pairs
+        possible_pairs = [x for x in list(itertools.combinations(list(range(len(raw_article_sents))), 2))]   # all pairs
         if FLAGS.use_pair_criteria:
             possible_pairs = filter_pairs_by_criteria(raw_article_sents, possible_pairs, corefs)
         if FLAGS.sent_position_criteria:
@@ -427,7 +427,7 @@ def example_generator_extended(example_generator, total, single_feat_len, pair_f
 
 # del_all_flags(FLAGS)
 def main(unused_argv):
-    print 'Running statistics on %s' % exp_name
+    print('Running statistics on %s' % exp_name)
 
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
@@ -476,11 +476,11 @@ def main(unused_argv):
         example_generator = data.example_generator(source_dir + '/' + split + '*', True, False, should_check_valid=False)
         # for example in tqdm(example_generator, total=total):
         ex_gen = example_generator_extended(example_generator, total, single_feat_len, pair_feat_len, FLAGS.singles_and_pairs, out_path)
-        print 'Creating list'
+        print('Creating list')
         ex_list = [ex for ex in ex_gen]
         if FLAGS.num_instances != -1:
             ex_list = ex_list[:FLAGS.num_instances]
-        print 'Converting...'
+        print('Converting...')
         # all_features = pool.map(convert_article_to_lambdamart_features, ex_list)
 
 

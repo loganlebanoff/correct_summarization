@@ -1,7 +1,7 @@
 
 from tqdm import tqdm
 
-for i in tqdm(range(100000000)):
+for i in tqdm(list(range(100000000))):
     a=0
 
 

@@ -14,9 +14,9 @@
 # limitations under the License.
 """Create masked LM/next sentence masked_lm TF examples for BERT."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+
+
+
 
 import collections
 import random
@@ -146,7 +146,7 @@ def write_instance_to_example_files(instances, tokenizer, max_seq_length,
       tf.logging.info("tokens: %s" % " ".join(
           [tokenization.printable_text(x) for x in instance.tokens]))
 
-      for feature_name in features.keys():
+      for feature_name in list(features.keys()):
         feature = features[feature_name]
         values = []
         if feature.int64_list.value:

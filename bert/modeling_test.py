@@ -12,9 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+
+
+
 
 import collections
 import json
@@ -210,7 +210,7 @@ class BertModelTest(tf.test.TestCase):
             assign_out_to_in[y.name].append(x.name)
 
     assign_groups = collections.defaultdict(list)
-    for out_name in assign_out_to_in.keys():
+    for out_name in list(assign_out_to_in.keys()):
       name_group = assign_out_to_in[out_name]
       for n1 in name_group:
         assign_groups[n1].append(out_name)

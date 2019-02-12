@@ -24,7 +24,7 @@ import os
 import numpy as np
 from absl import flags
 import itertools
-import data
+from . import data
 from absl import logging
 from sumy.nlp.tokenizers import Tokenizer
 from nltk.stem.porter import PorterStemmer
@@ -34,7 +34,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import inspect, re
 import string
 import struct
-import rouge_functions
+from . import rouge_functions
 import json
 import spacy
 from spacy.tokens import Doc
@@ -80,7 +80,7 @@ def chunks(chunkable, n):
     """ Yield successive n-sized chunks from l.
     """
     chunk_list = []
-    for i in xrange(0, len(chunkable), n):
+    for i in range(0, len(chunkable), n):
         chunk_list.append( chunkable[i:i+n])
     return chunk_list
 
@@ -112,7 +112,7 @@ def remove_period_ids(lst, vocab):
 
 def to_unicode(text):
     try:
-        text = unicode(text, errors='replace')
+        text = str(text, errors='replace')
     except TypeError:
         return text
     return text
@@ -164,8 +164,8 @@ def calc_ROUGE_L_score(candidate, reference, metric='f1'):
             prec.append(lcs / float(len(candidate)))
             rec.append(lcs / float(len(ref)))
         except:
-            print 'Candidate', candidate
-            print 'Reference', ref
+            print('Candidate', candidate)
+            print('Reference', ref)
             raise
 
 
@@ -203,7 +203,7 @@ def matching_unigrams(summ_sent, article_sent, should_remove_stop_words=False):
     article_indices = []
     summ_token_to_indices = create_token_to_indices(summ_sent)
     article_token_to_indices = create_token_to_indices(article_sent)
-    for token in summ_token_to_indices.keys():
+    for token in list(summ_token_to_indices.keys()):
         if token in article_token_to_indices:
             summ_indices.extend(summ_token_to_indices[token])
             article_indices.extend(article_token_to_indices[token])
@@ -334,7 +334,7 @@ def get_doc_substituted_tfidf_matrix(tfidf_vectorizer, sentences, article_text, 
     if pca is None:
         doc_vec = tfidf_transform_then_pca(tfidf_vectorizer, [article_text], pca)
         nonzero_rows, nonzero_cols = sent_term_matrix.nonzero()
-        nonzero_indices = zip(nonzero_rows, nonzero_cols)
+        nonzero_indices = list(zip(nonzero_rows, nonzero_cols))
         for idx in nonzero_indices:
             val = doc_vec[0, idx[1]]
             sent_term_matrix[idx] = val
@@ -421,7 +421,7 @@ def get_tfidf_importances(tfidf_vectorizer, raw_article_sents, pca=None):
 
 def singles_to_singles_pairs(distribution):
     possible_pairs = [tuple(x) for x in
-                      list(itertools.combinations(list(xrange(len(distribution))), 2))]  # all pairs
+                      list(itertools.combinations(list(range(len(distribution))), 2))]  # all pairs
     possible_singles = [tuple([i]) for i in range(len(distribution))]
     all_combinations = possible_pairs + possible_singles
     out_dict = {}
@@ -439,7 +439,7 @@ def combine_sim_and_imp(logan_similarity, logan_importances, lambda_val=0.6):
 
 def combine_sim_and_imp_dict(similarities_dict, importances_dict, lambda_val=0.6):
     mmr = {}
-    for key in importances_dict.keys():
+    for key in list(importances_dict.keys()):
         try:
             mmr[key] = combine_sim_and_imp(similarities_dict[key], importances_dict[key], lambda_val=lambda_val)
         except:
@@ -487,10 +487,10 @@ def special_squash(distribution):
     return res
 
 def special_squash_dict(distribution_dict):
-    distribution = distribution_dict.values()
+    distribution = list(distribution_dict.values())
     values = special_squash(distribution)
-    keys = distribution_dict.keys()
-    items = zip(keys, values)
+    keys = list(distribution_dict.keys())
+    items = list(zip(keys, values))
     out_dict = {}
     for key, val in items:
         out_dict[key] = val
@@ -498,21 +498,21 @@ def special_squash_dict(distribution_dict):
 
 def print_execution_time(start_time):
     localtime = time.asctime( time.localtime(time.time()) )
-    print ("Finished at: ", localtime)
+    print(("Finished at: ", localtime))
     time_taken = time.time() - start_time
     if time_taken < 60:
-        print('Execution time: ', time_taken, ' sec')
+        print(('Execution time: ', time_taken, ' sec'))
     elif time_taken < 3600:
-        print('Execution time: ', time_taken/60., ' min')
+        print(('Execution time: ', time_taken/60., ' min'))
     else:
-        print('Execution time: ', time_taken/3600., ' hr')
+        print(('Execution time: ', time_taken/3600., ' hr'))
 
 def split_list_by_item(lst, item):
     return [list(y) for x, y in itertools.groupby(lst, lambda z: z == item) if not x]
 
 def show_callers_locals():
     """Print the local variables in the caller's frame."""
-    callers_local_vars = inspect.currentframe().f_back.f_back.f_back.f_locals.items()
+    callers_local_vars = list(inspect.currentframe().f_back.f_back.f_back.f_locals.items())
     return callers_local_vars
 
 def varname(my_var):
@@ -521,7 +521,7 @@ def varname(my_var):
 
 def print_vars(*args):
     for v in args:
-        print varname(v), v
+        print(varname(v), v)
 
 def reorder(l, ordering):
     return [l[i] for i in ordering]
@@ -539,7 +539,7 @@ def create_dirs(dir):
 def reshape_like(to_reshape, thing_with_shape):
     res = []
     if len(to_reshape) != len(flatten_list_of_lists(thing_with_shape)):
-        print 'Len of to_reshape (' + str(len(to_reshape)) + ') does not equal len of thing_with_shape (' + str(len(flatten_list_of_lists(thing_with_shape))) + ')'
+        print('Len of to_reshape (' + str(len(to_reshape)) + ') does not equal len of thing_with_shape (' + str(len(flatten_list_of_lists(thing_with_shape))) + ')')
         raise Exception('error')
     idx = 0
     for lst in thing_with_shape:
@@ -592,7 +592,7 @@ def get_first_available_sent(enforced_groundtruth_ssi_list, raw_article_sents, r
     if FLAGS.dataset_name == 'xsum':
         available_range = list(range(1, len(raw_article_sents))) + [0]
     else:
-        available_range = range(len(raw_article_sents))
+        available_range = list(range(len(raw_article_sents)))
     for sent_idx in available_range:
         if sent_idx not in flat_ssi_list:
             return (sent_idx,)
@@ -643,8 +643,8 @@ def sent_selection_eval(ssi_list, operation_on_gt):
     rec *= 100
     f1 *= 100
     suffix = '%.2f\t%.2f\t%.2f\t' % (prec, rec, f1)
-    print 'Lambdamart P/R/F: '
-    print suffix
+    print('Lambdamart P/R/F: ')
+    print(suffix)
     return suffix
 
 def all_sent_selection_eval(ssi_list):
@@ -664,7 +664,7 @@ def all_sent_selection_eval(ssi_list):
         suffix = sent_selection_eval(ssi_list, op)
         suffixes.append(suffix)
     combined_suffix = '\n' + ''.join(suffixes)
-    print combined_suffix
+    print(combined_suffix)
     return combined_suffix
 
 def lemmatize_sent_tokens(article_sent_tokens):

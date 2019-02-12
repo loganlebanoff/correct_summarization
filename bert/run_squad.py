@@ -14,9 +14,9 @@
 # limitations under the License.
 """Run BERT on SQuAD 1.1 and SQuAD 2.0."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+
+
+
 
 import collections
 import json

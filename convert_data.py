@@ -16,7 +16,7 @@ from absl import flags
 from absl import app
 from tqdm import tqdm
 import json
-import util
+from . import util
 import sys
 reload(sys)
 sys.setdefaultencoding('utf8')
@@ -255,7 +255,7 @@ def process_abstract(abstract_lines):
     for line in abstract_lines:
         line = line.encode('utf-8')
         line = line.lower()
-        line = line.replace(u'\x92', "'")
+        line = line.replace('\x92', "'")
         tokenized_sent = nltk.word_tokenize(line)
         tokenized_sent = [fix_bracket_token(token) for token in tokenized_sent]
         sent = ' '.join(tokenized_sent)

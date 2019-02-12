@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import unicode_literals
+
 
 import itertools
 import os
@@ -9,11 +9,11 @@ from tqdm import tqdm
 import numpy as np
 from absl import flags
 from absl import app
-import cPickle
-import util
+import pickle
+from . import util
 import sys
 import glob
-import data
+from . import data
 
 FLAGS = flags.FLAGS
 
@@ -44,7 +44,7 @@ np.random.seed(123)
 
 def main(unused_argv):
 
-    print 'Running statistics on %s' % FLAGS.dataset_name
+    print('Running statistics on %s' % FLAGS.dataset_name)
 
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)

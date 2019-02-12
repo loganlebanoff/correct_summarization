@@ -14,10 +14,10 @@ import logging as log
 from absl import flags
 from absl import app
 import shutil
-import rouge_functions
+from . import rouge_functions
 import tempfile
 
-import util
+from . import util
 import numpy as np
 
 tempfile.tempdir = "/home/logan/tmp"
@@ -54,7 +54,7 @@ def main(unused_argv):
                 os.makedirs(os.path.join(out_dir, summary_method, 'decoded'))
             if not os.path.exists(os.path.join(out_dir, summary_method, 'reference')):
                 os.makedirs(os.path.join(out_dir, summary_method, 'reference'))
-            print (os.path.join(out_dir, summary_method))
+            print((os.path.join(out_dir, summary_method)))
             method_dir = os.path.join(summaries_dir, summary_method)
             file_names = sorted([name for name in os.listdir(method_dir) if name[0] == 'd'])
             for art_idx, article_name in enumerate(tqdm(file_names)):
@@ -81,21 +81,21 @@ def main(unused_argv):
             rouge_functions.rouge_log(results_dict, os.path.join(out_dir, summary_method))
 
         for summary_method in summary_methods:
-            print summary_method
+            print(summary_method)
         all_results = ''
         for summary_method in summary_methods:
             sheet_results_file = os.path.join(out_dir, summary_method, "sheets_results.txt")
             with open(sheet_results_file) as f:
                 results = f.read()
             all_results += results
-        print all_results
+        print(all_results)
         a=0
 
     else:
         # source_dir = os.path.join(data_dir, FLAGS.dataset)
         log_root = os.path.join('logs', FLAGS.exp_name)
         ckpt_folder = util.find_largest_ckpt_folder(log_root)
-        print ckpt_folder
+        print(ckpt_folder)
         # if os.path.exists(os.path.join(log_dir,FLAGS.exp_name,ckpt_folder)):
         if ckpt_folder != 'decoded':
             summary_dir = os.path.join(log_dir,FLAGS.exp_name,ckpt_folder)
@@ -124,9 +124,9 @@ def main(unused_argv):
                 summary = f.read()
             length = len(summary.strip().split())
             lengths.append(length)
-        print 'Average summary length: %.2f' % np.mean(lengths)
+        print('Average summary length: %.2f' % np.mean(lengths))
 
-        print 'Evaluating on %d files' % len(os.listdir(dec_dir))
+        print('Evaluating on %d files' % len(os.listdir(dec_dir)))
         results_dict = rouge_functions.rouge_eval(ref_dir, dec_dir, l_param=FLAGS.l_param)
         rouge_functions.rouge_log(results_dict, summary_dir)
 

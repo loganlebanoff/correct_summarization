@@ -2,7 +2,7 @@ import glob
 import os
 import shutil
 import tensorflow as tf
-import cPickle
+import pickle
 
 def create_dirs(dir):
     if not os.path.exists(dir):
@@ -83,11 +83,11 @@ class BestCheckpointCopier(tf.estimator.Exporter):
 
   def _fillCheckpoints(self, checkpointPickleDir):
     with open(checkpointPickleDir) as f:
-      self.checkpoints = cPickle.load(f)
+      self.checkpoints = pickle.load(f)
 
   def _writeCheckpointsPickle(self, checkpointPickleDir):
     with open(checkpointPickleDir, 'wb') as f:
-      cPickle.dump(self.checkpoints, f)
+      pickle.dump(self.checkpoints, f)
 
   def export(self, estimator, export_path, checkpoint_path, eval_result, is_the_final_export):
     self._log('export checkpoint {}'.format(checkpoint_path))

@@ -17,17 +17,17 @@
 
 """This file contains code to process data into batches"""
 
-import Queue
+import queue
 from random import shuffle
 from threading import Thread
 import time
 import numpy as np
-import data
+from . import data
 import nltk
-from convert_data import process_sent
-import util
+from .convert_data import process_sent
+from . import util
 from absl import logging
-import pg_mmr_functions
+from . import pg_mmr_functions
 
 max_dec_sents = 10
 
@@ -294,7 +294,7 @@ class Batch(object):
         for i, ex in enumerate(example_list):
             self.enc_batch[i, :] = ex.enc_input[:]
             self.enc_lens[i] = ex.enc_len
-            for j in xrange(ex.enc_len):
+            for j in range(ex.enc_len):
                 self.enc_padding_mask[i][j] = 1
             self.doc_indices[i, :] = ex.doc_indices
 
@@ -332,7 +332,7 @@ class Batch(object):
         for i, ex in enumerate(example_list):
             self.dec_batch[i, :] = ex.dec_input[:]
             self.target_batch[i, :] = ex.target[:]
-            for j in xrange(ex.dec_len):
+            for j in range(ex.dec_len):
                 self.dec_padding_mask[i][j] = 1
 
     def init_ssi_masks(self, example_list, hps):
@@ -406,8 +406,8 @@ class Batcher(object):
         self._example_generator = example_generator
 
         # Initialize a queue of Batches waiting to be used, and a queue of Examples waiting to be batched
-        self._batch_queue = Queue.Queue(self.BATCH_QUEUE_MAX)
-        self._example_queue = Queue.Queue(self.BATCH_QUEUE_MAX * self._hps.batch_size)
+        self._batch_queue = queue.Queue(self.BATCH_QUEUE_MAX)
+        self._example_queue = queue.Queue(self.BATCH_QUEUE_MAX * self._hps.batch_size)
 
         # Different settings depending on whether we're in single_pass mode or not
         if single_pass:
@@ -422,12 +422,12 @@ class Batcher(object):
 
         # Start the threads that load the queues
         self._example_q_threads = []
-        for _ in xrange(self._num_example_q_threads):
+        for _ in range(self._num_example_q_threads):
             self._example_q_threads.append(Thread(target=self.fill_example_queue))
             self._example_q_threads[-1].daemon = True
             self._example_q_threads[-1].start()
         self._batch_q_threads = []
-        for _ in xrange(self._num_batch_q_threads):
+        for _ in range(self._num_batch_q_threads):
             self._batch_q_threads.append(Thread(target=self.fill_batch_queue))
             self._batch_q_threads[-1].daemon = True
             self._batch_q_threads[-1].start()
@@ -469,7 +469,7 @@ class Batcher(object):
         while True:
             try:
                 (article,
-                 abstracts, doc_indices_str, raw_article_sents, ssi) = input_gen.next()  # read the next example from file. article and abstract are both strings.
+                 abstracts, doc_indices_str, raw_article_sents, ssi) = next(input_gen)  # read the next example from file. article and abstract are both strings.
             except StopIteration:  # if there are no more examples:
                 logging.info("The example generator for this example queue filling thread has exhausted data.")
                 if self._single_pass:
@@ -503,13 +503,13 @@ class Batcher(object):
             if self._hps.mode != 'decode' and self._hps.mode != 'calc_features':
                 # Get bucketing_cache_size-many batches of Examples into a list, then sort
                 inputs = []
-                for _ in xrange(self._hps.batch_size * self._bucketing_cache_size):
+                for _ in range(self._hps.batch_size * self._bucketing_cache_size):
                     inputs.append(self._example_queue.get())
                 inputs = sorted(inputs, key=lambda inp: inp.enc_len) # sort by length of encoder sequence
 
                 # Group the sorted Examples into batches, optionally shuffle the batches, and place in the batch queue.
                 batches = []
-                for i in xrange(0, len(inputs), self._hps.batch_size):
+                for i in range(0, len(inputs), self._hps.batch_size):
                     batches.append(inputs[i:i + self._hps.batch_size])
                 if not self._single_pass:
                     shuffle(batches)
@@ -522,13 +522,13 @@ class Batcher(object):
                 self._batch_queue.put(batch)
             else:   # calc features mode
                 inputs = []
-                for _ in xrange(self._hps.batch_size * self._bucketing_cache_size):
+                for _ in range(self._hps.batch_size * self._bucketing_cache_size):
                     inputs.append(self._example_queue.get())
                     # print "_ %d"%_
                 # print "inputs len%d"%len(inputs)
                 # Group the sorted Examples into batches, and place in the batch queue.
                 batches = []
-                for i in xrange(0, len(inputs), self._hps.batch_size):
+                for i in range(0, len(inputs), self._hps.batch_size):
                     # print i
                     batches.append(inputs[i:i + self._hps.batch_size])
 
@@ -564,7 +564,7 @@ class Batcher(object):
         Args:
             example_generator: a generator of tf.Examples from file. See data.example_generator"""
         while True:
-            e = example_generator.next() # e is a tf.Example
+            e = next(example_generator) # e is a tf.Example
             abstract_texts = []
             raw_article_sents = []
             if self._hps.pg_mmr:
@@ -632,7 +632,7 @@ def preprocess_example(article, groundtruth_summ_sents, doc_indices_str, raw_art
     return example
 
 def preprocess_batch(ex, batch_size, hps, vocab):
-    b = [ex for _ in xrange(batch_size)]
+    b = [ex for _ in range(batch_size)]
     batch = Batch(b, hps, vocab)
     return batch
 

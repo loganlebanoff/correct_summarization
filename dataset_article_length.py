@@ -1,4 +1,4 @@
-import convert_data
+from . import convert_data
 from tqdm import tqdm
 from absl import app, flags
 
@@ -24,8 +24,8 @@ def main(unused_argv):
 
     import numpy as np
 
-    print np.histogram(arts, bins=20)
-    print np.histogram(abs, bins=20)
+    print(np.histogram(arts, bins=20))
+    print(np.histogram(abs, bins=20))
 
 # 70
 # 5, 25
