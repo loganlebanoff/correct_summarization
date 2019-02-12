@@ -1014,7 +1014,7 @@ def main(_):
     else:
       num_eval_examples_with_padding = num_actual_eval_examples
 
-    eval_file = os.path.join(FLAGS.output_dir, "eval.tf_record")
+    eval_file = os.path.join(os.path.dirname(FLAGS.output_dir), 'tfrecords', "eval.tf_record")
     if not os.path.exists(eval_file):
         file_based_convert_examples_to_features(
             eval_example_generator, label_list, FLAGS.max_seq_length, tokenizer, eval_file, num_eval_examples_with_padding)
@@ -1051,7 +1051,7 @@ def main(_):
         sort_reverse=False)  # sort order when discarding excess checkpoints
 
   if FLAGS.do_train:
-    train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
+    train_file = os.path.join(os.path.dirname(FLAGS.output_dir), 'tfrecords', "train.tf_record")
     if not os.path.exists(train_file):
         file_based_convert_examples_to_features(
             train_example_generator, label_list, FLAGS.max_seq_length, tokenizer, train_file, num_train_examples)
@@ -1101,7 +1101,7 @@ def main(_):
     else:
       num_predict_examples_with_padding = num_actual_predict_examples
 
-    predict_file = os.path.join(FLAGS.output_dir, "predict.tf_record")
+    predict_file = os.path.join(os.path.dirname(FLAGS.output_dir), 'tfrecords', "predict.tf_record")
     if not os.path.exists(predict_file):
         file_based_convert_examples_to_features(predict_example_generator, label_list,
                                             FLAGS.max_seq_length, tokenizer,

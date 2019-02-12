@@ -365,6 +365,7 @@ class SummarizationModel(object):
             result = sess.run(to_return, feed_dict)
         except:
             a=0
+            raise
         return result
 
     def run_eval_step(self, sess, batch):
