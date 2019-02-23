@@ -12,14 +12,14 @@ import logging as log
 from absl import flags
 from absl import app
 import shutil
-from . import util
-from . import data
-from . import rouge_functions
+import util
+import data
+import rouge_functions
 import tempfile
-tempfile.tempdir = "/home/logan/tmp"
+tempfile.tempdir = os.path.expanduser('~') + "/tmp"
 
-data_dir = '/home/logan/data/multidoc_summarization/tf_examples'
-log_dir = '/home/logan/data/discourse/logs/'
+data_dir = os.path.expanduser('~') + '/data/multidoc_summarization/tf_examples'
+log_dir = os.path.expanduser('~') + '/data/discourse/logs/'
 max_enc_steps = 100000
 min_dec_steps = 100
 max_dec_steps = 120

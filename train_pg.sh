@@ -98,7 +98,7 @@ elif [[ "$singles_and_pairs" = "singles" ]]; then
     exp_suffix=_sent_singles
     dataset_suffix=_sent_singles
 else
-    data_root_flag=--data_root=/home/logan/data/tf_data
+    data_root_flag=--data_root=$HOME/data/tf_data
 fi
 
 if [[ "$cuda" = "1" ]]; then
@@ -113,10 +113,10 @@ echo "$@"
 
 
 if [[ "$mode" == *"tensorboard"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" tensorboard --logdir=logs/"$dataset_name""$exp_suffix"/eval --port="$port" &> /home/logan/null &
+    CUDA_VISIBLE_DEVICES="$cuda" tensorboard --logdir=logs/"$dataset_name""$exp_suffix"/eval --port="$port" &> $HOME/null &
 fi
 if [[ "$mode" == *"eval"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=eval --dataset_name="$dataset_name""$dataset_suffix" --dataset_split=val --exp_name="$dataset_name""$exp_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations=-1 $data_root_flag "$@" &> /home/logan/null &
+    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=eval --dataset_name="$dataset_name""$dataset_suffix" --dataset_split=val --exp_name="$dataset_name""$exp_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations=-1 $data_root_flag "$@" &> $HOME/null &
 fi
 if [[ "$mode" == *"train"* ]]; then
     CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=train --dataset_name="$dataset_name""$dataset_suffix" --dataset_split="$dataset_split" --exp_name="$dataset_name""$exp_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations="$num_iterations"  $data_root_flag "$@"

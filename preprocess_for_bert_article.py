@@ -10,21 +10,19 @@ import numpy as np
 from absl import flags
 from absl import app
 import pickle
-from . import util
+import util
 import sys
 import glob
-from . import data
+import data
 
 FLAGS = flags.FLAGS
 
 if 'dataset_name' not in flags.FLAGS:
     flags.DEFINE_string('dataset_name', 'cnn_dm', 'Which dataset to use. Can be {duc_2004, tac_2011, etc}')
 if 'dataset_split' not in flags.FLAGS:
-    flags.DEFINE_string('dataset_split', 'test', 'Which dataset split to use. Must be one of {train, val (or dev), test}')
+    flags.DEFINE_string('dataset_split', 'all', 'Which dataset split to use. Must be one of {train, val (or dev), test}')
 if 'sentence_limit' not in flags.FLAGS:
     flags.DEFINE_integer('sentence_limit', 2, 'Max number of sentences to include for merging.')
-if 'singles_and_pairs' not in flags.FLAGS:
-    flags.DEFINE_string('singles_and_pairs', 'singles', 'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
 if 'num_instances' not in flags.FLAGS:
     flags.DEFINE_integer('num_instances', -1,
                          'Number of instances to run for before stopping. Use -1 to run on all instances.')
@@ -34,7 +32,7 @@ FLAGS(sys.argv)
 # import convert_data
 # import preprocess_for_lambdamart_no_flags
 
-data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
+data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 min_matched_tokens = 1
@@ -77,7 +75,7 @@ def main(unused_argv):
             example_generator = data.example_generator(source_dir + '/' + dataset_split + '*', True, False,
                                                        should_check_valid=False)
 
-            out_dir = os.path.join('data', 'bert', dataset_name, FLAGS.singles_and_pairs, 'input_article')
+            out_dir = os.path.join('data', 'bert', dataset_name, 'article_embeddings', 'input_article')
             util.create_dirs(out_dir)
 
             writer = open(os.path.join(out_dir, dataset_split) + '.tsv', 'wb')

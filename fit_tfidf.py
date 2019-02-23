@@ -1,9 +1,9 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 import time
 import numpy as np
-from . import data
+import data
 from tqdm import tqdm
-from . import util
+import util
 from absl import flags
 from absl import app
 import os
@@ -42,7 +42,7 @@ include_sents_dist = True
 lr = False
 min_df = 5
 
-data_dir = '/home/logan/data/tf_data'
+data_dir = os.path.expanduser('~') + '/data/tf_data'
 log_dir = 'logs'
 out_dir = 'data/tfidf'
 max_enc_steps = 100000

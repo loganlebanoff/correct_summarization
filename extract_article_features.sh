@@ -49,5 +49,5 @@ echo "$@"
 
 cd bert
 for split in $dataset_split; do
-    CUDA_VISIBLE_DEVICES="$cuda" python extract_features.py   --input_file=/home/logan/discourse/data/bert/"$dataset_name"/"$singles_and_pairs"/input_article/"$split".tsv   --output_file=/home/logan/discourse/data/bert/"$dataset_name"/"$singles_and_pairs"/output_article/"$split".jsonl   --layers=-1,-2,-3,-4   --max_seq_length=400   --batch_size=1 --only_class_embedding
+    CUDA_VISIBLE_DEVICES="$cuda" python extract_features.py   --input_file=$HOME/discourse/data/bert/"$dataset_name"/"$singles_and_pairs"/input_article/"$split".tsv   --output_file=$HOME/discourse/data/bert/"$dataset_name"/"$singles_and_pairs"/output_article/"$split".jsonl   --layers=-1,-2,-3,-4   --max_seq_length=400   --batch_size=1 --only_class_embedding
 done

@@ -7,14 +7,14 @@ import subprocess
 import itertools
 import glob
 import numpy as np
-from . import data
+import data
 import os
 from collections import defaultdict
-from . import util
-from .preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
+import util
+from preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
     Lambdamart_Instance, format_to_lambdamart
 from scipy import sparse
-from .count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
+from count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn import metrics
 

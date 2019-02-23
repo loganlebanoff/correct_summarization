@@ -16,10 +16,13 @@ from absl import flags
 from absl import app
 from tqdm import tqdm
 import json
-from . import util
+import util
 import sys
-reload(sys)
-sys.setdefaultencoding('utf8')
+try:
+    reload(sys)
+    sys.setdefaultencoding('utf8')
+except:
+    a=0
 
 FLAGS = flags.FLAGS
 
@@ -27,7 +30,7 @@ p_start_tag = '<P>'
 p_end_tag = '</P>'
 
 kaiqiang_dataset_names = ['gigaword', 'cnndm_1to1', 'newsroom', 'websplit']
-kaiqiang_data_dir = '/home/logan/data'
+kaiqiang_data_dir = os.path.expanduser('~') + '/data'
 
 def fix_bracket_token(token):
     if token == '(':
@@ -51,12 +54,12 @@ def is_quote(tokens):
     return decision
 
 def process_sent(sent):
-    line = sent.lower().decode('utf-8')
+    line = util.decode_text(sent.lower())
     tokenized_sent = nltk.word_tokenize(line)
     tokenized_sent = [fix_bracket_token(token) for token in tokenized_sent]
     return tokenized_sent
 
-def process_dataset(dataset_name, out_data_path, should_write_with_generator, TAC_path='', DUC_path='', custom_dataset_path=''):
+def process_dataset(dataset_name, out_data_path, should_write_with_generator, TAC_path='', DUC_path='', custom_dataset_path='', dataset_split='all'):
     data_dirs = {
         'tac_2011': {
             'article_dir': os.path.join(TAC_path, 'summary_data/s11/test_doc_files'),
@@ -96,18 +99,21 @@ def process_dataset(dataset_name, out_data_path, should_write_with_generator, TA
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     if should_write_with_generator:
-        dataset_splits = ['test', 'val', 'train']
+        if dataset_split == 'all':
+            dataset_splits = ['test', 'val', 'train']
+        else:
+            dataset_splits = [dataset_split]
         # dataset_splits = ['test', 'val']
-        for dataset_split in dataset_splits:
+        for split in dataset_splits:
             if dataset_name in kaiqiang_dataset_names:
-                gen = gigaword_generator(dataset_name, dataset_split)
-                article_path = os.path.join(kaiqiang_data_dir, dataset_name, dataset_split + '.Ndocument')
+                gen = gigaword_generator(dataset_name, split)
+                article_path = os.path.join(kaiqiang_data_dir, dataset_name, split + '.Ndocument')
                 num_examples = sum(1 for line in open(article_path))
             else:
-                multidoc_dirnames = [name for name in sorted(os.listdir(article_dir)) if dataset_split in name]
+                multidoc_dirnames = [name for name in sorted(os.listdir(article_dir)) if split in name]
                 gen = multidoc_generator(multidoc_dirnames, article_dir, abstract_dir, is_tac, is_custom_dataset)
                 num_examples = len(multidoc_dirnames)
-            write_with_generator(gen, num_examples, out_dir, dataset_split)
+            write_with_generator(gen, num_examples, out_dir, split)
     else:
         multidoc_dirnames = sorted(os.listdir(article_dir))
         out_idx = 1
@@ -362,11 +368,12 @@ def main(unused_argv):
         raise Exception("Problem with flags: %s" % unused_argv)
     if FLAGS.dataset_name == '':
         raise Exception('Must specify which dataset to convert.')
-    process_dataset(FLAGS.dataset_name, FLAGS.out_data_path, FLAGS.write_with_generator, FLAGS.TAC_path, FLAGS.DUC_path, FLAGS.custom_dataset_path)
+    process_dataset(FLAGS.dataset_name, FLAGS.out_data_path, FLAGS.write_with_generator, FLAGS.TAC_path, FLAGS.DUC_path, FLAGS.custom_dataset_path, dataset_split=FLAGS.dataset_split)
     
 if __name__ == '__main__':
     flags.DEFINE_string('dataset_name', 'example_custom_dataset', 'Which dataset to convert from raw data to tf examples')
-    flags.DEFINE_string('out_data_path', '/home/logan/data/tf_data', 'Where to put output tf examples')
+    flags.DEFINE_string('dataset_split', 'all', 'Which dataset to convert from raw data to tf examples')
+    flags.DEFINE_string('out_data_path', os.path.expanduser('~') + '/data/tf_data', 'Where to put output tf examples')
     flags.DEFINE_string('TAC_path', '', 'Path to raw TAC data.')
     flags.DEFINE_string('DUC_path', '', 'Path to raw DUC data.')
     flags.DEFINE_boolean('write_with_generator', True, 'Whether or not to write with generator, which will batch the examples together.')

@@ -7,23 +7,23 @@ import struct
 from tensorflow.core.example import example_pb2
 import os
 import glob
-from . import convert_data
+import convert_data
 from absl import flags
 from absl import app
 import pickle
-from . import util
-from .data import Vocab
+import util
+from data import Vocab
 from difflib import SequenceMatcher
 import itertools
 from tqdm import tqdm
-from . import importance_features
-from . import data
+import importance_features
+import data
 import json
 import copy
 # from pycorenlp import StanfordCoreNLP
 # nlp = StanfordCoreNLP('http://localhost:9000')
 #
-# path = "/home/logan/data/discourse/newsroom/data/test-stats.jsonl"
+# path = os.path.expanduser('~') + "/data/discourse/newsroom/data/test-stats.jsonl"
 # data = []
 #
 # with open(path) as f:
@@ -44,7 +44,7 @@ class bcolors:
 FLAGS = flags.FLAGS
 
 
-data_dir = '/home/logan/data/tf_data/with_coref'
+data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref'
 log_dir = 'logs/'
 max_enc_steps = 100000
 min_dec_steps = 100
@@ -58,7 +58,7 @@ colors_html = ['blue', 'green', 'gold', 'red']
 html_dir = 'data/highlight'
 ssi_dir = 'data/ssi'
 kaiqiang_dir = 'data/kaiqiang_single_sent_data'
-lambdamart_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
+lambdamart_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 highlight_colors = ['aqua', 'lime', 'yellow', '#FF7676', '#B9968D', '#D7BDE2', '#D6DBDF', '#F852AF', '#00FF8B', '#FD933A', '#8C8DFF', '#965DFF']
 hard_highlight_colors = ['#00BBFF', '#00BB00', '#F4D03F', '#BB5454', '#A16252', '#AF7AC5', '#AEB6BF', '#FF008F', '#0ECA74', '#FF7400', '#6668FF', '#7931FF']
 # hard_highlight_colors = ['blue', 'green', 'orange', 'red']
@@ -200,12 +200,9 @@ def get_summary_from_example(e):
         summary_texts.append(abstract)  # the abstracts texts was saved under the key 'abstract' in the data files
     all_abstract_sentences = [[sent.strip() for sent in data.abstract2sents(
         abstract)] for abstract in summary_texts]
-    if FLAGS.dataset_name == 'duc_2004':
-        abstract_idx = FLAGS.abstract_idx
-    else:
-        abstract_idx = 0
-    summary_text = '\n'.join(all_abstract_sentences[abstract_idx])
-    return summary_text
+    summary_text = '\n'.join(all_abstract_sentences[0])
+    all_summary_texts = ['\n'.join(abs_sents) for abs_sents in all_abstract_sentences]
+    return summary_text, all_summary_texts
 
 def split_into_tokens(text):
     tokens = text.split()
@@ -343,7 +340,8 @@ def write_lambdamart_example(simple_similar_source_indices, raw_article_sents, s
     for sent in raw_article_sents:
         s = sent.encode('utf-8').strip()
         tf_example.features.feature['raw_article_sents'].bytes_list.value.extend([s])
-    tf_example.features.feature['summary_text'].bytes_list.value.extend([summary_text.encode("utf8")])
+    for summ_text in summary_text:
+        tf_example.features.feature['summary_text'].bytes_list.value.extend([summ_text])
     if doc_indices is not None:
         tf_example.features.feature['doc_indices'].bytes_list.value.extend([doc_indices])
     tf_example.features.feature['corefs'].bytes_list.value.extend([corefs_str])
@@ -499,7 +497,7 @@ def main(unused_argv):
         #     example = get_tf_example(source_files[file_idx])
             article_text = example.features.feature['article'].bytes_list.value[0].lower()
             if FLAGS.exp_name == 'reference':
-                summary_text = get_summary_from_example(example)
+                summary_text, all_summary_texts = get_summary_from_example(example)
             else:
                 summary_text = get_summary_text(summary_files[example_idx])
             article_tokens = split_into_tokens(article_text)
@@ -569,7 +567,8 @@ def main(unused_argv):
 
             simple_similar_source_indices_list_plus_empty.append(simple_similar_source_indices)
             if FLAGS.ssi_dataset:
-                write_lambdamart_example(simple_similar_source_indices, raw_article_sents, summary_text, corefs_str, doc_indices_str, lambdamart_writer)
+                summary_text_to_save = [s.encode('utf-8') for s in all_summary_texts] if FLAGS.dataset_name == 'duc_2004' else summary_text.encode('utf-8')
+                write_lambdamart_example(simple_similar_source_indices, raw_article_sents, summary_text_to_save, corefs_str, doc_indices_str, lambdamart_writer)
 
 
             if FLAGS.highlight:

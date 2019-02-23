@@ -16,13 +16,13 @@ END_TOKENS = ['.', '!', '?', '...', "'", "`", '"', dm_single_close_quote, dm_dou
 SENTENCE_START = '<s>'
 SENTENCE_END = '</s>'
 
-all_train_urls = "/home/logan/data/cnn_dailymail_logan/url_lists/all_train.txt"
-all_val_urls = "/home/logan/data/cnn_dailymail_logan/url_lists/all_val.txt"
-all_test_urls = "/home/logan/data/cnn_dailymail_logan/url_lists/all_test.txt"
+all_train_urls = os.path.expanduser('~') + "/data/cnn_dailymail_logan/url_lists/all_train.txt"
+all_val_urls = os.path.expanduser('~') + "/data/cnn_dailymail_logan/url_lists/all_val.txt"
+all_test_urls = os.path.expanduser('~') + "/data/cnn_dailymail_logan/url_lists/all_test.txt"
 
-cnn_tokenized_stories_dir = "/home/logan/data/cnn_dailymail_logan/cnn_stories_tokenized"
-dm_tokenized_stories_dir = "/home/logan/data/cnn_dailymail_logan/dm_stories_tokenized"
-finished_files_dir = "/home/logan/data/cnn_dailymail_logan/finished_files"
+cnn_tokenized_stories_dir = os.path.expanduser('~') + "/data/cnn_dailymail_logan/cnn_stories_tokenized"
+dm_tokenized_stories_dir = os.path.expanduser('~') + "/data/cnn_dailymail_logan/dm_stories_tokenized"
+finished_files_dir = os.path.expanduser('~') + "/data/cnn_dailymail_logan/finished_files"
 chunks_dir = os.path.join(finished_files_dir, "chunked")
 
 # These are the number of .story files we expect there to be in cnn_stories_dir and dm_stories_dir
@@ -34,7 +34,7 @@ CHUNK_SIZE = 1000 # num examples per chunk, for the chunked data
 
 
 def chunk_file(set_name):
-  in_file = '/home/logan/data/cnn_dailymail_logan/finished_files/%s.bin' % set_name
+  in_file = os.path.expanduser('~') + '/data/cnn_dailymail_logan/finished_files/%s.bin' % set_name
   reader = open(in_file, "rb")
   chunk = 0
   finished = False
@@ -70,14 +70,14 @@ def tokenize_stories(stories_dir, tokenized_stories_dir):
   stories = os.listdir(stories_dir)
   # make IO list file
   print("Making list of files to tokenize...")
-  with open("/home/logan/data/cnn_dailymail_logan/mapping.txt", "w") as f:
+  with open(os.path.expanduser('~') + "/data/cnn_dailymail_logan/mapping.txt", "w") as f:
     for s in stories:
       f.write("%s \t %s\n" % (os.path.join(stories_dir, s), os.path.join(tokenized_stories_dir, s)))
   command = ['java', 'edu.stanford.nlp.process.PTBTokenizer', '-ioFileList', '-preserveLines', 'mapping.txt']
   print("Tokenizing %i files in %s and saving in %s..." % (len(stories), stories_dir, tokenized_stories_dir))
   subprocess.call(command)
   print("Stanford CoreNLP Tokenizer has finished.")
-  os.remove("/home/logan/data/cnn_dailymail_logan/mapping.txt")
+  os.remove(os.path.expanduser('~') + "/data/cnn_dailymail_logan/mapping.txt")
 
   # Check that the tokenized stories directory contains the same number of files as the original directory
   num_orig = len(os.listdir(stories_dir))

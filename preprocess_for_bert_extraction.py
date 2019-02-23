@@ -5,10 +5,10 @@ import numpy as np
 from absl import flags
 from absl import app
 import pickle
-from . import util
+import util
 import sys
 import glob
-from . import data
+import data
 
 FLAGS = flags.FLAGS
 
@@ -25,11 +25,11 @@ if 'num_instances' not in flags.FLAGS:
 FLAGS(sys.argv)
 
 
-from . import convert_data
-from . import lambdamart_scores_to_summaries
-from . import preprocess_for_lambdamart_no_flags
+import convert_data
+import lambdamart_scores_to_summaries
+import preprocess_for_lambdamart_no_flags
 
-data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
+data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 min_matched_tokens = 1

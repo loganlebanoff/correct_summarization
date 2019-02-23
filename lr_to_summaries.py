@@ -1,26 +1,26 @@
 from tqdm import tqdm
 from scoop import futures
-from . import rouge_eval_references
+import rouge_eval_references
 from absl import flags
 from absl import app
-from . import convert_data
+import convert_data
 import time
 import subprocess
 import itertools
 import glob
 import numpy as np
-from . import data
+import data
 import os
 from collections import defaultdict
-from . import util
-from .preprocess_lr import get_features, get_single_sent_features, get_pair_sent_features, \
+import util
+from preprocess_lr import get_features, get_single_sent_features, get_pair_sent_features, \
     Lambdamart_Instance, format_to_lambdamart
 from scipy import sparse
-from .count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
+from count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
 import pickle
 import dill
 import tempfile
-tempfile.tempdir = "/home/logan/tmp"
+tempfile.tempdir = os.path.expanduser('~') + "/tmp"
 
 exp_name = 'lambdamart_singles_lr'
 dataset = 'cnn_dm_singles_lr'
@@ -38,7 +38,7 @@ min_matched_tokens = 2
 singles_and_pairs = 'singles'
 include_tfidf_vec = True
 
-data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
+data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 model_dir = 'data/lambdamart_models'
 temp_dir = 'data/temp/scores'
 lambdamart_in_dir = 'data/temp/to_lambdamart'
@@ -182,10 +182,10 @@ def write_to_file(instances, out_path, single_feat_len):
         f.write(out_str)
 
 def rank_instances(in_path, out_path):
-    command = 'java -jar /home/logan/ranklib/bin/RankLib-2.10.jar '\
+    command = 'java -jar ' + os.path.expanduser('~') + '/ranklib/bin/RankLib-2.10.jar '\
     + '-rank ' + in_path + ' '\
     + '-score ' + out_path + ' -ranker 6 -metric2t MAP -metric2T MAP '\
-    + '-load /home/logan/data/discourse/lambdamart/' + model + '.txt -sparse'
+    + '-load ' + os.path.expanduser('~') + '/data/discourse/lambdamart/' + model + '.txt -sparse'
     subprocess.check_output(command.split(' '))
 
 def get_sent_or_sents(article_sent_tokens, source_indices):

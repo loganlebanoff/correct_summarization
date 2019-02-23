@@ -5,10 +5,10 @@ import numpy as np
 from absl import flags
 from absl import app
 import pickle
-from . import util
+import util
 import sys
 import glob
-from . import data
+import data
 
 FLAGS = flags.FLAGS
 
@@ -26,12 +26,12 @@ if 'num_instances' not in flags.FLAGS:
 
 FLAGS(sys.argv)
 
-from .preprocess_for_lambdamart_no_flags import filter_pairs_by_sent_position
+from preprocess_for_lambdamart_no_flags import filter_pairs_by_sent_position
 
-from . import convert_data
-from . import preprocess_for_lambdamart_no_flags
+import convert_data
+import preprocess_for_lambdamart_no_flags
 
-data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
+data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 min_matched_tokens = 1
@@ -113,11 +113,11 @@ def main(unused_argv):
                 doc_indices = [int(doc_idx) for doc_idx in doc_indices]
                 rel_sent_indices, _, _ = preprocess_for_lambdamart_no_flags.get_rel_sent_indices(doc_indices, article_sent_tokens)
                 similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, FLAGS.sentence_limit)
-
+                # print doc_indices, rel_sent_indices
 
                 possible_pairs = [x for x in
                                   list(itertools.combinations(list(range(len(raw_article_sents))), 2))]  # all pairs
-                possible_pairs = filter_pairs_by_sent_position(possible_pairs)
+                possible_pairs = filter_pairs_by_sent_position(possible_pairs, rel_sent_indices=rel_sent_indices)
                 possible_singles = [(i,) for i in range(len(raw_article_sents))]
                 positives = [ssi for ssi in similar_source_indices_list]
 

@@ -4,7 +4,7 @@ from tensorflow.core.example import example_pb2
 import numpy as np
 from tqdm import tqdm
 import copy
-from . import util
+import util
 from absl import flags
 from absl import app
 import sys
@@ -24,20 +24,20 @@ END_TOKENS = ['.', '!', '?', '...', "'", "`", '"', dm_single_close_quote, dm_dou
 SENTENCE_START = '<s>'
 SENTENCE_END = '</s>'
 CHUNK_SIZE = 1000 # num examples per chunk, for the chunked data
-out_full_dir = os.path.join('/home/logan/data/multidoc_summarization/cnn_dm_coref_all')
+out_full_dir = os.path.join(os.path.expanduser('~') + '/data/multidoc_summarization/cnn_dm_coref_all')
 
-all_train_urls = "/home/logan/data/url_lists/all_train.txt"
-all_val_urls = "/home/logan/data/url_lists/all_val.txt"
-all_test_urls = "/home/logan/data/url_lists/all_test.txt"
+all_train_urls = os.path.expanduser('~') + "/data/url_lists/all_train.txt"
+all_val_urls = os.path.expanduser('~') + "/data/url_lists/all_val.txt"
+all_test_urls = os.path.expanduser('~') + "/data/url_lists/all_test.txt"
 
-data_path = '/home/logan/data'
-html_file = '/home/logan/data/discourse/coref_diff.html'
+data_path = os.path.expanduser('~') + '/data'
+html_file = os.path.expanduser('~') + '/data/discourse/coref_diff.html'
 
-cnn_tokenized_stories_dir = '/home/logan/data/cnn_stories_tokenized'
-dm_tokenized_stories_dir = '/home/logan/data/dm_stories_tokenized'
-corefs_dir = '/home/logan/data/corenlp_corefs/processed/cnn_dm'
+cnn_tokenized_stories_dir = os.path.expanduser('~') + '/data/cnn_stories_tokenized'
+dm_tokenized_stories_dir = os.path.expanduser('~') + '/data/dm_stories_tokenized'
+corefs_dir = os.path.expanduser('~') + '/data/corenlp_corefs/processed/cnn_dm'
 
-out_dir = '/home/logan/data/multidoc_summarization/tf_examples/cnn_dm_coref'
+out_dir = os.path.expanduser('~') + '/data/multidoc_summarization/tf_examples/cnn_dm_coref'
 
 # These are the number of .story files we expect there to be in cnn_stories_dir and dm_stories_dir
 num_expected_cnn_stories = 92579

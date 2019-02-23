@@ -1,6 +1,6 @@
 import pickle
 
-from . import util
+import util
 import os
 import sys
 import numpy as np
@@ -8,13 +8,13 @@ import json
 import glob
 from absl import app, flags, logging
 import tensorflow as tf
-from .model import SummarizationModel
+from model import SummarizationModel
 from collections import namedtuple
-from .data import Vocab
+from data import Vocab
 import random
 from tqdm import tqdm
 import nltk
-from .count_merged import get_sent_similarities, get_similar_source_sents_by_lcs, html_highlight_sents_in_article, get_simple_source_indices_list
+from count_merged import get_sent_similarities, get_similar_source_sents_by_lcs, html_highlight_sents_in_article, get_simple_source_indices_list
 
 
 random.seed(222)
@@ -250,7 +250,7 @@ if __name__ == '__main__':
     # Where to find data
     flags.DEFINE_string('dataset_name', 'cnn_dm', 'Which dataset to use. Makes a log dir based on name.\
                                                     Must be one of {tac_2011, tac_2008, duc_2004, duc_tac, cnn_dm} or a custom dataset name')
-    flags.DEFINE_string('data_root', '/home/logan/data/tf_data/with_coref_and_ssi',
+    flags.DEFINE_string('data_root', os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi',
                         'Path to root directory for all datasets (already converted to TensorFlow examples).')
     flags.DEFINE_string('vocab_path', 'logs/vocab', 'Path expression to text vocabulary file.')
     flags.DEFINE_string('pretrained_path', 'logs/cnn_dm_sent',

@@ -21,7 +21,7 @@ import os
 import time
 import numpy as np
 import tensorflow as tf
-from .attention_decoder import attention_decoder
+from attention_decoder import attention_decoder
 from tensorflow.contrib.tensorboard.plugins import projector
 from absl import flags
 from absl import logging
@@ -59,7 +59,11 @@ class SummarizationModel(object):
 
         if FLAGS.pg_mmr:
             # self.mmr_score = tf.placeholder(tf.float32, [hps.batch_size, hps.max_dec_steps, None], name='mmr_score')
-            self.mmr_score = tf.placeholder(tf.bool, [hps.batch_size, 10, None], name='mmr_score')
+            if FLAGS.ssi_data_path != '':       # if we are doing pg_mmr with bert
+                max_sentences = 2
+            else:
+                max_sentences = 10
+            self.mmr_score = tf.placeholder(tf.bool, [hps.batch_size, max_sentences, None], name='mmr_score')
             self.batch_sent_indices = tf.placeholder(tf.int32, [hps.batch_size, hps.max_dec_steps, 2], name='batch_sent_indices')
 
 
@@ -81,10 +85,12 @@ class SummarizationModel(object):
             feed_dict[self._dec_batch] = batch.dec_batch
             feed_dict[self._target_batch] = batch.target_batch
             feed_dict[self._dec_padding_mask] = batch.dec_padding_mask
-        if FLAGS.pg_mmr:
-            # feed_dict[self.mmr_score] = batch.ssi_masks_per_timestep
-            feed_dict[self.mmr_score] = batch.ssi_masks_padded      # [batch_size, max_dec_sents, max_enc_len]
-            feed_dict[self.batch_sent_indices] = batch.batch_sent_indices   # [batch_size, max_dec_steps, 2]
+            if FLAGS.pg_mmr:
+                # feed_dict[self.mmr_score] = batch.ssi_masks_per_timestep
+                # print batch.ssi_masks_padded
+                feed_dict[self.mmr_score] = batch.ssi_masks_padded      # [batch_size, max_dec_sents, 10]
+                if FLAGS.ssi_data_path == '':   # if we are using the groundtruth singletons and pairs, then we want to tell when to swtich sentences mask.
+                    feed_dict[self.batch_sent_indices] = batch.batch_sent_indices   # [batch_size, max_dec_steps, 2] the last dimension specifies which example out of the batch to pick from and which mask to pick from the ssi sentences mask
         return feed_dict
 # tf.boolean_mask
     def _add_encoder(self, encoder_inputs, seq_len):
@@ -153,7 +159,7 @@ class SummarizationModel(object):
 
         prev_coverage = self.prev_coverage if hps.mode=="decode" and hps.coverage else None # In decode mode, we run attention_decoder one step at a time and so need to pass in the previous step's coverage vector each time
         mmr_score =  self.mmr_score if FLAGS.pg_mmr else None
-        batch_sent_indices = self.batch_sent_indices if FLAGS.pg_mmr else None
+        batch_sent_indices = self.batch_sent_indices if FLAGS.pg_mmr and hps.mode!="decode" else None
 
         outputs, out_state, attn_dists, p_gens, coverage, pre_attn_dists = attention_decoder(inputs, self._dec_in_state, self._enc_states, self._enc_padding_mask, cell, initial_state_attention=(hps.mode=="decode"), pointer_gen=hps.pointer_gen, use_coverage=hps.coverage, prev_coverage=prev_coverage, mmr_masks=mmr_score, batch_sent_indices=batch_sent_indices)
 
@@ -233,7 +239,7 @@ class SummarizationModel(object):
             # Add embedding matrix (shared by the encoder and decoder inputs)
             with tf.variable_scope('embedding'):
                 embedding = tf.get_variable('embedding', [vsize, hps.emb_dim], dtype=tf.float32, initializer=self.trunc_norm_init)
-                if hps.mode=="train": self._add_emb_vis(embedding) # add to tensorboard
+                # if hps.mode=="train": self._add_emb_vis(embedding) # add to tensorboard
                 emb_enc_inputs = tf.nn.embedding_lookup(embedding, self._enc_batch) # tensor with shape (batch_size, max_enc_steps, emb_size)
                 emb_dec_inputs = [tf.nn.embedding_lookup(embedding, x) for x in tf.unstack(self._dec_batch, axis=1)] # list length max_dec_steps containing shape (batch_size, emb_size)
 
@@ -460,8 +466,12 @@ class SummarizationModel(object):
             to_return['coverage'] = self.coverage
 
         if FLAGS.pg_mmr:
-            feed[self.mmr_score] = mmr_score
-            # to_return['p_gens'] = self.p_gens
+            if FLAGS.ssi_data_path != '':       # if we are doing pg_mmr with bert
+                # feed_dict[self.mmr_score] = batch.ssi_masks_per_timestep
+                feed[self.mmr_score] = mmr_score      # [batch_size, max_dec_sents, max_enc_len]
+            else:
+                feed[self.mmr_score] = mmr_score
+                # to_return['p_gens'] = self.p_gens
 
         results = sess.run(to_return, feed_dict=feed) # run the decoder step
 

@@ -1,8 +1,8 @@
 import numpy as np
 import itertools
-from . import util, data
+import util, data
 from sklearn.metrics.pairwise import cosine_similarity
-from . import batcher
+import batcher
 from absl import flags
 from sklearn import svm
 import glob

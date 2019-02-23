@@ -1,15 +1,15 @@
-from . import util
+import util
 import os
 from tqdm import tqdm
 import glob
 import json
 
-split_dict = json.loads(open("/home/logan/xsum/XSum/XSum-Dataset/XSum-TRAINING-DEV-TEST-SPLIT-90-5-5.json").read())
+split_dict = json.loads(open(os.path.expanduser('~') + "/xsum/XSum/XSum-Dataset/XSum-TRAINING-DEV-TEST-SPLIT-90-5-5.json").read())
 data_types = ["test", "validation", "train"]
 
-article_dir = '/home/logan/xsum/XSum/XSum-Dataset/xsum-preprocessed/document'
-summary_dir = '/home/logan/xsum/XSum/XSum-Dataset/xsum-preprocessed/summary'
-out_dir = '/home/logan/xsum/xsum-logan'
+article_dir = os.path.expanduser('~') + '/xsum/XSum/XSum-Dataset/xsum-preprocessed/document'
+summary_dir = os.path.expanduser('~') + '/xsum/XSum/XSum-Dataset/xsum-preprocessed/summary'
+out_dir = os.path.expanduser('~') + '/xsum/xsum-logan'
 util.create_dirs(out_dir)
 
 article_paths = sorted(glob.glob(article_dir + "*"))

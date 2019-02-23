@@ -1,12 +1,12 @@
 from tqdm import tqdm
 import glob
-from .data import example_generator    # The module "data" is from Abigail See's code
+from data import example_generator    # The module "data" is from Abigail See's code
 import json
 
 
 
 dataset_split = 'test'
-source_dir = '/home/logan/data/tf_data/with_coref_and_ssi/cnn_dm'
+source_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi/cnn_dm'
 
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_lists'), ('summary_text', 'string'), ('corefs', 'json')]
 

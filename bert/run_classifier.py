@@ -44,13 +44,13 @@ flags.DEFINE_string(
     "for the task.")
 
 flags.DEFINE_string(
-    "bert_config_file", "/home/logan/models/uncased_L-12_H-768_A-12/bert_config.json",
+    "bert_config_file", os.path.expanduser('~') + "/models/uncased_L-12_H-768_A-12/bert_config.json",
     "The config json file corresponding to the pre-trained BERT model. "
     "This specifies the model architecture.")
 
 flags.DEFINE_string("task_name", None, "The name of the task to train.")
 
-flags.DEFINE_string("vocab_file", "/home/logan/models/uncased_L-12_H-768_A-12/vocab.txt",
+flags.DEFINE_string("vocab_file", os.path.expanduser('~') + "/models/uncased_L-12_H-768_A-12/vocab.txt",
                     "The vocabulary file that the BERT model was trained on.")
 
 flags.DEFINE_string(
@@ -60,7 +60,7 @@ flags.DEFINE_string(
 ## Other parameters
 
 flags.DEFINE_string(
-    "init_checkpoint", "/home/logan/models/uncased_L-12_H-768_A-12/bert_model.ckpt",
+    "init_checkpoint", os.path.expanduser('~') + "/models/uncased_L-12_H-768_A-12/bert_model.ckpt",
     "Initial checkpoint (usually from a pre-trained BERT model).")
 
 flags.DEFINE_bool(
@@ -138,11 +138,11 @@ flags.DEFINE_integer(
 
 
 flags.DEFINE_bool(
-    "use_sentence_position_embeddings", True,
+    "sentemb", True,
     "Whether to lower case the input text. Should be True for uncased "
     "models and False for cased models.")
 
-flags.DEFINE_bool("use_article_embedding", False, "Whether to use TPU or GPU/CPU.")
+flags.DEFINE_bool("artemb", True, "Whether to use TPU or GPU/CPU.")
 
 flags.DEFINE_string(
     "model_dir", None,
@@ -153,7 +153,7 @@ if 'singles_and_pairs' not in flags.FLAGS:
 if 'dataset_name' not in flags.FLAGS:
     flags.DEFINE_string('dataset_name', 'cnn_dm', 'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
 
-flags.DEFINE_bool("add_hidden_layer", True, "Whether to use TPU or GPU/CPU.")
+flags.DEFINE_bool("plushidden", True, "Whether to use TPU or GPU/CPU.")
 
 
 class InputExample(object):
@@ -254,19 +254,19 @@ class MergeProcessor(DataProcessor):
 
   def get_train_examples(self, data_dir):
     """See base class."""
-    json_lines = self._read_lines(os.path.join(os.path.dirname(os.path.dirname(data_dir)), 'article_embeddings', 'output_article', 'train.jsonl')) if FLAGS.use_article_embedding else None
+    json_lines = self._read_lines(os.path.join(os.path.dirname(os.path.dirname(data_dir)), 'article_embeddings', 'output_article', 'train.jsonl')) if FLAGS.artemb else None
     return self._create_examples(
         self._read_tsv(os.path.join(data_dir, "train.tsv")), "train", json_lines)
 
   def get_dev_examples(self, data_dir):
     """See base class."""
-    json_lines = self._read_lines(os.path.join(os.path.dirname(os.path.dirname(data_dir)), 'article_embeddings', 'output_article', 'val.jsonl')) if FLAGS.use_article_embedding else None
+    json_lines = self._read_lines(os.path.join(os.path.dirname(os.path.dirname(data_dir)), 'article_embeddings', 'output_article', 'val.jsonl')) if FLAGS.artemb else None
     return self._create_examples(
         self._read_tsv(os.path.join(data_dir, "val.tsv")), "val", json_lines)
 
   def get_test_examples(self, data_dir):
     """See base class."""
-    json_lines = self._read_lines(os.path.join(os.path.dirname(os.path.dirname(data_dir)), 'article_embeddings', 'output_article', 'test.jsonl')) if FLAGS.use_article_embedding else None
+    json_lines = self._read_lines(os.path.join(os.path.dirname(os.path.dirname(data_dir)), 'article_embeddings', 'output_article', 'test.jsonl')) if FLAGS.artemb else None
     return self._create_examples(
         self._read_tsv(os.path.join(data_dir, "test.tsv")), "test", json_lines)
 
@@ -632,7 +632,7 @@ def file_based_convert_examples_to_features(
     features["segment_ids"] = create_int_feature(feature.segment_ids)
     features["label_ids"] = create_int_feature([feature.label_id])
     features["sentence_ids"] = create_int_feature(feature.sentence_ids)
-    if FLAGS.use_article_embedding:
+    if FLAGS.artemb:
         features["article_embedding"] = create_float_feature(feature.article_embedding)
     features["is_real_example"] = create_int_feature(
         [int(feature.is_real_example)])
@@ -653,9 +653,10 @@ def file_based_input_fn_builder(input_file, seq_length, is_training_or_val,
       "segment_ids": tf.FixedLenFeature([seq_length], tf.int64),
       "label_ids": tf.FixedLenFeature([], tf.int64),
       "sentence_ids": tf.FixedLenFeature([seq_length], tf.int64),
-      "article_embedding": tf.FixedLenFeature([768*4], tf.float32),
       "is_real_example": tf.FixedLenFeature([], tf.int64),
   }
+  if FLAGS.artemb:
+    name_to_features["article_embedding"] = tf.FixedLenFeature([768*4], tf.float32)
 
   def _decode_record(record, name_to_features):
     """Decodes a record to a TensorFlow example."""
@@ -729,9 +730,9 @@ def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
   # If you want to use the token-level output, use model.get_sequence_output()
   # instead.
 
-  if FLAGS.add_hidden_layer:
+  if FLAGS.plushidden:
       pre_output_layer = model.get_pooled_output()
-      if FLAGS.use_article_embedding:
+      if FLAGS.artemb:
           pre_output_layer = tf.concat([pre_output_layer, article_embedding], axis=-1)
       if is_training:
           # I.e., 0.1 dropout
@@ -743,7 +744,7 @@ def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
           kernel_initializer=modeling.create_initializer(bert_config.initializer_range))
   else:
       output_layer = model.get_pooled_output()
-      if FLAGS.use_article_embedding:
+      if FLAGS.artemb:
         output_layer = tf.concat([output_layer, article_embedding], axis=-1)
 
   hidden_size = output_layer.shape[-1].value
@@ -789,8 +790,8 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
     input_mask = features["input_mask"]
     segment_ids = features["segment_ids"]
     label_ids = features["label_ids"]
-    sentence_ids = features["sentence_ids"] if FLAGS.use_sentence_position_embeddings else None
-    article_embedding = features["article_embedding"] if FLAGS.use_article_embedding else None
+    sentence_ids = features["sentence_ids"] if FLAGS.sentemb else None
+    article_embedding = features["article_embedding"] if FLAGS.artemb else None
     is_real_example = None
     if "is_real_example" in features:
       is_real_example = tf.cast(features["is_real_example"], dtype=tf.float32)
@@ -886,18 +887,20 @@ def main(_):
   tokenization.validate_case_matches_checkpoint(FLAGS.do_lower_case,
                                                 FLAGS.init_checkpoint)
 
-  data_root = '/home/logan/discourse/data/bert'
+  data_root = os.path.expanduser('~') + '/discourse/data/bert'
   output_folder = 'output'
-  if FLAGS.use_sentence_position_embeddings:
+  if FLAGS.sentemb:
       output_folder += '_sentemb'
-  if FLAGS.use_article_embedding:
+  if FLAGS.artemb:
       output_folder += '_artemb'
-  if FLAGS.add_hidden_layer:
+  if FLAGS.plushidden:
       output_folder += '_plushidden'
   if FLAGS.dataset_name == 'duc_2004':
       FLAGS.model_dir = os.path.join(data_root, 'cnn_dm', FLAGS.singles_and_pairs, output_folder)
   else:
       FLAGS.model_dir = os.path.join(data_root, FLAGS.dataset_name, FLAGS.singles_and_pairs, output_folder)
+  if FLAGS.do_predict:
+      FLAGS.model_dir = os.path.join(FLAGS.model_dir, 'best')
   FLAGS.data_dir = os.path.join(data_root, FLAGS.dataset_name, FLAGS.singles_and_pairs, 'input')
   FLAGS.output_dir = os.path.join(data_root, FLAGS.dataset_name, FLAGS.singles_and_pairs, output_folder)
 
@@ -1015,6 +1018,7 @@ def main(_):
       num_eval_examples_with_padding = num_actual_eval_examples
 
     eval_file = os.path.join(os.path.dirname(FLAGS.output_dir), 'tfrecords', "eval.tf_record")
+    create_dirs(os.path.dirname(eval_file))
     if not os.path.exists(eval_file):
         file_based_convert_examples_to_features(
             eval_example_generator, label_list, FLAGS.max_seq_length, tokenizer, eval_file, num_eval_examples_with_padding)
@@ -1052,6 +1056,7 @@ def main(_):
 
   if FLAGS.do_train:
     train_file = os.path.join(os.path.dirname(FLAGS.output_dir), 'tfrecords', "train.tf_record")
+    create_dirs(os.path.dirname(train_file))
     if not os.path.exists(train_file):
         file_based_convert_examples_to_features(
             train_example_generator, label_list, FLAGS.max_seq_length, tokenizer, train_file, num_train_examples)
@@ -1102,6 +1107,8 @@ def main(_):
       num_predict_examples_with_padding = num_actual_predict_examples
 
     predict_file = os.path.join(os.path.dirname(FLAGS.output_dir), 'tfrecords', "predict.tf_record")
+    create_dirs(os.path.dirname(predict_file))
+    print ("Predict file: %s" % predict_file)
     if not os.path.exists(predict_file):
         file_based_convert_examples_to_features(predict_example_generator, label_list,
                                             FLAGS.max_seq_length, tokenizer,
@@ -1109,8 +1116,8 @@ def main(_):
 
     tf.logging.info("***** Running prediction*****")
     tf.logging.info("  Num examples = %d (%d actual, %d padding)",
-                    len(num_predict_examples_with_padding), num_actual_predict_examples,
-                    len(num_predict_examples_with_padding) - num_actual_predict_examples)
+                    num_predict_examples_with_padding, num_actual_predict_examples,
+                    num_predict_examples_with_padding - num_actual_predict_examples)
     tf.logging.info("  Batch size = %d", FLAGS.predict_batch_size)
 
     predict_drop_remainder = True if FLAGS.use_tpu else False

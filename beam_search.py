@@ -17,10 +17,10 @@
 
 """This file contains code to run beam search decoding"""
 import numpy as np
-from . import data
+import data
 from absl import flags
-from . import pg_mmr_functions
-from . import util
+import pg_mmr_functions
+import util
 
 FLAGS = flags.FLAGS
 
@@ -28,7 +28,7 @@ FLAGS = flags.FLAGS
 class Hypothesis(object):
     """Class to represent a hypothesis during beam search. Holds all the information needed for the hypothesis."""
 
-    def __init__(self, tokens, log_probs, state, attn_dists, p_gens, coverage, mmr):
+    def __init__(self, tokens, log_probs, state, attn_dists, p_gens, coverage, mmr, summ_sent_idx, already_added):
         """Hypothesis constructor.
 
         Args:
@@ -47,8 +47,10 @@ class Hypothesis(object):
         self.coverage = coverage
         self.similarity = 0.
         self.mmr = mmr
+        self.summ_sent_idx = summ_sent_idx
+        self.already_added = already_added
 
-    def extend(self, token, log_prob, state, attn_dist, p_gen, coverage, mmr):
+    def extend(self, token, log_prob, state, attn_dist, p_gen, coverage, mmr, summ_sent_idx):
         """Return a NEW hypothesis, extended with the information from the latest step of beam search.
 
         Args:
@@ -67,7 +69,9 @@ class Hypothesis(object):
                           attn_dists=self.attn_dists + [attn_dist],
                           p_gens=self.p_gens + [p_gen],
                           coverage=coverage,
-                          mmr=mmr)
+                          mmr=mmr,
+                          summ_sent_idx=summ_sent_idx,
+                          already_added=self.already_added)
 
     @property
     def latest_token(self):
@@ -104,8 +108,11 @@ def run_beam_search(sess, model, vocab, batch, ex_index, hps):
 
     # Sentence importance
     enc_sentences, enc_tokens = batch.tokenized_sents[0], batch.word_ids_sents[0]
-    importances = pg_mmr_functions.get_importances(model, batch, enc_states, vocab, sess, hps)
-    mmr_init = importances
+    if FLAGS.ssi_data_path != '':   # if we are running on pg_mmr and bert
+        mmr_init = None
+    else:
+        importances = pg_mmr_functions.get_importances(model, batch, enc_states, vocab, sess, hps)
+        mmr_init = importances
 
 
     # Initialize beam_size-many hyptheses
@@ -115,7 +122,9 @@ def run_beam_search(sess, model, vocab, batch, ex_index, hps):
                        attn_dists=[],
                        p_gens=[],
                        coverage=np.zeros([batch.enc_batch.shape[1]]),  # zero vector of length attention_length
-                       mmr=mmr_init
+                       mmr=mmr_init,
+                       summ_sent_idx=0,
+                       already_added=False
                        ) for hyp_idx in range(FLAGS.beam_size)]
     results = []  # this will contain finished hypotheses (those that have emitted the [STOP] token)
 
@@ -133,9 +142,21 @@ def run_beam_search(sess, model, vocab, batch, ex_index, hps):
         # Mute all source sentences except the top k sentences
         prev_mmr = [h.mmr for h in hyps]
         if FLAGS.pg_mmr:
-            if FLAGS.mute_k != -1:
-                prev_mmr = [pg_mmr_functions.mute_all_except_top_k(mmr, FLAGS.mute_k) for mmr in prev_mmr]
-            prev_mmr_for_words = [pg_mmr_functions.convert_to_word_level(mmr, enc_tokens) for mmr in prev_mmr]
+            if FLAGS.ssi_data_path != '':       # if we are doing pg_mmr with bert
+                prev_mmr_for_words_list = []
+                for batch_idx in range(len(batch.ssi_masks_padded)):
+                    summ_sent_idx = hyps[batch_idx].summ_sent_idx
+                    prev_sent_idx = max(0, summ_sent_idx-1)
+                    if summ_sent_idx >= len(batch.ssi_masks_padded[batch_idx]):
+                        print ("Performing modulo on summ_sent_idx (%d) because it has generated too many sentences." % summ_sent_idx)
+                        summ_sent_idx = summ_sent_idx % len(batch.ssi_masks_padded[batch_idx])
+                        prev_sent_idx = prev_sent_idx % len(batch.ssi_masks_padded[batch_idx])
+                    prev_mmr_for_words_list.append([batch.ssi_masks_padded[batch_idx][prev_sent_idx], batch.ssi_masks_padded[batch_idx][summ_sent_idx]])
+                prev_mmr_for_words = np.array(prev_mmr_for_words_list)
+            else:
+                if FLAGS.mute_k != -1:
+                    prev_mmr = [pg_mmr_functions.mute_all_except_top_k(mmr, FLAGS.mute_k) for mmr in prev_mmr]
+                prev_mmr_for_words = [pg_mmr_functions.convert_to_word_level(mmr, enc_tokens) for mmr in prev_mmr]
         else:
             prev_mmr_for_words = [None for _ in prev_mmr]
 
@@ -165,7 +186,8 @@ def run_beam_search(sess, model, vocab, batch, ex_index, hps):
                                    attn_dist=attn_dist,
                                    p_gen=p_gen,
                                    coverage=new_coverage_i,
-                                   mmr=h.mmr)
+                                   mmr=h.mmr,
+                                   summ_sent_idx=h.summ_sent_idx)
                 all_hyps.append(new_hyp)
 
         # Filter and collect any hypotheses that have produced the end token.
@@ -173,8 +195,10 @@ def run_beam_search(sess, model, vocab, batch, ex_index, hps):
         for h in sort_hyps(all_hyps):  # in order of most likely h
             if h.latest_token == vocab.word2id(data.STOP_DECODING):  # if stop token is reached...
                 # If this hypothesis is sufficiently long, put in results. Otherwise discard.
-                if steps >= FLAGS.min_dec_steps:
+                if steps >= FLAGS.min_dec_steps and FLAGS.ssi_data_path == '':  # don't accept the STOP_DECODING token if we are doing PG_MMR with BERT. Keep generating tokens until 100 tokens or until we exhaust the singletons and pairs from BERT
                     results.append(h)
+                    h.already_added = True
+                    # print 'ADDED THING'
             else:  # hasn't reached stop token, so continue to extend this hypothesis
                 hyps.append(h)
             if len(hyps) == FLAGS.beam_size or len(results) == FLAGS.beam_size:
@@ -185,7 +209,16 @@ def run_beam_search(sess, model, vocab, batch, ex_index, hps):
         if FLAGS.pg_mmr:
             for hyp_idx, hyp in enumerate(hyps):
                 if hyp.latest_token == vocab.word2id(data.PERIOD):     # if in regular mode, and the hyp ends in a period
-                    pg_mmr_functions.update_similarity_and_mmr(hyp, importances, batch, enc_tokens, vocab)
+                    if FLAGS.ssi_data_path != '':       # if we are doing pg_mmr with bert
+                        hyp.summ_sent_idx += 1
+                        # If we have exhausted the singletons and pairs from BERT, then put in results
+                        if hyp.summ_sent_idx >= len(batch.ssis[hyp_idx]) and not hyp.already_added:
+                            results.append(hyp)
+                            hyp.already_added = True
+                            # print 'ADDED THING 2'
+                    else:
+                        pg_mmr_functions.update_similarity_and_mmr(hyp, importances, batch, enc_tokens, vocab)
+
         steps += 1
 
     # At this point, either we've got beam_size results, or we've reached maximum decoder steps
@@ -210,5 +243,3 @@ def run_beam_search(sess, model, vocab, batch, ex_index, hps):
 def sort_hyps(hyps):
     """Return a list of Hypothesis objects, sorted by descending average log probability"""
     return sorted(hyps, key=lambda h: h.avg_log_prob, reverse=True)
-
-

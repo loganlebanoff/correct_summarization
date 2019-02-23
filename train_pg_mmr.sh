@@ -30,7 +30,7 @@ max_dec_steps=30
 batch_size=128
 exp_name=""
 
-exp_suffix=_pgmmr_singles
+exp_suffix=""
 dataset_split=train
 num_iterations=10000000
 port=6006
@@ -68,6 +68,9 @@ while [ $# -gt 0 ]; do
     --exp_name=*)
       exp_name="${1#*=}"
       ;;
+    --finetune=*)
+      finetune="${1#*=}"
+      ;;
     *)
         break
   esac
@@ -90,18 +93,25 @@ if [[ "$mode" = "tensorboard" ]]; then
     num_iterations=-1
 fi
 
-if [[ "$singles_and_pairs" = "both" ]]; then
-    exp_suffix=_pgmmr_both
-elif [[ "$singles_and_pairs" = "singles" ]]; then
-    exp_suffix=_pgmmr_singles
-else
-    exp_suffix=""
-    data_root_flag=--data_root=/home/logan/data/tf_data
+if [[ "$singles_and_pairs" = "none" ]]; then
+    data_root_flag=--data_root=$HOME/data/tf_data
 fi
 
 if [[ "$cuda" = "1" ]]; then
     port=7007
 fi
+
+if [[ "$HOME" == "/home/logan" ]]; then
+    cuda_phrase="CUDA_VISIBLE_DEVICES=""$cuda"
+else
+    cuda_phrase=""
+fi
+
+#if [[ "$mode" == *"train"* ]]; then
+#    pipe=\&> $HOME/null \&
+#else
+#    pipe=""
+#fi
 
 echo "$dataset_name"
 echo "$mode"
@@ -111,17 +121,21 @@ echo "$@"
 
 
 if [[ "$mode" == *"tensorboard"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" tensorboard --logdir=logs/"$dataset_name""$exp_suffix"$exp_name/eval --port="$port" &> /home/logan/null &
+    CUDA_VISIBLE_DEVICES="$cuda" tensorboard --logdir=logs/"$dataset_name"_pgmmr_"$singles_and_pairs"$exp_name/eval --port="$port" &
 fi
 if [[ "$mode" == *"eval"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=eval --dataset_name="$dataset_name" --dataset_split=val --exp_name="$dataset_name""$exp_suffix"$exp_name --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations=-1 $data_root_flag --pg_mmr --singles_and_pairs="$singles_and_pairs" "$@" &> /home/logan/null &
+    if [[ "$mode" == *"train"* ]]; then
+        CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=eval --dataset_name="$dataset_name" --dataset_split=val --exp_name="$exp_suffix"$exp_name --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations=-1 $data_root_flag --pg_mmr --singles_and_pairs="$singles_and_pairs" "$@" &> $HOME/null &
+    else
+        CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=eval --dataset_name="$dataset_name" --dataset_split=val --exp_name="$exp_suffix"$exp_name --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations=-1 $data_root_flag --pg_mmr --singles_and_pairs="$singles_and_pairs" "$@"
+    fi
 fi
 if [[ "$mode" == *"train"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=train --dataset_name="$dataset_name" --dataset_split="$dataset_split" --exp_name="$dataset_name""$exp_suffix"$exp_name --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations="$num_iterations"  $data_root_flag --pg_mmr --singles_and_pairs="$singles_and_pairs" "$@"
+    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=train --dataset_name="$dataset_name" --dataset_split="$dataset_split" --exp_name="$exp_suffix"$exp_name --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations="$num_iterations"  $data_root_flag --pg_mmr --singles_and_pairs="$singles_and_pairs" "$@"
 fi
 if [[ "$mode" == *"restore"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=train --dataset_name="$dataset_name" --dataset_split="$dataset_split" --exp_name="$dataset_name""$exp_suffix"$exp_name --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations="$num_iterations" $data_root_flag --pg_mmr --singles_and_pairs="$singles_and_pairs" --restore_best_model "$@"
+    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=train --dataset_name="$dataset_name" --dataset_split="$dataset_split" --exp_name="$exp_suffix"$exp_name --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations="$num_iterations" $data_root_flag --pg_mmr --singles_and_pairs="$singles_and_pairs" --restore_best_model "$@"
 fi
 if [[ "$mode" == *"decode"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=decode --dataset_name="$dataset_name" --dataset_split=test --exp_name="$dataset_name""$exp_suffix"$exp_name --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=True --batch_size="$batch_size" --num_iterations=-1 $data_root_flag --pg_mmr --singles_and_pairs="$singles_and_pairs" "$@"
+    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=decode --dataset_name="$dataset_name" --dataset_split=test --exp_name="$exp_suffix"$exp_name --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=True --batch_size="$batch_size" --num_iterations=-1 $data_root_flag --pg_mmr --singles_and_pairs="$singles_and_pairs" "$@"
 fi

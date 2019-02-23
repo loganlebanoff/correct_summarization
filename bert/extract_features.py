@@ -40,7 +40,7 @@ flags.DEFINE_string("output_file", None, "")
 flags.DEFINE_string("layers", "-1,-2,-3,-4", "")
 
 flags.DEFINE_string(
-    "bert_config_file", "/home/logan/models/uncased_L-12_H-768_A-12/bert_config.json",
+    "bert_config_file", os.path.expanduser('~') + "/models/uncased_L-12_H-768_A-12/bert_config.json",
     "The config json file corresponding to the pre-trained BERT model. "
     "This specifies the model architecture.")
 
@@ -51,10 +51,10 @@ flags.DEFINE_integer(
     "than this will be padded.")
 
 flags.DEFINE_string(
-    "init_checkpoint", "/home/logan/models/uncased_L-12_H-768_A-12/bert_model.ckpt",
+    "init_checkpoint", os.path.expanduser('~') + "/models/uncased_L-12_H-768_A-12/bert_model.ckpt",
     "Initial checkpoint (usually from a pre-trained BERT model).")
 
-flags.DEFINE_string("vocab_file", "/home/logan/models/uncased_L-12_H-768_A-12/vocab.txt",
+flags.DEFINE_string("vocab_file", os.path.expanduser('~') + "/models/uncased_L-12_H-768_A-12/vocab.txt",
                     "The vocabulary file that the BERT model was trained on.")
 
 flags.DEFINE_bool(
@@ -80,7 +80,7 @@ flags.DEFINE_bool(
     "since it is much faster.")
 
 flags.DEFINE_bool(
-    "only_class_embedding", False,
+    "only_class_embedding", True,
     "If True, only save the [CLS] embedding to the output jsonl file.")
 
 flags.DEFINE_string("dataset_name", 'cnn_dm',
@@ -394,7 +394,7 @@ def main(_):
 
   for dataset_split in dataset_splits:
 
-      data_root = '/home/logan/discourse/data/bert'
+      data_root = os.path.expanduser('~') + '/discourse/data/bert'
       input_file = os.path.join(data_root, FLAGS.dataset_name, 'article_embeddings', 'input_article', dataset_split + '.tsv')
       output_file = os.path.join(data_root, FLAGS.dataset_name, 'article_embeddings', 'output_article', dataset_split + '.jsonl')
 

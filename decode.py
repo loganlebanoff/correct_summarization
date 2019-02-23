@@ -22,22 +22,22 @@ import time
 
 import pickle
 import tensorflow as tf
-from . import beam_search
-from . import data
+import beam_search
+import data
 import json
 import pyrouge
-from . import util
+import util
 from sumy.nlp.tokenizers import Tokenizer
 from tqdm import tqdm
 from absl import flags
 from absl import logging
 import logging as log
-from . import rouge_functions
+import rouge_functions
 
-from . import importance_features
-from . import convert_data
-from .batcher import create_batch
-from . import attn_selections
+import importance_features
+import convert_data
+from batcher import create_batch
+import attn_selections
 
 FLAGS = flags.FLAGS
 
@@ -95,6 +95,8 @@ class BeamSearchDecoder(object):
         t0 = time.time()
         counter = 0
         attn_dir = os.path.join(self._decode_dir, 'attn_vis_data')
+        total = len(glob.glob(self._batcher._data_path)) * 1000
+        pbar = tqdm(total=total)
         while True:
             batch = self._batcher.next_batch()	# 1 example repeated across batch
             if batch is None: # finished decoding dataset in single_pass mode
@@ -139,6 +141,8 @@ class BeamSearchDecoder(object):
                     logging.info('We\'ve been decoding with same checkpoint for %i seconds. Time to load new checkpoint', t1-t0)
                     _ = util.load_ckpt(self._saver, self._sess)
                     t0 = time.time()
+            pbar.update(1)
+        pbar.close()
 
     def decode_iteratively(self, example_generator, total, names_to_types, ssi_list, hps):
         attn_vis_idx = 0

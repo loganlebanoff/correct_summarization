@@ -1,8 +1,8 @@
 
-from .data import Vocab
+from data import Vocab
 import nltk
 
-from . import rouge_functions
+import rouge_functions
 import itertools
 import os
 from tqdm import tqdm
@@ -10,16 +10,16 @@ import numpy as np
 from absl import flags
 from absl import app
 import pickle
-from . import util
+import util
 import sys
 import glob
-from . import data
+import data
 from sumy.summarizers.lex_rank import LexRankSummarizer #We're choosing Lexrank, other algorithms are also built in
 from sumy.summarizers.kl import KLSummarizer
 from sumy.summarizers.sum_basic import SumBasicSummarizer
 from sumy.parsers.plaintext import PlaintextParser #We're choosing a plaintext parser here, other parsers available for HTML etc.
 from sumy.nlp.tokenizers import Tokenizer
-from .count_merged import get_simple_source_indices_list
+from count_merged import get_simple_source_indices_list
 
 FLAGS = flags.FLAGS
 
@@ -38,10 +38,10 @@ if 'num_instances' not in flags.FLAGS:
 FLAGS(sys.argv)
 
 
-from . import convert_data
+import convert_data
 
 log_root = 'logs'
-data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
+data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 min_matched_tokens = 1
@@ -86,7 +86,7 @@ def main(unused_argv):
                                                        should_check_valid=False)
 
             if dataset_name == 'duc_2004':
-                abs_source_dir = os.path.join('/home/logan/data/tf_data/with_coref', dataset_name)
+                abs_source_dir = os.path.join(os.path.expanduser('~') + '/data/tf_data/with_coref', dataset_name)
                 abs_example_generator = data.example_generator(abs_source_dir + '/' + FLAGS.dataset_split + '*', True, False,
                                                            should_check_valid=False)
                 abs_names_to_types = [('abstract', 'string_list')]

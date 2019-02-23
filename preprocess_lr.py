@@ -1,10 +1,10 @@
 import time
 import itertools
-from . import convert_data
+import convert_data
 import numpy as np
-from . import data
+import data
 from tqdm import tqdm
-from . import util
+import util
 from absl import flags
 from absl import app
 import sys
@@ -42,7 +42,7 @@ include_tfidf_vec = False
 if lr:
     out_dataset += '_lr'
 
-data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
+data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 log_dir = 'logs/'
 out_dir = 'data/to_lambdamart'
 tfidf_vec_path = 'data/tfidf/' + in_dataset + '_tfidf_vec.pkl'

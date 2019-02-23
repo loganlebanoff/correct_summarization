@@ -1,22 +1,22 @@
 from tqdm import tqdm
 from scoop import futures
-from . import rouge_eval_references
+import rouge_eval_references
 from absl import flags
 from absl import app
-from . import convert_data
+import convert_data
 import time
 import subprocess
 import itertools
 import glob
 import numpy as np
-from . import data
+import data
 import os
 from collections import defaultdict
-from . import util
-from .preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
+import util
+from preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
     Lambdamart_Instance, format_to_lambdamart, filter_pairs_by_criteria
 from scipy import sparse
-from .count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
+from count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
 import pickle
 
 exp_name = 'lambdamart_singles'
@@ -34,7 +34,7 @@ singles_and_pairs = 'singles'
 include_tfidf_vec = True
 use_pair_criteria = True
 
-data_dir = '/home/logan/data/tf_data/merge_indices'
+data_dir = os.path.expanduser('~') + '/data/tf_data/merge_indices'
 temp_dir = 'data/temp/scores'
 lambdamart_in_dir = 'data/temp/to_lambdamart'
 lambdamart_out_dir = 'data/temp/lambdamart_results'
@@ -177,7 +177,7 @@ def write_to_file(instances, out_path, single_feat_len):
         f.write(out_str)
 
 def rank_instances(in_path, out_path):
-    command = 'java -Xmx12g -jar /home/logan/ranklib/bin/RankLib-2.10.jar '\
+    command = 'java -Xmx12g -jar ' + os.path.expanduser('~') + '/ranklib/bin/RankLib-2.10.jar' + ' ')\
     + '-rank ' + in_path + ' '\
     + '-score ' + out_path + ' -ranker 6 -metric2t NDCG@5 -metric2T NDCG@5 '\
     + '-load data/lambdamart_models/' + model + '.txt -sparse'

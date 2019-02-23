@@ -1,11 +1,11 @@
 import scipy
 import time
 import itertools
-from . import convert_data
+import convert_data
 import numpy as np
-from . import data
+import data
 from tqdm import tqdm
-from . import util
+import util
 from absl import flags
 from absl import app
 import sys
@@ -64,7 +64,7 @@ include_sents_dist = True
 include_tfidf_vec = True
 min_matched_tokens = 1
 
-data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
+data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 log_dir = 'logs/'
 out_dir = 'data/to_lambdamart'
 tfidf_vec_path = 'data/tfidf/' + 'all' + '_tfidf_vec_5.pkl'
@@ -264,15 +264,20 @@ def filter_pairs_by_criteria(raw_article_sents, possible_pairs, corefs):
     new_possible_pairs = list(set(overlap_pairs).union(set(entity_pairs)))
     return new_possible_pairs
 
-def filter_pairs_by_sent_position(possible_pairs):
+def filter_pairs_by_sent_position(possible_pairs, rel_sent_indices=None):
     max_sent_position = {
         'cnn_dm': 30,
         'xsum': 20,
         'duc_2004': np.inf
     }
-    return [pair for pair in possible_pairs if max(pair) < max_sent_position[FLAGS.dataset_name]]
+    if FLAGS.dataset_name == 'duc_2004':
+        return [pair for pair in possible_pairs if max(rel_sent_indices[pair[0]], rel_sent_indices[pair[1]]) < 5]
+    else:
+        return [pair for pair in possible_pairs if max(pair) < max_sent_position[FLAGS.dataset_name]]
 
 def get_rel_sent_indices(doc_indices, article_sent_tokens):
+    if FLAGS.dataset_name != 'duc_2004' and len(doc_indices) != len(util.flatten_list_of_lists(article_sent_tokens)):
+        doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
     doc_indices_sent_tokens = util.reshape_like(doc_indices, article_sent_tokens)
     sent_doc = [sent[0] for sent in doc_indices_sent_tokens]
     rel_sent_indices = []
@@ -325,7 +330,7 @@ def convert_article_to_lambdamart_features(ex):
         if FLAGS.use_pair_criteria:
             possible_pairs = filter_pairs_by_criteria(raw_article_sents, possible_pairs, corefs)
         if FLAGS.sent_position_criteria:
-            possible_pairs = filter_pairs_by_sent_position(possible_pairs)
+            possible_pairs = filter_pairs_by_sent_position(possible_pairs, rel_sent_indices)
         possible_singles = [(i,) for i in range(len(raw_article_sents))]
         possible_combinations = possible_pairs + possible_singles
         positives = [ssi for ssi in similar_source_indices_list]

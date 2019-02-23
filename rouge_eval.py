@@ -14,22 +14,22 @@ import logging as log
 from absl import flags
 from absl import app
 import shutil
-from . import rouge_functions
+import rouge_functions
 import tempfile
 
-from . import util
+import util
 import numpy as np
 
-tempfile.tempdir = "/home/logan/tmp"
+tempfile.tempdir = os.path.expanduser('~') + "/tmp"
 
-summaries_dir = '/home/logan/data/multidoc_summarization/sumrepo_duc2004'
-ref_dir = '/home/logan/data/multidoc_summarization/sumrepo_duc2004/rouge/reference'
-out_dir = '/home/logan/data/multidoc_summarization/sumrepo_duc2004/rouge'
+summaries_dir = os.path.expanduser('~') + '/data/multidoc_summarization/sumrepo_duc2004'
+ref_dir = os.path.expanduser('~') + '/data/multidoc_summarization/sumrepo_duc2004/rouge/reference'
+out_dir = os.path.expanduser('~') + '/data/multidoc_summarization/sumrepo_duc2004/rouge'
 
 
 summary_methods = ['Centroid', 'ICSISumm', 'DPP', 'Submodular']
 
-data_dir = '/home/logan/data/tf_data'
+data_dir = os.path.expanduser('~') + '/data/tf_data'
 log_dir = 'logs/'
 max_enc_steps = 100
 min_dec_steps = 10

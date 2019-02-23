@@ -1,21 +1,21 @@
 from tqdm import tqdm
 from scoop import futures
-from . import rouge_functions
+import rouge_functions
 from absl import flags
 from absl import app
-from . import convert_data
+import convert_data
 import time
 import subprocess
 import itertools
 import glob
 import numpy as np
-from . import data
+import data
 import os
 import sys
 from collections import defaultdict
-from . import util
+import util
 from scipy import sparse
-from .count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
+from count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
 import pickle
 # from profilestats import profile
 
@@ -51,7 +51,7 @@ if 'lead' not in flags.FLAGS:
 if not flags_already_done:
     FLAGS(sys.argv)
 
-from .preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
+from preprocess_for_lambdamart_no_flags import get_features, get_single_sent_features, get_pair_sent_features, \
     Lambdamart_Instance, format_to_lambdamart, filter_pairs_by_criteria, get_rel_sent_indices, filter_pairs_by_sent_position
 
 _exp_name = 'lambdamart'
@@ -68,12 +68,14 @@ min_matched_tokens = 2
 # singles_and_pairs = 'singles'
 include_tfidf_vec = True
 
-data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
+data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 temp_dir = 'data/temp/' + FLAGS.dataset_name + '/scores'
 lambdamart_in_dir = 'data/temp/' + FLAGS.dataset_name + '/to_lambdamart'
 lambdamart_out_dir = 'data/temp/' + FLAGS.dataset_name + '/lambdamart_results'
 log_dir = 'logs'
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
+if FLAGS.dataset_name == 'duc_2004':
+    names_to_types[2] = ('summary_text', 'string_list')
 
 if FLAGS.singles_and_pairs == 'both':
     exp_name = FLAGS.dataset_name + '_' + _exp_name + '_both'
@@ -195,7 +197,7 @@ def get_features_all_combinations(example_idx, raw_article_sents, article_sent_t
     if FLAGS.use_pair_criteria:
         possible_pairs = filter_pairs_by_criteria(raw_article_sents, possible_pairs, corefs)
     if FLAGS.sent_position_criteria:
-        possible_pairs = filter_pairs_by_sent_position(possible_pairs)
+        possible_pairs = filter_pairs_by_sent_position(possible_pairs, rel_sent_indices=rel_sent_indices)
     possible_singles = [(i,) for i in first_k_indices]
     if singles_and_pairs == 'pairs':
         all_combinations = possible_pairs
@@ -387,8 +389,10 @@ def evaluate_example(ex):
     raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(example, names_to_types)
     article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
     enforced_groundtruth_ssi_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, sentence_limit)
-    groundtruth_summ_sent_tokens = []
-    groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
+    if FLAGS.dataset_name == 'duc_2004':
+        groundtruth_summ_sents = [[sent.strip() for sent in gt_summ_text.strip().split('\n')] for gt_summ_text in groundtruth_summary_text]
+    else:
+        groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
     groundtruth_summ_sent_tokens = [sent.split(' ') for sent in groundtruth_summ_sents[0]]
 
     if FLAGS.upper_bound:

@@ -166,7 +166,8 @@ def attention_decoder(decoder_inputs, initial_state, encoder_states, enc_padding
         context_vector.set_shape([None, attn_size])	# Ensure the second shape of attention vectors is set.
         if mmr_masks is not None:
             mmr_mask_list = tf.unstack(mmr_masks, axis=1)   # Convert tensor to list of tensors, one for each dec timestep
-            batch_sent_indices_list = tf.unstack(batch_sent_indices, axis=1)
+            if not initial_state_attention:
+                batch_sent_indices_list = tf.unstack(batch_sent_indices, axis=1)
         if initial_state_attention: # true in decode mode
             # Re-calculate the context vector from the previous step so that we can pass it through a linear layer with this step's input to get a modified version of
             # the input

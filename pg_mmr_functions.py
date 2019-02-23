@@ -1,15 +1,15 @@
 import textwrap as tw
 import PIL
 import itertools
-from . import util
-from .util import get_similarity, rouge_l_similarity
-from . import importance_features
+import util
+from util import get_similarity, rouge_l_similarity
+import importance_features
 import dill
 import time
 import random
 import numpy as np
 import os
-from . import data
+import data
 from absl import flags
 from sklearn.metrics.pairwise import cosine_similarity
 import pickle

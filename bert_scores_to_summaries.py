@@ -1,21 +1,21 @@
 from tqdm import tqdm
 from scoop import futures
-from . import rouge_functions
+import rouge_functions
 from absl import flags
 from absl import app
-from . import convert_data
+import convert_data
 import time
 import subprocess
 import itertools
 import glob
 import numpy as np
-from . import data
+import data
 import os
 import sys
 from collections import defaultdict
-from . import util
+import util
 from scipy import sparse
-from .count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
+from count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
 import pickle
 # from profilestats import profile
 
@@ -43,6 +43,13 @@ if 'num_instances' not in flags.FLAGS:
     flags.DEFINE_integer('num_instances', -1, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
 if 'sent_position_criteria' not in flags.FLAGS:
     flags.DEFINE_boolean('sent_position_criteria', True, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
+if 'sentemb' not in flags.FLAGS:
+    flags.DEFINE_boolean('sentemb', True, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
+if 'artemb' not in flags.FLAGS:
+    flags.DEFINE_boolean('artemb', True, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
+if 'plushidden' not in flags.FLAGS:
+    flags.DEFINE_boolean('plushidden', True, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
+# flags.DEFINE_boolean('l_sents', True, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 
 if not flags_already_done:
     FLAGS(sys.argv)
@@ -61,9 +68,9 @@ min_matched_tokens = 2
 # singles_and_pairs = 'singles'
 include_tfidf_vec = True
 
-data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
+data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 bert_in_dir = os.path.join('data', 'bert', FLAGS.dataset_name, FLAGS.singles_and_pairs, 'input')
-bert_scores_dir = os.path.join('data', 'bert', FLAGS.dataset_name, FLAGS.singles_and_pairs, 'output', 'best')
+bert_scores_dir = os.path.join('data', 'bert', FLAGS.dataset_name, FLAGS.singles_and_pairs, 'output')
 ssi_out_dir = 'data/temp/' + FLAGS.dataset_name + '/ssi'
 log_dir = 'logs'
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
@@ -74,6 +81,16 @@ if FLAGS.singles_and_pairs == 'both':
 else:
     exp_name = FLAGS.dataset_name + '_' + _exp_name + '_singles'
     dataset_articles = FLAGS.dataset_name + '_singles'
+
+if FLAGS.sentemb:
+    exp_name += '_sentemb'
+    bert_scores_dir += '_sentemb'
+if FLAGS.artemb:
+    exp_name += '_artemb'
+    bert_scores_dir += '_artemb'
+if FLAGS.plushidden:
+    exp_name += '_plushidden'
+    bert_scores_dir += '_plushidden'
 
 if FLAGS.upper_bound:
     exp_name = exp_name + '_upperbound'
@@ -87,10 +104,11 @@ if FLAGS.singles_and_pairs == 'singles':
 else:
     sentence_limit = 2
 
-if FLAGS.dataset_name == 'xsum':
-    l_param = 40
-else:
-    l_param = 100
+# if FLAGS.dataset_name == 'xsum':
+#     l_param = 40
+# else:
+#     l_param = 100
+l_param = 100
 
 if FLAGS.pca:
     bert_in_dir += '_pca'
@@ -190,9 +208,9 @@ def generate_summary(article_sent_tokens, qid_ssi_to_importances, example_idx):
     while len(summary_tokens) < 300:
         if len(summary_tokens) >= l_param and ssi_length_extractive is None:
             ssi_length_extractive = len(similar_source_indices_list)
-        if FLAGS.dataset_name == 'xsum' and len(summary_tokens) > 0:
-            ssi_length_extractive = len(similar_source_indices_list)
-            break
+        # if FLAGS.dataset_name == 'xsum' and len(summary_tokens) > 0:
+        #     ssi_length_extractive = len(similar_source_indices_list)
+        #     break
         mmr_dict = util.calc_MMR_source_indices(article_sent_tokens, summary_tokens, None, qid_ssi_to_importances, qid=qid)
         sents, source_indices = get_best_source_sents(article_sent_tokens, mmr_dict, already_used_source_indices)
         if len(source_indices) == 0:
@@ -253,7 +271,7 @@ def write_highlighted_html(html, out_dir, example_idx):
 ''' % (example_idx-1, example_idx+1) + html
     path = os.path.join(out_dir, '%06d_highlighted.html' % example_idx)
     with open(path, 'w') as f:
-        f.write(html)
+        f.write(html.encode('utf-8'))
 
 def get_indices_of_first_k_sents_of_each_article(rel_sent_indices, k):
     indices = [idx for idx, rel_sent_idx in enumerate(rel_sent_indices) if rel_sent_idx < k]

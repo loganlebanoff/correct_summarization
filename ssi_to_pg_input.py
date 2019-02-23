@@ -8,13 +8,13 @@ from tqdm import tqdm
 import tensorflow as tf
 from collections import namedtuple
 
-from . import data
-from . import util
-from .data import Vocab
-from .batcher import Batcher, create_batch
-from .model import SummarizationModel
-from .decode import BeamSearchDecoder, decode_example
-from . import convert_data
+import data
+import util
+from data import Vocab
+from batcher import Batcher, create_batch
+from model import SummarizationModel
+from decode import BeamSearchDecoder, decode_example
+import convert_data
 import pickle
 from sklearn.feature_extraction.text import TfidfVectorizer
 from nltk.stem.porter import PorterStemmer
@@ -28,7 +28,7 @@ FLAGS = flags.FLAGS
 # Where to find data
 flags.DEFINE_string('dataset_name', 'cnn_dm', 'Which dataset to use. Makes a log dir based on name.\
                                                 Must be one of {tac_2011, tac_2008, duc_2004, duc_tac, cnn_dm} or a custom dataset name')
-flags.DEFINE_string('data_root', '/home/logan/data/tf_data/with_coref_and_ssi', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
+flags.DEFINE_string('data_root', os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
 flags.DEFINE_string('vocab_path', 'logs/vocab', 'Path expression to text vocabulary file.')
 flags.DEFINE_string('pretrained_path', '', 'Directory of pretrained model for PG trained on singles or pairs of sentences.')
 flags.DEFINE_boolean('use_pretrained', True, 'If True, use pretrained model in the path FLAGS.pretrained_path.')
@@ -94,6 +94,19 @@ flags.DEFINE_boolean('upper_bound', False, 'If true, save plots of each distribu
 flags.DEFINE_boolean('cnn_dm_pg', False, 'If true, use PG trained on CNN/DM for testing.')
 flags.DEFINE_boolean('websplit', False, 'If true, use PG trained on Websplit for testing.')
 flags.DEFINE_boolean('use_bert', True, 'If true, use PG trained on Websplit for testing.')
+flags.DEFINE_boolean('pg_mmr', True, 'If true, use PG trained on Websplit for testing.')
+if 'sentemb' not in flags.FLAGS:
+    flags.DEFINE_boolean('sentemb', True, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
+if 'artemb' not in flags.FLAGS:
+    flags.DEFINE_boolean('artemb', True, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
+if 'plushidden' not in flags.FLAGS:
+    flags.DEFINE_boolean('plushidden', True, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
+flags.DEFINE_boolean('skip_with_less_than_3', True,
+                    'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
+flags.DEFINE_string('original_dataset_name', '',
+                    'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
+flags.DEFINE_string('ssi_data_path', '',
+                    'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
 
 _exp_name = 'lambdamart'
 dataset_split = 'test'
@@ -116,6 +129,8 @@ def main(unused_argv):
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
 
+    if FLAGS.pg_mmr:
+        FLAGS.exp_name += 'mmr_'
     extractor = 'bert' if FLAGS.use_bert else 'lambdamart'
     if FLAGS.cnn_dm_pg:
         pretrained_dataset = 'cnn_dm'
@@ -133,13 +148,26 @@ def main(unused_argv):
         FLAGS.exp_name = FLAGS.dataset_name + '_' + FLAGS.exp_name + extractor + '_singles'
         FLAGS.pretrained_path = os.path.join(FLAGS.log_root, pretrained_dataset + '_sent' + '_singles')
         dataset_articles = FLAGS.dataset_name + '_singles'
+
+    bert_suffix = ''
+    if FLAGS.use_bert:
+        if FLAGS.sentemb:
+            FLAGS.exp_name += '_sentemb'
+            bert_suffix += '_sentemb'
+        if FLAGS.artemb:
+            FLAGS.exp_name += '_artemb'
+            bert_suffix += '_artemb'
+        if FLAGS.plushidden:
+            FLAGS.exp_name += '_plushidden'
+            bert_suffix += '_plushidden'
     if FLAGS.upper_bound:
         FLAGS.exp_name = FLAGS.exp_name + '_upperbound'
         ssi_list = None     # this is if we are doing the upper bound evaluation (ssi_list comes straight from the groundtruth)
     else:
-        my_log_dir = os.path.join(log_dir, '%s_%s_%s' % (FLAGS.dataset_name, extractor, FLAGS.singles_and_pairs))
+        my_log_dir = os.path.join(log_dir, '%s_%s_%s%s' % (FLAGS.dataset_name, extractor, FLAGS.singles_and_pairs, bert_suffix))
         with open(os.path.join(my_log_dir, 'ssi.pkl')) as f:
             ssi_list = pickle.load(f)
+        FLAGS.ssi_data_path = my_log_dir
     if FLAGS.cnn_dm_pg:
         FLAGS.exp_name = FLAGS.exp_name + '_cnntrained'
     if FLAGS.websplit:
@@ -164,7 +192,14 @@ def main(unused_argv):
     FLAGS.actual_log_root = FLAGS.log_root
     FLAGS.log_root = os.path.join(FLAGS.log_root, FLAGS.exp_name)
 
-    original_dataset_name = 'xsum' if 'xsum' in FLAGS.dataset_name else 'cnn_dm' if 'cnn_dm' in FLAGS.dataset_name or 'duc_2004' in FLAGS.dataset_name else ''
+    vocab_datasets = [os.path.basename(file_path).split('vocab_')[1] for file_path in glob.glob(FLAGS.vocab_path + '_*')]
+    original_dataset_name = [file_name for file_name in vocab_datasets if file_name in FLAGS.dataset_name]
+    if len(original_dataset_name) > 1:
+        raise Exception('Too many choices for vocab file')
+    if len(original_dataset_name) < 1:
+        raise Exception('No vocab file for dataset created. Run make_vocab.py --dataset_name=<my original dataset name>')
+    original_dataset_name = original_dataset_name[0]
+    FLAGS.original_dataset_name = original_dataset_name
     vocab = Vocab(FLAGS.vocab_path + '_' + original_dataset_name, FLAGS.vocab_size) # create a vocabulary
 
     # If in decode mode, set batch_size = beam_size
@@ -180,7 +215,8 @@ def main(unused_argv):
     # Make a namedtuple hps, containing the values of the hyperparameters that the model needs
     hparam_list = ['mode', 'lr', 'adagrad_init_acc', 'rand_unif_init_mag', 'trunc_norm_init_std',
                    'max_grad_norm', 'hidden_dim', 'emb_dim', 'batch_size', 'max_dec_steps',
-                   'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input']
+                   'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input', 'pg_mmr', 'singles_and_pairs', 'skip_with_less_than_3',
+                   'ssi_data_path']
     hps_dict = {}
     for key,val in FLAGS.__flags.items(): # for each flag
         if key in hparam_list: # if it's in the list

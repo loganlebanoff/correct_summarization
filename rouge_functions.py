@@ -5,8 +5,14 @@ import pyrouge
 import logging as log
 import os
 from absl import logging
+import sys
+try:
+    reload(sys)
+    sys.setdefaultencoding('utf8')
+except:
+    a=0
 import tempfile
-tempfile.tempdir = "/home/logan/tmp"
+tempfile.tempdir = os.path.expanduser('~') + "/tmp"
 
 def _ngrams(words, n):
     queue = collections.deque(maxlen=n)
@@ -134,10 +140,10 @@ def write_for_rouge(all_reference_sents, decoded_sents, ex_index, ref_dir, dec_d
                 file_name, ex_index, chr(ord('A') + abs_idx)))
         with open(ref_file, "w") as f:
             for idx, sent in enumerate(abs):
-                f.write(sent + "\n")
+                f.write(sent.encode('utf-8') + "\n")
     with open(decoded_file, "w") as f:
         for idx, sent in enumerate(decoded_sents):
-            f.write(sent + "\n")
+            f.write(sent.encode('utf-8') + "\n")
 
     if log:
         logging.info("Wrote example %i to file" % ex_index)
@@ -187,7 +193,7 @@ def rouge_log(results_dict, dir_to_write, prefix=None, suffix=None):
     results_file = os.path.join(dir_to_write, "ROUGE_results.txt")
     print(("Writing final ROUGE results to %s...", results_file))
     with open(results_file, "w") as f:
-        f.write(log_str)
+        f.write(log_str.encode('utf-8'))
 
     print("\nROUGE-1, ROUGE-2, ROUGE-SU4 (PRF):\n")
     sheets_str = ""
@@ -204,7 +210,7 @@ def rouge_log(results_dict, dir_to_write, prefix=None, suffix=None):
     print(sheets_str)
     sheets_results_file = os.path.join(dir_to_write, "sheets_results.txt")
     with open(sheets_results_file, "w") as f:
-        f.write(sheets_str)
+        f.write(sheets_str.encode('utf-8'))
     return sheets_str
 
 

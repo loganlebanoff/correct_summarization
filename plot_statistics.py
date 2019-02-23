@@ -47,8 +47,8 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-data_dir = '/home/logan/data/multidoc_summarization/tf_examples'
-log_dir = '/home/logan/data/multidoc_summarization/logs/'
+data_dir = os.path.expanduser('~') + '/data/multidoc_summarization/tf_examples'
+log_dir = os.path.expanduser('~') + '/data/multidoc_summarization/logs/'
 max_enc_steps = 100000
 min_dec_steps = 100
 max_dec_steps = 120

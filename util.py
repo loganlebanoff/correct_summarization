@@ -24,7 +24,7 @@ import os
 import numpy as np
 from absl import flags
 import itertools
-from . import data
+import data
 from absl import logging
 from sumy.nlp.tokenizers import Tokenizer
 from nltk.stem.porter import PorterStemmer
@@ -34,11 +34,17 @@ from sklearn.metrics.pairwise import cosine_similarity
 import inspect, re
 import string
 import struct
-from . import rouge_functions
+import rouge_functions
 import json
 import spacy
 from spacy.tokens import Doc
 from spacy.lang.en import English
+import sys
+
+if sys.version_info >= (3, 0):
+    python_version = 3
+else:
+    python_version = 2
 
 nlp = English()
 try:
@@ -49,6 +55,16 @@ FLAGS = flags.FLAGS
 
 stop_words = set(stopwords.words('english'))
 CHUNK_SIZE = 1000
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 def get_config():
     """Returns config for tf.session"""
@@ -66,11 +82,11 @@ def load_ckpt(saver, sess, ckpt_dir="train"):
             else:
                 my_ckpt_dir = os.path.join(FLAGS.log_root, ckpt_dir)
             ckpt_state = tf.train.get_checkpoint_state(my_ckpt_dir, latest_filename=latest_filename)
-            logging.info('Loading checkpoint %s', ckpt_state.model_checkpoint_path)
+            print (bcolors.OKGREEN + 'Loading checkpoint %s' % ckpt_state.model_checkpoint_path + bcolors.ENDC)
             saver.restore(sess, ckpt_state.model_checkpoint_path)
             return ckpt_state.model_checkpoint_path
         except:
-            logging.info("Failed to load checkpoint from %s. Sleeping for %i secs...", ckpt_dir, 10)
+            logging.info("Failed to load checkpoint from %s. Sleeping for %i secs...", my_ckpt_dir, 10)
             time.sleep(10)
 
 def flatten_list_of_lists(list_of_lists):
@@ -360,6 +376,14 @@ def chunk_file(set_name, out_full_dir, out_dir, chunk_size=1000):
       chunk += 1
 
 def decode_text(text):
+    # # print (python_version)
+    # # if python_version == 3:
+    # #     if isinstance(text, str):
+    # #         text = text.encode()
+    # #         print ("String: " + str(isinstance(text, str)))
+    # #         print ("btyes: " + str(isinstance(text, bytes)))
+    # #         return text
+    # # else:
     try:
         text = text.decode('utf-8')
     except:
@@ -383,7 +407,10 @@ def unpack_tf_example(example, names_to_types):
         return text.strip().split(' ')
     def get_delimited_list_of_lists(name):
         text = get_string(name)
-        return [[int(i) for i in (l.strip().split(' ') if l != '' else [])] for l in text.strip().split(';')]
+        # print (text)
+        my_list = text.strip()
+        my_list = my_list.split(';')
+        return [[int(i) for i in (l.strip().split(' ') if l != '' else [])] for l in my_list]
     def get_delimited_list_of_tuples(name):
         list_of_lists = get_delimited_list_of_lists(name)
         return [tuple(l) for l in list_of_lists]
@@ -668,7 +695,8 @@ def all_sent_selection_eval(ssi_list):
     return combined_suffix
 
 def lemmatize_sent_tokens(article_sent_tokens):
-    article_sent_tokens_lemma = [[t.lemma_ for t in Doc(nlp.vocab, words=[token.decode('utf-8') for token in sent])] for sent in article_sent_tokens]
+    # article_sent_tokens_lemma = [[t.lemma_ for t in Doc(nlp.vocab, words=[token.decode('utf-8') for token in sent])] for sent in article_sent_tokens]
+    article_sent_tokens_lemma = [[t.lemma_ for t in Doc(nlp.vocab, words=[decode_text(token) for token in sent])] for sent in article_sent_tokens]
 
     # article_sent_tokens_lemma2 = [[t.lemma_ for t in nlp2(' '.join(sent))] for sent in article_sent_tokens]
     # for a, b in zip(flatten_list_of_lists(article_sent_tokens), flatten_list_of_lists(article_sent_tokens_lemma)):

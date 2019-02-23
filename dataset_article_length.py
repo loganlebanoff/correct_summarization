@@ -1,4 +1,4 @@
-from . import convert_data
+import convert_data
 from tqdm import tqdm
 from absl import app, flags
 

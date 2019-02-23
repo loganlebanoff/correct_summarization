@@ -6,10 +6,10 @@ import numpy as np
 from absl import flags
 from absl import app
 import pickle
-from . import util
+import util
 import sys
 import glob
-from . import data
+import data
 from scipy.stats.stats import pearsonr
 import matplotlib
 if not "DISPLAY" in os.environ:
@@ -33,11 +33,11 @@ if 'num_instances' not in flags.FLAGS:
 FLAGS(sys.argv)
 
 
-from . import convert_data
-from . import lambdamart_scores_to_summaries
-from . import preprocess_for_lambdamart_no_flags
+import convert_data
+import lambdamart_scores_to_summaries
+import preprocess_for_lambdamart_no_flags
 
-data_dir = '/home/logan/data/tf_data/with_coref_and_ssi'
+data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 min_matched_tokens = 1
@@ -65,13 +65,13 @@ def plot_histograms(all_list_of_hist_pairs):
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols)
     if axes.ndim == 1:
         axes = axes.reshape(1, -1)
-    fig.set_size_inches(30, 6)
-    fig.subplots_adjust(wspace=0.15, hspace=0.05)
+    fig.set_size_inches(10, 7)
+    fig.subplots_adjust(wspace=0.075, hspace=0.05)
     for row_idx in range(axes.shape[0]):
         for col_idx in range(axes.shape[1]):
             ax = axes[row_idx, col_idx]
             plot_histogram(ax, row_idx, col_idx, **all_list_of_hist_pairs[row_idx][col_idx])
-    pp = PdfPages(os.path.join('stuff/plots', FLAGS.dataset_name + '_all' + '.pdf'))
+    pp = PdfPages(os.path.join('stuff/plots', FLAGS.dataset_name + '_' + FLAGS.dataset_split + '.pdf'))
     plt.savefig(pp, format='pdf',bbox_inches='tight')
     plt.show()
     pp.close()
@@ -95,8 +95,11 @@ def plot_histogram(ax, row_idx, col_idx, lst=None, num_bins=None, start_at_0=Fal
             ax.set_ylabel(pretty_dataset_names[y_label])
         if row_idx == 2:
             ax.set_xlabel(x_label)
+        else:
+            ax.set_xticklabels([])
         ax.xaxis.set_ticks_position('none')
         ax.yaxis.set_ticks_position('none')
+        ax.set_yticklabels([])
         if y_lim is not None:
             ax.set_ylim(top=y_lim)
         # nbins = len(ax.get_xticklabels())
@@ -188,45 +191,84 @@ def main(unused_argv):
     for dataset_name in dataset_names:
         FLAGS.dataset_name = dataset_name
 
-        if FLAGS.dataset_name == 'duc_2004':
-            FLAGS.dataset_split = 'test'
+        if dataset_name == 'duc_2004':
+            dataset_splits = ['test']
+        elif FLAGS.dataset_split == 'all':
+            dataset_splits = ['test', 'val', 'train']
+        else:
+            dataset_splits = [FLAGS.dataset_split]
 
-        ssi_path = os.path.join(ssi_dir, FLAGS.dataset_name, FLAGS.dataset_split + '_ssi.pkl')
+        # ssi_list = []
+        # for dataset_split in dataset_splits:
+        #
+        #     ssi_path = os.path.join(ssi_dir, FLAGS.dataset_name, dataset_split + '_ssi.pkl')
+        #
+        #     with open(ssi_path) as f:
+        #         ssi_list.extend(pickle.load(f))
+        #
+        #     if FLAGS.dataset_name == 'duc_2004':
+        #         for abstract_idx in [1,2,3]:
+        #             ssi_path = os.path.join(ssi_dir, FLAGS.dataset_name, dataset_split + '_ssi_' + str(abstract_idx) + '.pkl')
+        #             with open(ssi_path) as f:
+        #                 temp_ssi_list = pickle.load(f)
+        #             ssi_list.extend(temp_ssi_list)
+        #
+        # ssi_2d = util.flatten_list_of_lists(ssi_list)
+        #
+        # num_extracted = [len(ssi) for ssi in util.flatten_list_of_lists(ssi_list)]
+        # hist_num_extracted = np.histogram(num_extracted, bins=6, range=(0,5))
+        # print(hist_num_extracted)
+        # print('Histogram of number of sentences merged: ' + util.hist_as_pdf_str(hist_num_extracted))
+        #
+        # distances = [abs(ssi[0]-ssi[1]) for ssi in ssi_2d if len(ssi) >= 2]
+        # print('Distance between sentences (mean, median): ', np.mean(distances), np.median(distances))
+        # hist_dist = np.histogram(distances, bins=max(distances))
+        # print('Histogram of distances: ' + util.hist_as_pdf_str(hist_dist))
+        #
+        # summ_sent_idx_to_number_of_source_sents = [[], [], [], [], [], [], [], [], [], []]
+        # for ssi in ssi_list:
+        #     for summ_sent_idx, source_indices in enumerate(ssi):
+        #         if len(source_indices) == 0 or summ_sent_idx >= len(summ_sent_idx_to_number_of_source_sents):
+        #             continue
+        #         num_sents = len(source_indices)
+        #         if num_sents > 2:
+        #             num_sents = 2
+        #         summ_sent_idx_to_number_of_source_sents[summ_sent_idx].append(num_sents)
+        # print ("Number of source sents for summary sentence indices (Is the first summary sent more likely to match with a singleton or a pair?):")
+        # for summ_sent_idx, list_of_numbers_of_source_sents in enumerate(summ_sent_idx_to_number_of_source_sents):
+        #     if len(list_of_numbers_of_source_sents) == 0:
+        #         percent_singleton = 0.
+        #     else:
+        #         percent_singleton = list_of_numbers_of_source_sents.count(1) * 1. / len(list_of_numbers_of_source_sents)
+        #         percent_pair = list_of_numbers_of_source_sents.count(2) * 1. / len(list_of_numbers_of_source_sents)
+        #     print str(percent_singleton) + '\t',
+        # print ''
+        # for summ_sent_idx, list_of_numbers_of_source_sents in enumerate(summ_sent_idx_to_number_of_source_sents):
+        #     if len(list_of_numbers_of_source_sents) == 0:
+        #         percent_pair = 0.
+        #     else:
+        #         percent_singleton = list_of_numbers_of_source_sents.count(1) * 1. / len(list_of_numbers_of_source_sents)
+        #         percent_pair = list_of_numbers_of_source_sents.count(2) * 1. / len(list_of_numbers_of_source_sents)
+        #     print str(percent_pair) + '\t',
+        # print ''
+        #
+        # primary_pos = [ssi[0] for ssi in ssi_2d if len(ssi) >= 1]
+        # secondary_pos = [ssi[1] for ssi in ssi_2d if len(ssi) >= 2]
+        # all_pos = [max(ssi) for ssi in ssi_2d if len(ssi) >= 1]
+        #
+        # # if FLAGS.dataset_name != 'duc_2004':
+        # #     plot_positions(primary_pos, secondary_pos, all_pos)
 
-        with open(ssi_path) as f:
-            ssi_list = pickle.load(f)
-
-        if FLAGS.dataset_name == 'duc_2004':
-            for abstract_idx in [1,2,3]:
-                ssi_path = os.path.join(ssi_dir, FLAGS.dataset_name, FLAGS.dataset_split + '_ssi_' + str(abstract_idx) + '.pkl')
-                with open(ssi_path) as f:
-                    temp_ssi_list = pickle.load(f)
-                ssi_list.extend(temp_ssi_list)
-
-        ssi_2d = util.flatten_list_of_lists(ssi_list)
-
-        num_extracted = [len(ssi) for ssi in util.flatten_list_of_lists(ssi_list)]
-        hist_num_extracted = np.histogram(num_extracted, bins=6, range=(0,5))
-        print(hist_num_extracted)
-        print('Histogram of number of sentences merged: ', util.hist_as_pdf_str(hist_num_extracted))
-
-        distances = [abs(ssi[0]-ssi[1]) for ssi in ssi_2d if len(ssi) >= 2]
-        print('Distance between sentences (mean, median): ', np.mean(distances), np.median(distances))
-        hist_dist = np.histogram(distances, bins=max(distances))
-        print('Histogram of distances:', util.hist_as_pdf_str(hist_dist))
-
-        primary_pos = [ssi[0] for ssi in ssi_2d if len(ssi) >= 1]
-        secondary_pos = [ssi[1] for ssi in ssi_2d if len(ssi) >= 2]
-        all_pos = [max(ssi) for ssi in ssi_2d if len(ssi) >= 1]
-
-        # if FLAGS.dataset_name != 'duc_2004':
-        #     plot_positions(primary_pos, secondary_pos, all_pos)
+        if FLAGS.dataset_split == 'all':
+            glob_string = '*.bin'
+        else:
+            glob_string = dataset_splits[0]
 
         source_dir = os.path.join(data_dir, FLAGS.dataset_name)
-        source_files = sorted(glob.glob(source_dir + '/' + FLAGS.dataset_split + '*'))
+        source_files = sorted(glob.glob(source_dir + '/' + glob_string + '*'))
 
         total = len(source_files) * 1000 if ('cnn' in FLAGS.dataset_name or 'newsroom' in FLAGS.dataset_name or 'xsum' in FLAGS.dataset_name) else len(source_files)
-        example_generator = data.example_generator(source_dir + '/' + FLAGS.dataset_split + '*', True, False,
+        example_generator = data.example_generator(source_dir + '/' + glob_string + '*', True, False,
                                                    should_check_valid=False)
 
         all_possible_singles = 0
@@ -252,6 +294,9 @@ def main(unused_argv):
         normalized_positions_secondary = []
         all_normalized_positions_primary = []
         all_normalized_positions_secondary = []
+        normalized_positions_singles = []
+        normalized_positions_pairs_first = []
+        normalized_positions_pairs_second = []
         primary_pos_duc = []
         secondary_pos_duc = []
         all_pos_duc = []
@@ -361,6 +406,21 @@ def main(unused_argv):
                     tfidf_similarities.append(sents_similarities[ssi[0], ssi[1]])
                     average_mmrs.append((importances[ssi[0]] + importances[ssi[1]])/2)
 
+            for ssi in groundtruth_similar_source_indices_list:
+                if len(ssi) == 1:
+                    orig_val = ssi[0]
+                    vals_to_add = get_integral_values_for_histogram(orig_val, rel_sent_indices, doc_sent_indices, doc_sent_lens, raw_article_sents)
+                    normalized_positions_singles.extend(vals_to_add)
+                if len(ssi) >= 2:
+                    if doc_sent_indices[ssi[0]] != doc_sent_indices[ssi[1]]:
+                        continue
+                    orig_val_first = min(ssi[0], ssi[1])
+                    vals_to_add = get_integral_values_for_histogram(orig_val_first, rel_sent_indices, doc_sent_indices, doc_sent_lens, raw_article_sents)
+                    normalized_positions_pairs_first.extend(vals_to_add)
+                    orig_val_second = max(ssi[0], ssi[1])
+                    vals_to_add = get_integral_values_for_histogram(orig_val_second, rel_sent_indices, doc_sent_indices, doc_sent_lens, raw_article_sents)
+                    normalized_positions_pairs_second.extend(vals_to_add)
+
             # all_normalized_positions_primary.extend(util.flatten_list_of_lists([get_integral_values_for_histogram(single[0], rel_sent_indices, doc_sent_indices, doc_sent_lens, raw_article_sents) for single in possible_singles]))
             # all_normalized_positions_secondary.extend(util.flatten_list_of_lists([get_integral_values_for_histogram(pair[1], rel_sent_indices, doc_sent_indices, doc_sent_lens, raw_article_sents) for pair in possible_pairs]))
             all_sent_lens.extend([len(sent) for sent in article_sent_tokens])
@@ -381,103 +441,123 @@ def main(unused_argv):
 
             # actual_total[0] += 1
 
-        # p = Pool(144)
-        # list(tqdm(p.imap(process, example_generator), total=total))
-
-        # print 'Possible_singles\tPossible_pairs\tFiltered_pairs\tAll_combinations: \n%.2f\t%.2f\t%.2f\t%.2f' % (all_possible_singles*1./actual_total, \
-        #     all_possible_pairs*1./actual_total, all_filtered_pairs*1./actual_total, all_all_combinations*1./actual_total)
+        # # p = Pool(144)
+        # # list(tqdm(p.imap(process, example_generator), total=total))
         #
-        # # print 'Relative positions of groundtruth source sentences in document:\nPrimary\tSecondary\tBoth\n%.2f\t%.2f\t%.2f' % (np.mean(rel_positions_primary), np.mean(rel_positions_secondary), np.mean(rel_positions_all))
+        # # print 'Possible_singles\tPossible_pairs\tFiltered_pairs\tAll_combinations: \n%.2f\t%.2f\t%.2f\t%.2f' % (all_possible_singles*1./actual_total, \
+        # #     all_possible_pairs*1./actual_total, all_filtered_pairs*1./actual_total, all_all_combinations*1./actual_total)
+        # #
+        # # # print 'Relative positions of groundtruth source sentences in document:\nPrimary\tSecondary\tBoth\n%.2f\t%.2f\t%.2f' % (np.mean(rel_positions_primary), np.mean(rel_positions_secondary), np.mean(rel_positions_all))
+        # #
+        # # print 'SSI Pair statistics:\nShare_coref\tShare_word\tShare_either\n%.2f\t%.2f\t%.2f' \
+        # #       % (ssi_pairs_with_shared_coref[0]*100./all_ssi_pairs[0], ssi_pairs_with_shared_word[0]*100./all_ssi_pairs[0], ssi_pairs_with_either_coref_or_word[0]*100./all_ssi_pairs[0])
+        # # print 'All Pair statistics:\nShare_coref\tShare_word\tShare_either\n%.2f\t%.2f\t%.2f' \
+        # #       % (all_pairs_with_shared_coref[0]*100./all_possible_pairs[0], all_pairs_with_shared_word[0]*100./all_possible_pairs[0], all_pairs_with_either_coref_or_word[0]*100./all_possible_pairs[0])
         #
-        # print 'SSI Pair statistics:\nShare_coref\tShare_word\tShare_either\n%.2f\t%.2f\t%.2f' \
-        #       % (ssi_pairs_with_shared_coref[0]*100./all_ssi_pairs[0], ssi_pairs_with_shared_word[0]*100./all_ssi_pairs[0], ssi_pairs_with_either_coref_or_word[0]*100./all_ssi_pairs[0])
-        # print 'All Pair statistics:\nShare_coref\tShare_word\tShare_either\n%.2f\t%.2f\t%.2f' \
-        #       % (all_pairs_with_shared_coref[0]*100./all_possible_pairs[0], all_pairs_with_shared_word[0]*100./all_possible_pairs[0], all_pairs_with_either_coref_or_word[0]*100./all_possible_pairs[0])
-
-        # hist_all_pos = np.histogram(all_pos, bins=max(all_pos)+1)
-        # print 'Histogram of all sent positions: ', util.hist_as_pdf_str(hist_all_pos)
-        # min_sent_len = min(sent_lens)
-        # hist_sent_lens = np.histogram(sent_lens, bins=max(sent_lens)-min_sent_len+1)
-        # print 'min, max sent lens:', min_sent_len, max(sent_lens)
-        # print 'Histogram of sent lens: ', util.hist_as_pdf_str(hist_sent_lens)
-        # min_all_sent_len = min(all_sent_lens)
-        # hist_all_sent_lens = np.histogram(all_sent_lens, bins=max(all_sent_lens)-min_all_sent_len+1)
-        # print 'min, max all sent lens:', min_all_sent_len, max(all_sent_lens)
-        # print 'Histogram of all sent lens: ', util.hist_as_pdf_str(hist_all_sent_lens)
-
-        # print 'Pearsons r, p value', pearsonr(all_pos, y)
-        # fig, ax1 = plt.subplots(nrows=1)
-        # plt.scatter(all_pos, y)
-        # pp = PdfPages(os.path.join('stuff/plots', FLAGS.dataset_name + '_position_scatter.pdf'))
-        # plt.savefig(pp, format='pdf',bbox_inches='tight')
-        # plt.show()
-        # pp.close()
-
+        # # hist_all_pos = np.histogram(all_pos, bins=max(all_pos)+1)
+        # # print 'Histogram of all sent positions: ', util.hist_as_pdf_str(hist_all_pos)
+        # # min_sent_len = min(sent_lens)
+        # # hist_sent_lens = np.histogram(sent_lens, bins=max(sent_lens)-min_sent_len+1)
+        # # print 'min, max sent lens:', min_sent_len, max(sent_lens)
+        # # print 'Histogram of sent lens: ', util.hist_as_pdf_str(hist_sent_lens)
+        # # min_all_sent_len = min(all_sent_lens)
+        # # hist_all_sent_lens = np.histogram(all_sent_lens, bins=max(all_sent_lens)-min_all_sent_len+1)
+        # # print 'min, max all sent lens:', min_all_sent_len, max(all_sent_lens)
+        # # print 'Histogram of all sent lens: ', util.hist_as_pdf_str(hist_all_sent_lens)
+        #
+        # # print 'Pearsons r, p value', pearsonr(all_pos, y)
+        # # fig, ax1 = plt.subplots(nrows=1)
+        # # plt.scatter(all_pos, y)
+        # # pp = PdfPages(os.path.join('stuff/plots', FLAGS.dataset_name + '_position_scatter.pdf'))
+        # # plt.savefig(pp, format='pdf',bbox_inches='tight')
+        # # plt.show()
+        # # pp.close()
+        #
+        # # if FLAGS.dataset_name == 'duc_2004':
+        # #     plot_positions(primary_pos_duc, secondary_pos_duc, all_pos_duc)
+        #
+        # normalized_positions_all = normalized_positions_primary + normalized_positions_secondary
+        # # plot_histogram(normalized_positions_primary, num_bins=100)
+        # # plot_histogram(normalized_positions_secondary, num_bins=100)
+        # # plot_histogram(normalized_positions_all, num_bins=100)
+        #
+        # sent_lens_together = [sent_lens, all_sent_lens]
+        # # plot_histogram(sent_lens_together, pdf=True, start_at_0=True, max_val=70)
+        #
         # if FLAGS.dataset_name == 'duc_2004':
-        #     plot_positions(primary_pos_duc, secondary_pos_duc, all_pos_duc)
+        #     distances = distances_duc
+        # sent_distances_together = [distances, all_distances]
+        # # plot_histogram(sent_distances_together, pdf=True, start_at_0=True, max_val=100)
+        #
+        # tfidf_similarities_together = [tfidf_similarities, all_tfidf_similarities]
+        # # plot_histogram(tfidf_similarities_together, pdf=True, num_bins=100)
+        #
+        # average_mmrs_together = [average_mmrs, all_average_mmrs]
+        # # plot_histogram(average_mmrs_together, pdf=True, num_bins=100)
+        #
+        # normalized_positions_primary_together = [normalized_positions_primary, bin_values]
+        # normalized_positions_secondary_together = [normalized_positions_secondary, bin_values]
+        # # plot_histogram(normalized_positions_primary_together, pdf=True, num_bins=100)
+        # # plot_histogram(normalized_positions_secondary_together, pdf=True, num_bins=100)
+        #
+        #
+        # list_of_hist_pairs = [
+        #     {
+        #         'lst': normalized_positions_primary_together,
+        #         'pdf': True,
+        #         'num_bins': 100,
+        #         'y_lim': 3.9,
+        #         'y_label': FLAGS.dataset_name,
+        #         'x_label': 'Sent position (primary)'
+        #     },
+        #     {
+        #         'lst': normalized_positions_secondary_together,
+        #         'pdf': True,
+        #         'num_bins': 100,
+        #         'y_lim': 3.9,
+        #         'x_label': 'Sent position (secondary)'
+        #     },
+        #     {
+        #         'lst': sent_distances_together,
+        #         'pdf': True,
+        #         'start_at_0': True,
+        #         'max_val': 100,
+        #         'x_label': 'Sent distance'
+        #     },
+        #     {
+        #         'lst': sent_lens_together,
+        #         'pdf': True,
+        #         'start_at_0': True,
+        #         'max_val': 70,
+        #         'x_label': 'Sent length'
+        #     },
+        #     {
+        #         'lst': average_mmrs_together,
+        #         'pdf': True,
+        #         'num_bins': 100,
+        #         'x_label': 'Average TF-IDF importance'
+        #     }
+        # ]
 
-        normalized_positions_all = normalized_positions_primary + normalized_positions_secondary
-        # plot_histogram(normalized_positions_primary, num_bins=100)
-        # plot_histogram(normalized_positions_secondary, num_bins=100)
-        # plot_histogram(normalized_positions_all, num_bins=100)
-
-        sent_lens_together = [sent_lens, all_sent_lens]
-        # plot_histogram(sent_lens_together, pdf=True, start_at_0=True, max_val=70)
-
-        if FLAGS.dataset_name == 'duc_2004':
-            distances = distances_duc
-        sent_distances_together = [distances, all_distances]
-        # plot_histogram(sent_distances_together, pdf=True, start_at_0=True, max_val=100)
-
-        tfidf_similarities_together = [tfidf_similarities, all_tfidf_similarities]
-        # plot_histogram(tfidf_similarities_together, pdf=True, num_bins=100)
-
-        average_mmrs_together = [average_mmrs, all_average_mmrs]
-        # plot_histogram(average_mmrs_together, pdf=True, num_bins=100)
-
-        normalized_positions_primary_together = [normalized_positions_primary, bin_values]
-        normalized_positions_secondary_together = [normalized_positions_secondary, bin_values]
-        # plot_histogram(normalized_positions_primary_together, pdf=True, num_bins=100)
-        # plot_histogram(normalized_positions_secondary_together, pdf=True, num_bins=100)
-
-
+        normalized_positions_pairs_together = [normalized_positions_pairs_first, normalized_positions_pairs_second]
         list_of_hist_pairs = [
             {
-                'lst': normalized_positions_primary_together,
+                'lst': [normalized_positions_singles],
                 'pdf': True,
                 'num_bins': 100,
-                'y_lim': 3.9,
+                # 'y_lim': 3.9,
                 'y_label': FLAGS.dataset_name,
-                'x_label': 'Sent position (primary)'
+                'x_label': 'Sent position (singles)'
             },
             {
-                'lst': normalized_positions_secondary_together,
+                'lst': normalized_positions_pairs_together,
                 'pdf': True,
                 'num_bins': 100,
-                'y_lim': 3.9,
-                'x_label': 'Sent position (secondary)'
-            },
-            {
-                'lst': sent_distances_together,
-                'pdf': True,
-                'start_at_0': True,
-                'max_val': 100,
-                'x_label': 'Sent distance'
-            },
-            {
-                'lst': sent_lens_together,
-                'pdf': True,
-                'start_at_0': True,
-                'max_val': 70,
-                'x_label': 'Sent length'
-            },
-            {
-                'lst': average_mmrs_together,
-                'pdf': True,
-                'num_bins': 100,
-                'x_label': 'Average TF-IDF importance'
+                # 'y_lim': 3.9,
+                'x_label': 'Sent position (pairs)'
             }
         ]
+
         all_lists_of_histogram_pairs.append(list_of_hist_pairs)
     plot_histograms(all_lists_of_histogram_pairs)
 

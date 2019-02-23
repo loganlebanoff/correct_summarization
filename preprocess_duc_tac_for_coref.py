@@ -9,14 +9,14 @@ from absl import app
 from absl import flags
 from tqdm import tqdm
 
-from . import convert_data
-from . import data
-from . import util
-from .create_corefs_dataset import get_corefs, fix_trailing_apostrophe_s, remove_irrelevant
+import convert_data
+import data
+import util
+from create_corefs_dataset import get_corefs, fix_trailing_apostrophe_s, remove_irrelevant
 
 flags.DEFINE_string('dataset_name', 'all', 'Which dataset to use. Makes a log dir based on name.\
                                                 Must be one of {tac_2011, tac_2008, duc_2004, duc_tac, cnn_dm, all} or a custom dataset name')
-flags.DEFINE_string('data_root', '/home/logan/data/tf_data', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
+flags.DEFINE_string('data_root', os.path.expanduser('~') + '/data/tf_data', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
 flags.DEFINE_string('dataset_split', 'test', 'Which dataset split to use. Must be one of {train, val, test}')
 flags.DEFINE_string('coref_root', 'data/coref', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
 flags.DEFINE_string('mode', 'prepare', 'Whether to prepare for Stanford Corenlp coreference resolution, or to create tf_dataset including coreference resolution. Must be one of {prepare, create}')
