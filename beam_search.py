@@ -63,6 +63,8 @@ class Hypothesis(object):
         Returns:
             New Hypothesis for next step.
         """
+        if self.does_trigram_exist(token):
+            log_prob = -1000
         return Hypothesis(tokens=self.tokens + [token],
                           log_probs=self.log_probs + [log_prob],
                           state=state,
@@ -72,6 +74,15 @@ class Hypothesis(object):
                           mmr=mmr,
                           summ_sent_idx=summ_sent_idx,
                           already_added=self.already_added)
+
+    def does_trigram_exist(self, token):
+        if len(self.tokens) < 2:
+            return False
+        candidate_trigram = self.tokens[-2:] + [token]
+        for i in range(len(self.tokens)-2):
+            if self.tokens[i:i+3] == candidate_trigram:
+                return True
+        return False
 
     @property
     def latest_token(self):
@@ -86,6 +97,12 @@ class Hypothesis(object):
     def avg_log_prob(self):
         # normalize log probability by number of tokens (otherwise longer sequences always have lower probability)
         return self.log_prob / len(self.tokens)
+
+def results_still_too_small(results):
+    if FLAGS.better_beam_search:
+        return True
+    else:
+        return len(results) < FLAGS.beam_size
 
 def run_beam_search(sess, model, vocab, batch, ex_index, hps):
     """Performs beam search decoding on the given example.
@@ -130,7 +147,7 @@ def run_beam_search(sess, model, vocab, batch, ex_index, hps):
 
 
     steps = 0
-    while steps < max_dec_steps and len(results) < FLAGS.beam_size:
+    while steps < max_dec_steps and results_still_too_small(results):
 
         latest_tokens = [h.latest_token for h in hyps]  # latest token produced by each hypothesis
         latest_tokens = [t if t in range(vocab.size()) else vocab.word2id(data.UNKNOWN_TOKEN) for t in
@@ -195,14 +212,14 @@ def run_beam_search(sess, model, vocab, batch, ex_index, hps):
         for h in sort_hyps(all_hyps):  # in order of most likely h
             if h.latest_token == vocab.word2id(data.STOP_DECODING):  # if stop token is reached...
                 # If this hypothesis is sufficiently long, put in results. Otherwise discard.
-                if steps >= FLAGS.min_dec_steps and FLAGS.ssi_data_path == '':  # don't accept the STOP_DECODING token if we are doing PG_MMR with BERT. Keep generating tokens until 100 tokens or until we exhaust the singletons and pairs from BERT
+                if steps >= FLAGS.min_dec_steps:
                     results.append(h)
                     h.already_added = True
                     # print 'ADDED THING'
             else:  # hasn't reached stop token, so continue to extend this hypothesis
                 hyps.append(h)
-            if len(hyps) == FLAGS.beam_size or len(results) == FLAGS.beam_size:
-                # Once we've collected beam_size-many hypotheses for the next step, or beam_size-many complete hypotheses, stop.
+            if len(hyps) == FLAGS.beam_size or (not FLAGS.better_beam_search and len(results) == FLAGS.beam_size):
+                # Once we've collected beam_size-many hypotheses for the next step, or beam_size-many complete hypotheses, stop. (Unless it's Logan's better beam search)
                 break
 
         # Update the MMR scores when a sentence is completed

@@ -36,6 +36,7 @@ ssi_dir = 'data/ssi'
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 min_matched_tokens = 1
 np.random.seed(123)
+chronological_ssi = True
 
 def get_bert_example(raw_article_sents, ssi):
     is_pair = len(ssi) == 2
@@ -106,7 +107,7 @@ def main(unused_argv):
             for example_idx, example in enumerate(tqdm(example_generator, total=total)):
                 raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(
                     example, names_to_types)
-                article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+                article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
                 groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
                 if doc_indices is None or (dataset_name != 'duc_2004' and len(doc_indices) != len(util.flatten_list_of_lists(article_sent_tokens))):
                     doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
@@ -131,6 +132,8 @@ def main(unused_argv):
                     for ssi in positives:
                         if len(ssi) == 0:
                             continue
+                        if chronological_ssi and len(ssi) >= 2:
+                            ssi = (min(ssi), max(ssi))
                         writer.write(get_string_bert_example(raw_article_sents, ssi, 1, example_idx, inst_id))
                         inst_id += 1
                     for ssi in negatives:
@@ -147,6 +150,8 @@ def main(unused_argv):
                     for ssi in similar_source_indices_list:
                         if len(ssi) == 0:
                             continue
+                        if chronological_ssi and len(ssi) >= 2:
+                            ssi = (min(ssi), max(ssi))
                         is_pair = len(ssi) == 2
                         writer.write(get_string_bert_example(raw_article_sents, ssi, 1, example_idx, inst_id))
                         inst_id += 1

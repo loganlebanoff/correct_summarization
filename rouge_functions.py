@@ -6,6 +6,8 @@ import logging as log
 import os
 from absl import logging
 import sys
+from absl import flags
+FLAGS = flags.FLAGS
 try:
     reload(sys)
     sys.setdefaultencoding('utf8')
@@ -145,8 +147,8 @@ def write_for_rouge(all_reference_sents, decoded_sents, ex_index, ref_dir, dec_d
         for idx, sent in enumerate(decoded_sents):
             f.write(sent.encode('utf-8') + "\n")
 
-    if log:
-        logging.info("Wrote example %i to file" % ex_index)
+    # if log:
+    #     logging.info("Wrote example %i to file" % ex_index)
 
 def rouge_eval(ref_dir, dec_dir, l_param=100):
     """Evaluate the files in ref_dir and dec_dir with pyrouge, returning results_dict"""
@@ -197,7 +199,8 @@ def rouge_log(results_dict, dir_to_write, prefix=None, suffix=None):
 
     print("\nROUGE-1, ROUGE-2, ROUGE-SU4 (PRF):\n")
     sheets_str = ""
-    for x in ["1", "2", "su4"]:
+    last_rouge_metric = "su4" if FLAGS.dataset_name == 'duc_2004' else "l"
+    for x in ["1", "2", last_rouge_metric]:
         for y in ["precision", "recall", "f_score"]:
             key = "rouge_%s_%s" % (x, y)
             val = results_dict[key] * 100

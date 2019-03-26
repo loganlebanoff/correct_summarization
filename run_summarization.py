@@ -43,14 +43,18 @@ import glob
 
 random.seed(222)
 FLAGS = flags.FLAGS
-original_pretrained_path = 'logs/pretrained_model_tf1.2.1'
+original_pretrained_path = {'cnn_dm': 'logs/pretrained_model_tf1.2.1',
+                            # 'xsum': 'logs/xsum',
+                            'xsum': 'logs/xsum',
+                            'duc_2004': 'logs/pretrained_model_tf1.2.1'
+                            }
 
 # Where to find data
 flags.DEFINE_string('dataset_name', 'example_custom_dataset', 'Which dataset to use. Makes a log dir based on name.\
                                                 Must be one of {tac_2011, tac_2008, duc_2004, duc_tac, cnn_dm} or a custom dataset name')
 flags.DEFINE_string('data_root', os.path.expanduser('~') + '/data/tf_data/with_coref', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
 flags.DEFINE_string('vocab_path', 'logs/vocab', 'Path expression to text vocabulary file.')
-flags.DEFINE_string('pretrained_path', original_pretrained_path, 'Directory of pretrained model from See et al.')
+flags.DEFINE_string('pretrained_path', original_pretrained_path['cnn_dm'], 'Directory of pretrained model from See et al.')
 flags.DEFINE_boolean('use_pretrained', False, 'If True, use pretrained model in the path FLAGS.pretrained_path.')
 
 
@@ -413,7 +417,7 @@ def main(unused_argv):
 
     if FLAGS.notrain:
         FLAGS.exp_name += '_notrain'
-        FLAGS.pretrained_path = original_pretrained_path
+        FLAGS.pretrained_path = original_pretrained_path[FLAGS.dataset_name]
     if FLAGS.finetune:
         FLAGS.exp_name += '_finetune'
         if FLAGS.mode == 'decode':

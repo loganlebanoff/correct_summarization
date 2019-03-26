@@ -26,12 +26,12 @@ import time
 import numpy as np
 import data
 import nltk
-from convert_data import process_sent
 import util
 from absl import logging
 import pg_mmr_functions
 
 max_dec_sents = 10
+chronological_ssi = True
 
 class Example(object):
     """Class representing a train/val/test example for text summarization."""
@@ -71,7 +71,7 @@ class Example(object):
         if hps.pointer_gen:
 
             if raw_article_sents is not None and len(raw_article_sents) > 0:
-                self.tokenized_sents = [process_sent(sent) for sent in raw_article_sents]
+                self.tokenized_sents = [util.process_sent(sent) for sent in raw_article_sents]
 
                 # Process the article
                 article_words = util.flatten_list_of_lists(self.tokenized_sents)
@@ -92,7 +92,7 @@ class Example(object):
                 # Store a version of the enc_input where in-article OOVs are represented by their temporary OOV id; also store the in-article OOVs words themselves
                 article_str = util.to_unicode(article)
                 raw_article_sents = nltk.tokenize.sent_tokenize(article_str)
-                self.tokenized_sents = [process_sent(sent) for sent in raw_article_sents]
+                self.tokenized_sents = [util.process_sent(sent) for sent in raw_article_sents]
 
                 # Process the article
                 article_words = util.flatten_list_of_lists(self.tokenized_sents)
@@ -599,7 +599,7 @@ class Batcher(object):
 
                     raw_article_sents, ssi, groundtruth_summary_text, corefs = util.unpack_tf_example(
                         e, names_to_types)
-                    article_sent_tokens = [process_sent(sent) for sent in raw_article_sents]
+                    article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
                     article_text = ' '.join([' '.join(sent) for sent in article_sent_tokens])
                     if self._hps.dataset_name == 'duc_2004':
                         abstract_sentences = [['<s> ' + sent.strip() + ' </s>' for sent in
@@ -618,6 +618,13 @@ class Batcher(object):
                     sentence_limit = 1 if self._hps.singles_and_pairs == 'singles' else 2
                     ssi = util.enforce_sentence_limit(ssi, sentence_limit)
                     ssi = ssi[:max_dec_sents]
+                    new_ssi = []
+                    for source_indices in ssi:
+                        if chronological_ssi and len(source_indices) >= 2:
+                            new_ssi.append((min(source_indices), max(source_indices)))
+                        else:
+                            new_ssi.append(source_indices)
+                    ssi = new_ssi
                 except:
                     logging.error('Failed to get article or abstract from example')
                     raise

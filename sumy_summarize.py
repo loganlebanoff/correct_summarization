@@ -108,7 +108,7 @@ def main(unused_argv):
                     for groundtruth_summary_text in groundtruth_summary_texts:
                         groundtruth_summ_sents = [sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]
                         groundtruth_summ_sents_list.append(groundtruth_summ_sents)
-                article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+                article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
                 if doc_indices is None:
                     doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
                 doc_indices = [int(doc_idx) for doc_idx in doc_indices]

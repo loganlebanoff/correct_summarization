@@ -14,7 +14,7 @@ from data import Vocab
 import random
 from tqdm import tqdm
 import nltk
-from count_merged import get_sent_similarities, get_similar_source_sents_by_lcs, html_highlight_sents_in_article, get_simple_source_indices_list
+from ssi_functions import html_highlight_sents_in_article, get_simple_source_indices_list
 
 
 random.seed(222)

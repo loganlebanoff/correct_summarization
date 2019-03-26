@@ -301,7 +301,7 @@ def convert_article_to_lambdamart_features(ex):
     example, example_idx, single_feat_len, pair_feat_len, singles_and_pairs, out_path = ex
     print(example_idx)
     raw_article_sents, similar_source_indices_list, summary_text, corefs, doc_indices = util.unpack_tf_example(example, names_to_types)
-    article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+    article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
     if doc_indices is None:
         doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
     doc_indices = [int(doc_idx) for doc_idx in doc_indices]

@@ -94,7 +94,6 @@ flags.DEFINE_boolean('upper_bound', False, 'If true, save plots of each distribu
 flags.DEFINE_boolean('cnn_dm_pg', False, 'If true, use PG trained on CNN/DM for testing.')
 flags.DEFINE_boolean('websplit', False, 'If true, use PG trained on Websplit for testing.')
 flags.DEFINE_boolean('use_bert', True, 'If true, use PG trained on Websplit for testing.')
-flags.DEFINE_boolean('pg_mmr', True, 'If true, use PG trained on Websplit for testing.')
 if 'sentemb' not in flags.FLAGS:
     flags.DEFINE_boolean('sentemb', True, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
 if 'artemb' not in flags.FLAGS:
@@ -106,6 +105,8 @@ flags.DEFINE_boolean('skip_with_less_than_3', True,
 flags.DEFINE_string('original_dataset_name', '',
                     'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
 flags.DEFINE_string('ssi_data_path', '',
+                    'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
+flags.DEFINE_boolean('better_beam_search', False,
                     'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
 
 _exp_name = 'lambdamart'
@@ -129,8 +130,6 @@ def main(unused_argv):
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
 
-    if FLAGS.pg_mmr:
-        FLAGS.exp_name += 'mmr_'
     extractor = 'bert' if FLAGS.use_bert else 'lambdamart'
     if FLAGS.cnn_dm_pg:
         pretrained_dataset = 'cnn_dm'
@@ -192,15 +191,19 @@ def main(unused_argv):
     FLAGS.actual_log_root = FLAGS.log_root
     FLAGS.log_root = os.path.join(FLAGS.log_root, FLAGS.exp_name)
 
-    vocab_datasets = [os.path.basename(file_path).split('vocab_')[1] for file_path in glob.glob(FLAGS.vocab_path + '_*')]
-    original_dataset_name = [file_name for file_name in vocab_datasets if file_name in FLAGS.dataset_name]
-    if len(original_dataset_name) > 1:
-        raise Exception('Too many choices for vocab file')
-    if len(original_dataset_name) < 1:
-        raise Exception('No vocab file for dataset created. Run make_vocab.py --dataset_name=<my original dataset name>')
-    original_dataset_name = original_dataset_name[0]
-    FLAGS.original_dataset_name = original_dataset_name
-    vocab = Vocab(FLAGS.vocab_path + '_' + original_dataset_name, FLAGS.vocab_size) # create a vocabulary
+
+    if FLAGS.dataset_name == 'duc_2004':
+        vocab = Vocab(FLAGS.vocab_path + '_' + 'cnn_dm', FLAGS.vocab_size) # create a vocabulary
+    else:
+        vocab_datasets = [os.path.basename(file_path).split('vocab_')[1] for file_path in glob.glob(FLAGS.vocab_path + '_*')]
+        original_dataset_name = [file_name for file_name in vocab_datasets if file_name in FLAGS.dataset_name]
+        if len(original_dataset_name) > 1:
+            raise Exception('Too many choices for vocab file')
+        if len(original_dataset_name) < 1:
+            raise Exception('No vocab file for dataset created. Run make_vocab.py --dataset_name=<my original dataset name>')
+        original_dataset_name = original_dataset_name[0]
+        FLAGS.original_dataset_name = original_dataset_name
+        vocab = Vocab(FLAGS.vocab_path + '_' + original_dataset_name, FLAGS.vocab_size) # create a vocabulary
 
     # If in decode mode, set batch_size = beam_size
     # Reason: in decode mode, we decode one example at a time.
@@ -247,7 +250,7 @@ def main(unused_argv):
     # for example_idx, example in enumerate(tqdm(example_generator, total=total)):
     #     raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs = util.unpack_tf_example(
     #         example, names_to_types)
-    #     article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+    #     article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
     #     cur_token_idx = 0
     #     for sent_idx, sent_tokens in enumerate(article_sent_tokens):
     #         for token in sent_tokens:

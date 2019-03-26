@@ -263,7 +263,7 @@ def load_and_evaluate_example(ex):
     print(example_idx)
     # example_idx += 1
     raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs = util.unpack_tf_example(example, names_to_types)
-    article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+    article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
     groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
     groundtruth_summ_sent_tokens = [sent.split(' ') for sent in groundtruth_summ_sents[0]]
     # summ_sent_tokens = [sent.strip().split() for sent in summary_text.strip().split('\n')]

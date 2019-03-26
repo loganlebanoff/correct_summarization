@@ -40,6 +40,7 @@ import spacy
 from spacy.tokens import Doc
 from spacy.lang.en import English
 import sys
+import nltk
 
 if sys.version_info >= (3, 0):
     python_version = 3
@@ -675,12 +676,19 @@ def sent_selection_eval(ssi_list, operation_on_gt):
     return suffix
 
 def all_sent_selection_eval(ssi_list):
+    chronological_ssi = True
     def flatten(gt):
         return flatten_list_of_lists(gt)
     def primary(gt):
-        return flatten_list_of_lists(enforce_sentence_limit(gt, 1))
+        if chronological_ssi:
+            return [min(ssi) for ssi in ssi_list]
+        else:
+            return flatten_list_of_lists(enforce_sentence_limit(gt, 1))
     def secondary(gt):
-        return [ssi[1] for ssi in gt if len(ssi) == 2]
+        if chronological_ssi:
+            return [max(ssi) for ssi in ssi_list if len(ssi) == 2]
+        else:
+            return [ssi[1] for ssi in gt if len(ssi) == 2]
     # def single(gt):
     #     return util.flatten_list_of_lists([ssi for ssi in gt if len(ssi) == 1])
     # def pair(gt):
@@ -722,7 +730,35 @@ average_sents_for_dataset = {
     'duc_2004': 5
 }
 
+def fix_bracket_token(token):
+    if token == '(':
+        return '-lrb-'
+    elif token == ')':
+        return '-rrb-'
+    elif token == '[':
+        return '-lsb-'
+    elif token == ']':
+        return '-rsb-'
+    else:
+        return token
 
+def unfix_bracket_tokens_in_sent(sent):
+    return sent.replace('-lrb-', '(').replace('-rrb-', ')').replace('-lsb-', '[').replace('-rsb-', ']').replace('-LRB-', '(').replace('-RRB-', ')').replace('-LSB-', '[').replace('-RSB-', ']')
+
+def is_quote(tokens):
+    contains_quotation_marks = "''" in tokens and len(tokens) > 0 and tokens[0] == "``"
+    doesnt_end_with_period = len(tokens) > 0 and tokens[-1] != "."
+    # contains_says = "says" in tokens or "said" in tokens
+    decision = contains_quotation_marks or doesnt_end_with_period
+    # if decision:
+    #     print "Skipping quote: ", ' '.join(tokens)
+    return decision
+
+def process_sent(sent):
+    line = decode_text(sent.lower())
+    tokenized_sent = nltk.word_tokenize(line)
+    tokenized_sent = [fix_bracket_token(token) for token in tokenized_sent]
+    return tokenized_sent
 
 
 

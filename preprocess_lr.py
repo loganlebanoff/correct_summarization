@@ -272,7 +272,7 @@ def convert_article_to_lambdamart_features(ex):
     example, example_idx, single_feat_len, pair_feat_len = ex
     print(example_idx)
     raw_article_sents, similar_source_indices_list, summary_text = util.unpack_tf_example(example, names_to_types)
-    article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+    article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
     summ_sent_tokens = [sent.strip().split() for sent in summary_text.strip().split('\n')]
 
     # sent_term_matrix = util.get_tfidf_matrix(raw_article_sents)

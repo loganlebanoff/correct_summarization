@@ -46,7 +46,7 @@ def main(unused_argv):
             #     example, names_to_types)
             raw_article_sents, article, abstracts, doc_indices = util.unpack_tf_example(
                 example, names_to_types)
-            article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+            article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
             # groundtruth_summ_sent_tokens = [sent.strip().split() for sent in groundtruth_summary_text.strip().split('\n')]
             groundtruth_summ_sent_tokens = [[token for token in abstract.strip().split() if token not in ['<s>','</s>']] for abstract in abstracts]
             all_tokens = util.flatten_list_of_lists(article_sent_tokens) + util.flatten_list_of_lists(groundtruth_summ_sent_tokens)

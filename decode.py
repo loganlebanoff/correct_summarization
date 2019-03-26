@@ -38,6 +38,7 @@ import importance_features
 import convert_data
 from batcher import create_batch
 import attn_selections
+import ssi_functions
 
 FLAGS = flags.FLAGS
 
@@ -88,6 +89,8 @@ class BeamSearchDecoder(object):
             if not os.path.exists(self._rouge_dec_dir): os.mkdir(self._rouge_dec_dir)
             self._human_dir = os.path.join(self._decode_dir, "human_readable")
             if not os.path.exists(self._human_dir): os.mkdir(self._human_dir)
+            self._highlight_dir = os.path.join(self._decode_dir, "highlight")
+            if not os.path.exists(self._highlight_dir): os.mkdir(self._highlight_dir)
 
 
     def decode(self):
@@ -149,7 +152,7 @@ class BeamSearchDecoder(object):
         for example_idx, example in enumerate(tqdm(example_generator, total=total)):
             raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs = util.unpack_tf_example(
                 example, names_to_types)
-            article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+            article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
             groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
 
             if ssi_list is None:    # this is if we are doing the upper bound evaluation (ssi_list comes straight from the groundtruth)
@@ -177,6 +180,7 @@ class BeamSearchDecoder(object):
             final_decoded_words = []
             final_decoded_outpus = ''
             best_hyps = []
+            highlight_html_total = ''
             for ssi_idx, ssi in enumerate(sys_ssi):
                 selected_raw_article_sents = util.reorder(raw_article_sents, ssi)
                 selected_article_text = ' '.join( [' '.join(sent) for sent in util.reorder(article_sent_tokens, ssi)] )
@@ -201,6 +205,20 @@ class BeamSearchDecoder(object):
                 final_decoded_outpus += decoded_output
                 best_hyps.append(best_hyp)
 
+                if example_idx < 1000:
+                    min_matched_tokens = 2
+                    selected_article_sent_tokens = [util.process_sent(sent) for sent in selected_raw_article_sents]
+                    highlight_summary_sent_tokens = [decoded_words]
+                    highlight_ssi_list, lcs_paths_list, article_lcs_paths_list = ssi_functions.get_simple_source_indices_list(
+                        highlight_summary_sent_tokens,
+                        selected_article_sent_tokens, None, 2, min_matched_tokens)
+                    highlighted_html = ssi_functions.html_highlight_sents_in_article(highlight_summary_sent_tokens,
+                                                                                   highlight_ssi_list,
+                                                                                     selected_article_sent_tokens,
+                                                                                   lcs_paths_list=lcs_paths_list,
+                                                                                   article_lcs_paths_list=article_lcs_paths_list)
+                    highlight_html_total += '<u>System Summary</u><br><br>' + highlighted_html + '<br><br>'
+
                 if FLAGS.attn_vis and example_idx < 200:
                     self.write_for_attnvis(article_withunks, abstract_withunks, decoded_words, best_hyp.attn_dists,
                                            best_hyp.p_gens,
@@ -212,10 +230,11 @@ class BeamSearchDecoder(object):
 
             if example_idx < 1000:
                 self.write_for_human(raw_article_sents, groundtruth_summ_sents, final_decoded_words, example_idx)
+                ssi_functions.write_highlighted_html(highlight_html_total, self._highlight_dir, example_idx)
 
-            if example_idx % 100 == 0:
-                attn_dir = os.path.join(self._decode_dir, 'attn_vis_data')
-                attn_selections.process_attn_selections(attn_dir, self._decode_dir, self._vocab)
+            # if example_idx % 100 == 0:
+            #     attn_dir = os.path.join(self._decode_dir, 'attn_vis_data')
+            #     attn_selections.process_attn_selections(attn_dir, self._decode_dir, self._vocab)
 
             rouge_functions.write_for_rouge(groundtruth_summ_sents, None, example_idx, self._rouge_ref_dir, self._rouge_dec_dir, decoded_words=final_decoded_words, log=False) # write ref summary and decoded summary to file, to eval with pyrouge later
             # if FLAGS.attn_vis:
@@ -226,7 +245,7 @@ class BeamSearchDecoder(object):
         logging.info("Output has been saved in %s and %s.", self._rouge_ref_dir, self._rouge_dec_dir)
         if len(os.listdir(self._rouge_ref_dir)) != 0:
             if FLAGS.dataset_name == 'xsum':
-                l_param = 40
+                l_param = 100
             else:
                 l_param = 100
             logging.info("Now starting ROUGE eval...")

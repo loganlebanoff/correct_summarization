@@ -59,7 +59,7 @@ def main(unused_argv):
             break
         raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(
             example, names_to_types)
-        article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+        article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
         groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
         if doc_indices is None:
             doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))

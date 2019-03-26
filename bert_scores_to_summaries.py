@@ -283,7 +283,7 @@ def evaluate_example(ex):
     # example_idx += 1
     qid = example_idx
     raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(example, names_to_types)
-    article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+    article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
     enforced_groundtruth_ssi_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, sentence_limit)
     groundtruth_summ_sent_tokens = []
     groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
@@ -358,6 +358,13 @@ def main(unused_argv):
     results_dict = rouge_functions.rouge_eval(ref_dir, dec_dir, l_param=l_param)
     # print("Results_dict: ", results_dict)
     rouge_functions.rouge_log(results_dict, my_log_dir, suffix=suffix)
+
+    ssis_restricted = [ssi_triple[1][:ssi_triple[2]] for ssi_triple in ssi_list]
+    ssi_lens = [len(source_indices) for source_indices in util.flatten_list_of_lists(ssis_restricted)]
+    # print ssi_lens
+    num_singles = ssi_lens.count(1)
+    num_pairs = ssi_lens.count(2)
+    print ('Percent singles/pairs: %.2f %.2f' % (num_singles*100./len(ssi_lens), num_pairs*100./len(ssi_lens)))
 
     util.print_execution_time(start_time)
 

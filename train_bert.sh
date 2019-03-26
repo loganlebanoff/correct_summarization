@@ -116,5 +116,5 @@ if [[ "$mode" == *"summ"* ]]; then
     python bert_scores_to_summaries.py --dataset_name="$dataset_name" --singles_and_pairs="$singles_and_pairs" --sentemb="$sentemb" --artemb="$artemb"  --plushidden="$plushidden"
 fi
 if [[ "$mode" == *"pg"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python ssi_to_pg_input.py --dataset_name="$dataset_name" --singles_and_pairs="$singles_and_pairs" --use_bert=True --sentemb="$sentemb" --artemb="$artemb"  --plushidden="$plushidden"
+    CUDA_VISIBLE_DEVICES="$cuda" python ssi_to_pg_input.py --dataset_name="$dataset_name" --singles_and_pairs="$singles_and_pairs" --use_bert=True --sentemb="$sentemb" --artemb="$artemb"  --plushidden="$plushidden" "$@"
 fi

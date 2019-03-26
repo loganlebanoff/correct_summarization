@@ -32,33 +32,6 @@ p_end_tag = '</P>'
 kaiqiang_dataset_names = ['gigaword', 'cnndm_1to1', 'newsroom', 'websplit']
 kaiqiang_data_dir = os.path.expanduser('~') + '/data'
 
-def fix_bracket_token(token):
-    if token == '(':
-        return '-lrb-'
-    elif token == ')':
-        return '-rrb-'
-    elif token == '[':
-        return '-lsb-'
-    elif token == ']':
-        return '-rsb-'
-    else:
-        return token
-
-def is_quote(tokens):
-    contains_quotation_marks = "''" in tokens and len(tokens) > 0 and tokens[0] == "``"
-    doesnt_end_with_period = len(tokens) > 0 and tokens[-1] != "."
-    # contains_says = "says" in tokens or "said" in tokens
-    decision = contains_quotation_marks or doesnt_end_with_period
-    # if decision:
-    #     print "Skipping quote: ", ' '.join(tokens)
-    return decision
-
-def process_sent(sent):
-    line = util.decode_text(sent.lower())
-    tokenized_sent = nltk.word_tokenize(line)
-    tokenized_sent = [fix_bracket_token(token) for token in tokenized_sent]
-    return tokenized_sent
-
 def process_dataset(dataset_name, out_data_path, should_write_with_generator, TAC_path='', DUC_path='', custom_dataset_path='', dataset_split='all'):
     data_dirs = {
         'tac_2011': {
@@ -148,7 +121,7 @@ def gigaword_generator(dataset_name, dataset_split):
         raw_article_sents = []
 
         orig_sent = article_line
-        tokenized_sent = process_sent(orig_sent)
+        tokenized_sent = util.process_sent(orig_sent)
         # if is_quote(tokenized_sent):
         #     continue
         sent = ' '.join(tokenized_sent)
@@ -212,7 +185,7 @@ def fix_exceptions(sentences):
 
 def add_sents_to_article(sentences, article, raw_article_sents, doc_indices, doc_idx):
     for orig_sent in sentences:
-        tokenized_sent = process_sent(orig_sent)
+        tokenized_sent = util.process_sent(orig_sent)
         if is_quote(tokenized_sent):
             continue
         sent = ' '.join(tokenized_sent)

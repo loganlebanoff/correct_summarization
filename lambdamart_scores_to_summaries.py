@@ -308,42 +308,6 @@ def example_generator_extended(example_generator, total, single_feat_len, pair_f
             break
         yield (example, example_idx, single_feat_len, pair_feat_len, singles_and_pairs)
 
-# @profile
-def write_highlighted_html(html, out_dir, example_idx):
-    html = '''
-    
-<button id="btnPrev" class="float-left submit-button" >Prev</button>
-<button id="btnNext" class="float-left submit-button" >Next</button>
-<br><br>
-
-<script type="text/javascript">
-    document.getElementById("btnPrev").onclick = function () {
-        location.href = "%06d_highlighted.html";
-    };
-    document.getElementById("btnNext").onclick = function () {
-        location.href = "%06d_highlighted.html";
-    };
-    
-    document.addEventListener("keyup",function(e){
-   var key = e.which||e.keyCode;
-   switch(key){
-      //left arrow
-      case 37:
-         document.getElementById("btnPrev").click();
-      break;
-      //right arrow
-      case 39:
-         document.getElementById("btnNext").click();
-      break;
-   }
-});
-</script>
-
-''' % (example_idx-1, example_idx+1) + html
-    path = os.path.join(out_dir, '%06d_highlighted.html' % example_idx)
-    with open(path, 'w') as f:
-        f.write(html)
-
 def get_indices_of_first_k_sents_of_each_article(rel_sent_indices, k):
     indices = [idx for idx, rel_sent_idx in enumerate(rel_sent_indices) if rel_sent_idx < k]
     return indices
@@ -358,7 +322,7 @@ def write_to_lambdamart_examples_to_file(ex):
     if not FLAGS.start_over and os.path.exists(temp_in_path):
         return
     raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(example, names_to_types)
-    article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+    article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
     if doc_indices is None:
         doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
     doc_indices = [int(doc_idx) for doc_idx in doc_indices]
@@ -387,7 +351,7 @@ def evaluate_example(ex):
     # example_idx += 1
     qid = example_idx
     raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(example, names_to_types)
-    article_sent_tokens = [convert_data.process_sent(sent) for sent in raw_article_sents]
+    article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
     enforced_groundtruth_ssi_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, sentence_limit)
     if FLAGS.dataset_name == 'duc_2004':
         groundtruth_summ_sents = [[sent.strip() for sent in gt_summ_text.strip().split('\n')] for gt_summ_text in groundtruth_summary_text]
