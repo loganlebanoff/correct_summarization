@@ -47,6 +47,8 @@ class SummarizationModel(object):
         if FLAGS.pointer_gen:
             self._enc_batch_extend_vocab = tf.placeholder(tf.int32, [hps.batch_size, None], name='enc_batch_extend_vocab')
             self._max_art_oovs = tf.placeholder(tf.int32, [], name='max_art_oovs')
+        if FLAGS.word_imp_reg:
+            self.enc_importances = tf.placeholder(tf.float32, [hps.batch_size, None], name='enc_importances')
 
         # decoder part
         self._dec_batch = tf.placeholder(tf.int32, [hps.batch_size, hps.max_dec_steps], name='dec_batch')
@@ -78,6 +80,8 @@ class SummarizationModel(object):
         feed_dict[self._enc_batch] = batch.enc_batch
         feed_dict[self._enc_lens] = batch.enc_lens
         feed_dict[self._enc_padding_mask] = batch.enc_padding_mask
+        if FLAGS.word_imp_reg:
+            feed_dict[self.enc_importances] = batch.enc_importances
         if FLAGS.pointer_gen:
             feed_dict[self._enc_batch_extend_vocab] = batch.enc_batch_extend_vocab
             feed_dict[self._max_art_oovs] = batch.max_art_oovs
@@ -311,6 +315,14 @@ class SummarizationModel(object):
                         self._total_loss = self._loss + hps.cov_loss_wt * self._coverage_loss
                         tf.summary.scalar('total_loss', self._total_loss)
 
+                        if hps.word_imp_reg:
+                            with tf.variable_scope('importance_loss'):
+                                self._importance_loss = _importance_loss(self.attn_dists, self._enc_padding_mask, self.enc_importances)
+                                tf.summary.scalar('importance_loss', self._importance_loss)
+                            self._total_with_imp_loss = self._total_loss + hps.imp_loss_wt * self._importance_loss
+                            tf.summary.scalar('total_with_imp_loss', self._total_with_imp_loss)
+
+
         if hps.mode == "decode":
             # We run decode beam search mode one decoder step at a time
             assert len(final_dists)==1 # final_dists is a singleton list containing shape (batch_size, extended_vsize)
@@ -322,7 +334,14 @@ class SummarizationModel(object):
     def _add_train_op(self):
         """Sets self._train_op, the op to run for training."""
         # Take gradients of the trainable variables w.r.t. the loss function to minimize
-        loss_to_minimize = self._total_loss if self._hps.coverage else self._loss
+        if self._hps.coverage:
+            if self._hps.word_imp_reg:
+                loss_to_minimize = self._total_with_imp_loss
+            else:
+                loss_to_minimize = self._total_loss
+        else:
+            loss_to_minimize = self._loss
+        # loss_to_minimize = self._total_loss if self._hps.coverage else self._loss
         tvars = tf.trainable_variables()
         gradients = tf.gradients(loss_to_minimize, tvars, aggregation_method=tf.AggregationMethod.EXPERIMENTAL_TREE)
 
@@ -363,7 +382,8 @@ class SummarizationModel(object):
                 'loss': self._loss,
                 'global_step': self.global_step,
                 'attn_dists': self.attn_dists,
-                'pre_attn_dists': self.pre_attn_dists,
+                'importance_loss': self._importance_loss,
+                'coverage_loss': self._coverage_loss,
         }
         if self._hps.coverage:
             to_return['coverage_loss'] = self._coverage_loss
@@ -518,6 +538,22 @@ def _mask_and_avg(values, padding_mask):
     values_per_ex = sum(values_per_step)/dec_lens # shape (batch_size); normalized value for each batch member
     return tf.reduce_mean(values_per_ex) # overall average
 
+def _mask_and_avg_enc(values, padding_mask):
+    """Applies mask to values then returns overall average (a scalar)
+
+    Args:
+        values: tensor shape (batch_size, max_enc_steps).
+        padding_mask: tensor shape (batch_size, max_enc_steps) containing 1s and 0s.
+
+    Returns:
+        a scalar
+    """
+
+    enc_lens = tf.reduce_sum(padding_mask, axis=1) # shape batch_size. float32
+    values_per_step = values * padding_mask
+    values_per_ex = tf.reduce_sum(values_per_step, axis=-1)/enc_lens # shape (batch_size); normalized value for each batch member
+    return tf.reduce_mean(values_per_ex) # overall average
+
 
 def _coverage_loss(attn_dists, padding_mask):
     """Calculates the coverage loss from the attention distributions.
@@ -537,3 +573,22 @@ def _coverage_loss(attn_dists, padding_mask):
         coverage += a # update the coverage vector
     coverage_loss = _mask_and_avg(covlosses, padding_mask)
     return coverage_loss
+
+
+def _importance_loss(attn_dists, padding_mask, importances):
+    """Calculates the coverage loss from the attention distributions.
+
+    Args:
+        attn_dists: The attention distributions for each decoder timestep. A list length max_dec_steps containing shape (batch_size, attn_length)
+        padding_mask: shape (batch_size, max_dec_steps).
+        importances: represents the importance of each encoder token. shape (batch_size, attn_length).
+
+    Returns:
+        coverage_loss: scalar
+    """
+    coverage = tf.zeros_like(attn_dists[0]) # shape (batch_size, attn_length). Initial coverage is zero.
+    for a in attn_dists:
+        coverage += a # update the coverage vector
+    importance_losses = tf.abs(coverage - importances)
+    importance_loss = _mask_and_avg_enc(importance_losses, padding_mask)
+    return importance_loss

@@ -295,7 +295,7 @@ def write_to_bin(url_file, out_dir, dataset_split):
       percent = (corefs_skipped * 1.0 / total_corefs) if total_corefs != 0 else 0
       percent_corefs_skipped_list.append(percent)
 
-      raw_article_sents = [' '.join(sent).encode('utf-8').strip() for sent in coref_replaced_article]
+      raw_article_sents = [' '.join(sent).strip() for sent in coref_replaced_article]
       coref_replaced_article_text = ' '.join(raw_article_sents)
       coref_replaced_article_text = coref_replaced_article_text.lower()     # Because we didn't lowercase in preprocess_for_coref.py
       abstract = abstract.lower()   # Because we didn't lowercase in get_art_abs
@@ -316,8 +316,8 @@ def write_to_bin(url_file, out_dir, dataset_split):
       writer.write(struct.pack('%ds' % str_len, tf_example_str))
 
 
-      article_text = '\n\n'.join([' '.join(sent).encode('utf-8') for sent in article_sent_tokens])
-      new_article_text = '\n\n'.join([' '.join(sent).encode('utf-8') for sent in coref_replaced_article])
+      article_text = '\n\n'.join([' '.join(sent) for sent in article_sent_tokens])
+      new_article_text = '\n\n'.join([' '.join(sent) for sent in coref_replaced_article])
       article_diff = diff.diff_main(article_text, new_article_text)
       diff.diff_cleanupSemantic(article_diff)
       html = diff.diff_prettyHtml(article_diff)

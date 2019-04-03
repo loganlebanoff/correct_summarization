@@ -1,3 +1,5 @@
+import json
+import nltk
 import os
 from tqdm import tqdm
 import numpy as np
@@ -28,15 +30,16 @@ data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
 raw_root = 'data/correctness/raw'
 processed_root = 'data/correctness/processed'
-systems = ['reference', 'abs-rl-rerank', 'pg', 'bottom-up']
+systems = ['reference', 'novel', 'dca', 'abs-rl-rerank', 'pg', 'bottom-up']
 # systems = ['bottom-up']
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 min_matched_tokens = 1
+preprocess_article_and_human_summaries = True
 
 
 def reorder_list_like(to_reorder, ref_summs, ordered_ref_summs):
-    if len(to_reorder) != len(ref_summs) or len(to_reorder) != len(ordered_ref_summs):
-        raise Exception('lens of lists are not equal. %d %d %d' % (len(to_reorder), len(ref_summs), len(ordered_ref_summs)))
+    # if len(to_reorder) != len(ref_summs) or len(to_reorder) != len(ordered_ref_summs):
+    #     raise Exception('lens of lists are not equal. %d %d %d' % (len(to_reorder), len(ref_summs), len(ordered_ref_summs)))
     print ('Fitting and transforming vecs')
     vec = CountVectorizer(input='content', decode_error='ignore')
     all_vecs = vec.fit_transform(ref_summs + ordered_ref_summs)
@@ -51,14 +54,16 @@ def reorder_list_like(to_reorder, ref_summs, ordered_ref_summs):
         argmax_val = argmaxes[i]
         max_val = similarities[i,argmax_val]
         if max_val < 0.7:
-            raise Exception('Best result does not match well. \nSystem ref summ: %s\n\n Ordered ref summ: %s' % (ref_summs[argmax_val], ordered_ref_summs[i]))
+            a=0
+            # raise Exception('Best result does not match well. \nSystem ref summ: %s\n\n Ordered ref summ: %s' % (ref_summs[argmax_val], ordered_ref_summs[i]))
         # if indices_found[argmax_val]:
         #     raise Exception('Best result was already matched with another ordered ref summ')
         indices_found[argmax_val] = True
         reordered_summaries.append(to_reorder[argmax_val])
 
     if len(reordered_summaries) != len(to_reorder):
-        raise Exception('reordered summaries len (%d) is not equal to original length (%d)' % (len(reordered_summaries), len(to_reorder)))
+        a=0
+        # raise Exception('reordered summaries len (%d) is not equal to original length (%d)' % (len(reordered_summaries), len(to_reorder)))
     return reordered_summaries
 
 def slash_t_to_tab_separated(text):
@@ -86,17 +91,21 @@ def main(unused_argv):
     example_generator = data.example_generator(source_dir + '/' + FLAGS.dataset_split + '*', True, False,
                                                should_check_valid=False)
 
-    writer = open(os.path.join(raw_root, 'reference', 'summaries.txt'), 'w')
-    writer_article = open(os.path.join(processed_root, 'article', 'articles.txt'), 'w')
-    for example_idx, example in enumerate(tqdm(example_generator, total=total)):
-        if FLAGS.num_instances != -1 and example_idx >= FLAGS.num_instances:
-            break
-        raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(
-            example, names_to_types)
-        groundtruth_summ_sents = [util.unfix_bracket_tokens_in_sent(sent.strip()) for sent in groundtruth_summary_text.strip().split('\n')]
-        writer.write('\t'.join(groundtruth_summ_sents) + '\n')
-        writer_article.write('\t'.join([util.unfix_bracket_tokens_in_sent(sent.strip()) for sent in raw_article_sents]) + '\n')
-    writer.close()
+    if preprocess_article_and_human_summaries:
+        writer = open(os.path.join(raw_root, 'reference', 'summaries.txt'), 'w')
+        writer_article = open(os.path.join(processed_root, 'article', 'articles.txt'), 'w')
+        reference_articles = []
+        for example_idx, example in enumerate(tqdm(example_generator, total=total)):
+            if FLAGS.num_instances != -1 and example_idx >= FLAGS.num_instances:
+                break
+            raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices = util.unpack_tf_example(
+                example, names_to_types)
+            groundtruth_summ_sents = [util.unfix_bracket_tokens_in_sent(sent.strip()) for sent in groundtruth_summary_text.strip().split('\n')]
+            writer.write('\t'.join(groundtruth_summ_sents) + '\n')
+            reference_article = '\t'.join([util.unfix_bracket_tokens_in_sent(sent.strip()) for sent in raw_article_sents])
+            reference_articles.append(reference_article)
+            writer_article.write(reference_article + '\n')
+        writer.close()
 
     for system in systems:
         print('Processing ' + system + '...')
@@ -164,6 +173,46 @@ def main(unused_argv):
             with open(os.path.join(processed_dir, 'summaries.txt'), 'w') as writer:
                 for summ in reordered_summaries:
                     writer.write(summ + '\n')
+        elif system == 'dca':
+            with open(os.path.join(raw_dir, 'cnndm_m6_m7.txt')) as f:
+                text = f.read()
+            lines = text.split('\n')
+            summaries = []
+            sys_ref_summaries = []
+            for line in tqdm(lines[1:]):
+                if line.strip() == '':
+                    continue
+                if len(line.split('\t')) != 3:
+                    a=0
+                sys_ref_summary, _, summary = line.split('\t')
+                summary = summary.replace('u . s .', 'u.s.')
+                sys_ref_summary = sys_ref_summary.replace('u . s .', 'u.s.')
+                summaries.append('\t'.join(nltk.tokenize.sent_tokenize(summary)))
+                # summaries.append('\t'.join([sent + ' .' if sent_idx != len(summary.split(' . '))-1 else sent for sent_idx, sent in enumerate(summary.split(' . '))]))
+                sys_ref_summaries.append('\t'.join([sent + ' .' for sent in sys_ref_summary.split(' . ')]))
+            reordered_summaries = reorder_list_like(summaries, sys_ref_summaries, reference_summaries)
+            with open(os.path.join(processed_dir, 'summaries.txt'), 'w') as writer:
+                for summ in reordered_summaries:
+                    writer.write(summ + '\n')
+        elif system == 'novel':
+            with open(os.path.join(raw_dir, 'rl-novelty-lm.out')) as f:
+                text = f.read()
+            lines = text.split('\n')
+            summaries = []
+            sys_articles = []
+            for line in tqdm(lines):
+                if line.strip() == '':
+                    continue
+                obj = json.loads(line)
+                article = obj['article']
+                summary = obj['prediction']
+                summaries.append('\t'.join(nltk.tokenize.sent_tokenize(summary)))
+                sys_articles.append('\t'.join([sent + ' .' for sent in article.split(' . ')]))
+            reordered_summaries = reorder_list_like(summaries, sys_articles, reference_articles)
+            with open(os.path.join(processed_dir, 'summaries.txt'), 'w') as writer:
+                for summ in reordered_summaries:
+                    writer.write(summ + '\n')
+            a=0
 
 
 

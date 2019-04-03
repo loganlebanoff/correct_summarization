@@ -394,6 +394,24 @@ def decode_text(text):
             raise
     return text
 
+def encode_text(text):
+    # # print (python_version)
+    # # if python_version == 3:
+    # #     if isinstance(text, str):
+    # #         text = text.encode()
+    # #         print ("String: " + str(isinstance(text, str)))
+    # #         print ("btyes: " + str(isinstance(text, bytes)))
+    # #         return text
+    # # else:
+    try:
+        text = text.encode('utf-8')
+    except:
+        try:
+            text = text.encode('latin-1')
+        except:
+            raise
+    return text
+
 def unpack_tf_example(example, names_to_types):
     def get_string(name):
         return decode_text(example.features.feature[name].bytes_list.value[0])
@@ -704,7 +722,8 @@ def all_sent_selection_eval(ssi_list):
 
 def lemmatize_sent_tokens(article_sent_tokens):
     # article_sent_tokens_lemma = [[t.lemma_ for t in Doc(nlp.vocab, words=[token.decode('utf-8') for token in sent])] for sent in article_sent_tokens]
-    article_sent_tokens_lemma = [[t.lemma_ for t in Doc(nlp.vocab, words=[decode_text(token) for token in sent])] for sent in article_sent_tokens]
+    # article_sent_tokens_lemma = [[t.lemma_ for t in Doc(nlp.vocab, words=[decode_text(token) for token in sent])] for sent in article_sent_tokens]
+    article_sent_tokens_lemma = [[t.lemma_ for t in Doc(nlp.vocab, words=[token for token in sent])] for sent in article_sent_tokens]
 
     # article_sent_tokens_lemma2 = [[t.lemma_ for t in nlp2(' '.join(sent))] for sent in article_sent_tokens]
     # for a, b in zip(flatten_list_of_lists(article_sent_tokens), flatten_list_of_lists(article_sent_tokens_lemma)):
@@ -755,7 +774,8 @@ def is_quote(tokens):
     return decision
 
 def process_sent(sent):
-    line = decode_text(sent.lower())
+    # line = decode_text(sent.lower())
+    line = sent.lower()
     tokenized_sent = nltk.word_tokenize(line)
     tokenized_sent = [fix_bracket_token(token) for token in tokenized_sent]
     return tokenized_sent

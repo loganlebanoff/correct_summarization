@@ -271,7 +271,7 @@ def write_highlighted_html(html, out_dir, example_idx):
 ''' % (example_idx-1, example_idx+1) + html
     path = os.path.join(out_dir, '%06d_highlighted.html' % example_idx)
     with open(path, 'w') as f:
-        f.write(html.encode('utf-8'))
+        f.write(html)
 
 def get_indices_of_first_k_sents_of_each_article(rel_sent_indices, k):
     indices = [idx for idx, rel_sent_idx in enumerate(rel_sent_indices) if rel_sent_idx < k]

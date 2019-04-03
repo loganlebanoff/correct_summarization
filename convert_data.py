@@ -132,7 +132,7 @@ def gigaword_generator(dataset_name, dataset_split):
         doc_indices += doc_indices_str + ' '
         raw_article_sents.append(orig_sent)
 
-        article = article.encode('utf-8').strip()
+        article = article.strip()
 
         abstracts_unprocessed = [[abstract_line]]
         abstracts = []
@@ -226,17 +226,17 @@ def get_article(article_dir, multidoc_dirname, is_tac):
             sentences = nltk.tokenize.sent_tokenize(contents)
             fixed_sentences = fix_exceptions(sentences)
             article, raw_article_sents, doc_indices = add_sents_to_article(sentences, article, raw_article_sents, doc_indices, doc_idx)
-    article = article.encode('utf-8').strip()
+    article = article.strip()
     return article, doc_indices, raw_article_sents
 
 def process_abstract(abstract_lines):
     abstract = ''
     for line in abstract_lines:
-        line = line.encode('utf-8')
+        # line = util.encode_text(line)
         line = line.lower()
         line = line.replace('\x92', "'")
         tokenized_sent = nltk.word_tokenize(line)
-        tokenized_sent = [fix_bracket_token(token) for token in tokenized_sent]
+        tokenized_sent = [util.fix_bracket_token(token) for token in tokenized_sent]
         sent = ' '.join(tokenized_sent)
         abstract += '<s> ' + sent + ' </s> '
     # abstract = abstract.encode('utf-8')
@@ -271,22 +271,22 @@ def get_article_abstract(multidoc_dirname, article_dir, abstract_dir, is_tac, is
 
 def make_example(article, abstracts, doc_indices, raw_article_sents, corefs):
     tf_example = example_pb2.Example()
-    tf_example.features.feature['article'].bytes_list.value.extend([article.encode('utf-8')])
+    tf_example.features.feature['article'].bytes_list.value.extend([util.encode_text(article)])
     for abstract in abstracts:
         if type(abstract) == list:
-            tf_example.features.feature['abstract'].bytes_list.value.extend([process_abstract(abstract).encode('utf-8')])
+            tf_example.features.feature['abstract'].bytes_list.value.extend([process_abstract(abstract)])
         else:
-            tf_example.features.feature['abstract'].bytes_list.value.extend([abstract.encode('utf-8')])
+            tf_example.features.feature['abstract'].bytes_list.value.extend([util.encode_text(abstract)])
     if doc_indices is not None:
         if type(doc_indices) == list:
             doc_indices = ' '.join(doc_indices)
-        tf_example.features.feature['doc_indices'].bytes_list.value.extend([doc_indices.encode('utf-8')])
+        tf_example.features.feature['doc_indices'].bytes_list.value.extend([util.encode_text(doc_indices)])
     if raw_article_sents is not None:
         for sent in raw_article_sents:
-            tf_example.features.feature['raw_article_sents'].bytes_list.value.extend([sent.encode('utf-8')])
+            tf_example.features.feature['raw_article_sents'].bytes_list.value.extend([util.encode_text(sent)])
     if corefs is not None:
         corefs_str = json.dumps(corefs)
-        tf_example.features.feature['corefs'].bytes_list.value.extend([corefs_str.encode('utf-8')])
+        tf_example.features.feature['corefs'].bytes_list.value.extend([util.encode_text(corefs_str)])
     return tf_example
 
 def write_example(article, abstracts, doc_indices, raw_article_sents, corefs, writer):

@@ -49,6 +49,7 @@ log_dir = 'logs/'
 max_enc_steps = 100000
 min_dec_steps = 100
 max_dec_steps = 120
+np.random.seed(123)
 
 threshold = 0.9
 default_exp_name = 'duc_2004_reservoir_lambda_0.6_mute_7_tfidf'
@@ -66,7 +67,7 @@ def get_summary_text(summary_file):
 def get_summary_from_example(e):
     summary_texts = []
     for abstract in e.features.feature['abstract'].bytes_list.value:
-        summary_texts.append(abstract)  # the abstracts texts was saved under the key 'abstract' in the data files
+        summary_texts.append(abstract.decode())  # the abstracts texts was saved under the key 'abstract' in the data files
     all_abstract_sentences = [[sent.strip() for sent in data.abstract2sents(
         abstract)] for abstract in summary_texts]
     summary_text = '\n'.join(all_abstract_sentences[0])
@@ -121,6 +122,8 @@ def get_merge_example(similar_source_indices, article_sent_tokens, summ_sent, co
     #     if source_indices_idx >= FLAGS.sentence_limit:
     #         break
     #     restricted_source_indices.append(source_indices[0])
+    if FLAGS.chronological and len(similar_source_indices) > 1:
+        similar_source_indices = (min(similar_source_indices), max(similar_source_indices))
     merged_example_sentences = [' '.join(sent) for sent in util.reorder(article_sent_tokens, similar_source_indices)]
     merged_example_article_text = ' '.join(merged_example_sentences)
     merged_example_abstracts = [[' '.join(summ_sent)]]
@@ -130,9 +133,9 @@ def get_merge_example(similar_source_indices, article_sent_tokens, summ_sent, co
 def write_lambdamart_example(simple_similar_source_indices, raw_article_sents, summary_text, corefs_str, doc_indices, writer):
     tf_example = example_pb2.Example()
     source_indices_str = ';'.join([' '.join(str(i) for i in source_indices) for source_indices in simple_similar_source_indices])
-    tf_example.features.feature['similar_source_indices'].bytes_list.value.extend([source_indices_str.encode("utf8")])
+    tf_example.features.feature['similar_source_indices'].bytes_list.value.extend([source_indices_str])
     for sent in raw_article_sents:
-        s = sent.encode('utf-8').strip()
+        s = sent.strip()
         tf_example.features.feature['raw_article_sents'].bytes_list.value.extend([s])
     for summ_text in summary_text:
         tf_example.features.feature['summary_text'].bytes_list.value.extend([summ_text])
@@ -238,13 +241,19 @@ def main(unused_argv):
         example_idx = -1
         instance_idx = 0
         total = len(source_files) * 1000 if ('cnn' in FLAGS.dataset_name or 'newsroom' in FLAGS.dataset_name or 'xsum' in FLAGS.dataset_name) else len(source_files)
+        if FLAGS.randomize:
+            if FLAGS.dataset_name == 'cnn_dm':
+                list_order = np.random.permutation(11490)
+                random_choices = list_order[:FLAGS.num_instances]
         for example in tqdm(example_generator, total=total):
             example_idx += 1
             if FLAGS.num_instances != -1 and instance_idx >= FLAGS.num_instances:
                 break
+            if example_idx not in random_choices:
+                continue
         # for file_idx in tqdm(range(len(source_files))):
         #     example = get_tf_example(source_files[file_idx])
-            article_text = example.features.feature['article'].bytes_list.value[0].lower()
+            article_text = example.features.feature['article'].bytes_list.value[0].decode().lower()
             if FLAGS.exp_name == 'reference':
                 summary_text, all_summary_texts = get_summary_from_example(example)
             else:
@@ -253,10 +262,11 @@ def main(unused_argv):
             if 'raw_article_sents' in example.features.feature and len(example.features.feature['raw_article_sents'].bytes_list.value) > 0:
                 raw_article_sents = example.features.feature['raw_article_sents'].bytes_list.value
 
-                raw_article_sents = [sent for sent in raw_article_sents if sent.strip() != '']
+                raw_article_sents = [sent.decode() for sent in raw_article_sents if sent.decode().strip() != '']
                 article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
             else:
-                article_text = util.to_unicode(article_text)
+                # article_text = util.to_unicode(article_text)
+
                 # sent_pros = {'annotators': 'ssplit', 'outputFormat': 'json', 'timeout': '5000000'}
                 # sents_result_dict = nlp.annotate(str(article_text), properties=sent_pros)
                 # article_sent_tokens = [[token['word'] for token in sent['tokens']] for sent in sents_result_dict['sentences']]
@@ -281,7 +291,7 @@ def main(unused_argv):
 
             summary_sent_tokens = split_into_sent_tokens(summary_text)
             if 'doc_indices' in example.features.feature and len(example.features.feature['doc_indices'].bytes_list.value) > 0:
-                doc_indices_str = example.features.feature['doc_indices'].bytes_list.value[0]
+                doc_indices_str = example.features.feature['doc_indices'].bytes_list.value[0].decode()
                 if '1' in doc_indices_str:
                     doc_indices = [int(x) for x in doc_indices_str.strip().split()]
                     rel_sent_positions = importance_features.get_sent_indices(article_sent_tokens, doc_indices)
@@ -316,7 +326,7 @@ def main(unused_argv):
 
             simple_similar_source_indices_list_plus_empty.append(simple_similar_source_indices)
             if FLAGS.ssi_dataset:
-                summary_text_to_save = [s.encode('utf-8') for s in all_summary_texts] if FLAGS.dataset_name == 'duc_2004' else summary_text.encode('utf-8')
+                summary_text_to_save = [s for s in all_summary_texts] if FLAGS.dataset_name == 'duc_2004' else summary_text
                 write_lambdamart_example(simple_similar_source_indices, raw_article_sents, summary_text_to_save, corefs_str, doc_indices_str, lambdamart_writer)
 
 
@@ -325,7 +335,7 @@ def main(unused_argv):
                 extracted_sents_in_article_html = ssi_functions.html_highlight_sents_in_article(summary_sent_tokens, simple_similar_source_indices,
                                                                                   article_sent_tokens, doc_indices,
                                                                                   lcs_paths_list, article_lcs_paths_list)
-                extracted_sents_in_article_html_file.write(extracted_sents_in_article_html)
+                extracted_sents_in_article_html_file.write(extracted_sents_in_article_html.encode())
             a=0
 
             instance_idx += 1
@@ -392,13 +402,15 @@ if __name__ == '__main__':
     flags.DEFINE_integer('min_matched_tokens', 2, 'Number of tokens required that still counts a source sentence as matching a summary sentence.')
     flags.DEFINE_integer('abstract_idx', 0, 'Which human abstract to process on. Only applies to duc_2004.')
     flags.DEFINE_boolean('consider_stopwords', False, 'Which human abstract to process on. Only applies to duc_2004.')
-    flags.DEFINE_boolean('print_output', True, 'Whether to print and save the merged sentences and statistics.')
-    flags.DEFINE_boolean('highlight', True, 'Whether to save an html file that shows the selected sentences as highlighted in the article.')
-    flags.DEFINE_boolean('sent_dataset', True, 'Whether to save the merged sentences as a dataset.')
-    flags.DEFINE_boolean('ssi_dataset', True, 'Whether to save features as a dataset that will be used to predict which sentences should be merged, using the LambdaMART system.')
+    flags.DEFINE_boolean('print_output', False, 'Whether to print and save the merged sentences and statistics.')
+    flags.DEFINE_boolean('highlight', False, 'Whether to save an html file that shows the selected sentences as highlighted in the article.')
+    flags.DEFINE_boolean('sent_dataset', False, 'Whether to save the merged sentences as a dataset.')
+    flags.DEFINE_boolean('ssi_dataset', False, 'Whether to save features as a dataset that will be used to predict which sentences should be merged, using the LambdaMART system.')
     flags.DEFINE_boolean('only_highlight', False, 'Which human abstract to process on. Only applies to duc_2004.')
     flags.DEFINE_boolean('lemmatize', True, 'Which human abstract to process on. Only applies to duc_2004.')
     flags.DEFINE_boolean('multiple_ssi', False, 'Allow multiple singles are pairs to be chosen for each summary sentence, rather than just the top similar sentence.')
+    flags.DEFINE_boolean('chronological', True, 'Whether to make sent_dataset chronological for source indices. Does not apply to ssi_dataset.')
+    flags.DEFINE_boolean('randomize', False, 'Whether to make sent_dataset chronological for source indices. Does not apply to ssi_dataset.')
 
     app.run(main)
 

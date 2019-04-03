@@ -249,7 +249,7 @@ def write_to_bin(url_file, out_dir, dataset_split):
       corefs_relevant_info = remove_irrelevant(fixed_corefs)
       corefs_json = json.dumps(corefs_relevant_info)
 
-      raw_article_sents = [' '.join(sent).encode('utf-8').strip() for sent in article_sent_tokens]
+      raw_article_sents = [' '.join(sent).strip() for sent in article_sent_tokens]
       article_text = ' '.join(raw_article_sents)
       article_text = article_text.lower()     # Because we didn't lowercase in preprocess_for_coref.py
       abstract = abstract.lower()   # Because we didn't lowercase in get_art_abs

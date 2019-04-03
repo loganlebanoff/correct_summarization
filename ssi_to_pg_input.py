@@ -84,7 +84,7 @@ flags.DEFINE_string('similarity_fn', 'rouge_l', 'Which similarity function to us
                             sentence similarity or coverage. Must be one of {rouge_l, ngram_similarity}')
 flags.DEFINE_boolean('plot_distributions', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 
-flags.DEFINE_boolean('attn_vis', True, 'If true, then output attention visualization during decoding.')
+flags.DEFINE_boolean('attn_vis', False, 'If true, then output attention visualization during decoding.')
 
 flags.DEFINE_string('singles_and_pairs', 'singles',
                     'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
@@ -108,6 +108,10 @@ flags.DEFINE_string('ssi_data_path', '',
                     'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
 flags.DEFINE_boolean('better_beam_search', False,
                     'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
+flags.DEFINE_boolean('word_imp_reg', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
+flags.DEFINE_float('imp_loss_wt', 1.0, 'Weight of coverage loss (lambda in the paper). If zero, then no incentive to minimize coverage loss.')
+flags.DEFINE_boolean('first_intact', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
+
 
 _exp_name = 'lambdamart'
 dataset_split = 'test'
@@ -147,6 +151,10 @@ def main(unused_argv):
         FLAGS.exp_name = FLAGS.dataset_name + '_' + FLAGS.exp_name + extractor + '_singles'
         FLAGS.pretrained_path = os.path.join(FLAGS.log_root, pretrained_dataset + '_sent' + '_singles')
         dataset_articles = FLAGS.dataset_name + '_singles'
+    if FLAGS.word_imp_reg:
+        FLAGS.pretrained_path += '_imp' + str(FLAGS.imp_loss_wt)
+        FLAGS.exp_name += '_imp' + str(FLAGS.imp_loss_wt)
+
 
     bert_suffix = ''
     if FLAGS.use_bert:
@@ -164,13 +172,15 @@ def main(unused_argv):
         ssi_list = None     # this is if we are doing the upper bound evaluation (ssi_list comes straight from the groundtruth)
     else:
         my_log_dir = os.path.join(log_dir, '%s_%s_%s%s' % (FLAGS.dataset_name, extractor, FLAGS.singles_and_pairs, bert_suffix))
-        with open(os.path.join(my_log_dir, 'ssi.pkl')) as f:
+        with open(os.path.join(my_log_dir, 'ssi.pkl'), 'rb') as f:
             ssi_list = pickle.load(f)
         FLAGS.ssi_data_path = my_log_dir
     if FLAGS.cnn_dm_pg:
         FLAGS.exp_name = FLAGS.exp_name + '_cnntrained'
     if FLAGS.websplit:
         FLAGS.exp_name = FLAGS.exp_name + '_websplittrained'
+    if FLAGS.first_intact:
+        FLAGS.exp_name = FLAGS.exp_name + '_firstintact'
 
 
 
@@ -219,7 +229,7 @@ def main(unused_argv):
     hparam_list = ['mode', 'lr', 'adagrad_init_acc', 'rand_unif_init_mag', 'trunc_norm_init_std',
                    'max_grad_norm', 'hidden_dim', 'emb_dim', 'batch_size', 'max_dec_steps',
                    'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input', 'pg_mmr', 'singles_and_pairs', 'skip_with_less_than_3',
-                   'ssi_data_path']
+                   'ssi_data_path', 'word_imp_reg', 'imp_loss_wt']
     hps_dict = {}
     for key,val in FLAGS.__flags.items(): # for each flag
         if key in hparam_list: # if it's in the list

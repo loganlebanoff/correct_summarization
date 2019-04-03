@@ -111,6 +111,9 @@ class Example(object):
                     self.enc_input_extend_vocab = self.enc_input_extend_vocab[:hps.max_enc_steps]
                 self.enc_len = len(self.enc_input_extend_vocab) # store the length after truncation but before padding
 
+            if self.hps.word_imp_reg:
+                self.enc_importances = self.get_enc_importances(self.tokenized_sents, abstract_words)
+
             # Get a verison of the reference summary where in-article OOVs are represented by their temporary article OOV id
             abs_ids_extend_vocab = data.abstract2ids(abstract_words, vocab, self.article_oovs)
 
@@ -144,6 +147,16 @@ class Example(object):
 
         self.doc_indices = doc_indices
         self.ssi = ssi
+
+    def get_enc_importances(self, tokenized_sents, abstract_words):
+        lemmatize = True
+        if lemmatize:
+            article_sent_tokens_lemma = util.lemmatize_sent_tokens(tokenized_sents)
+            summary_sent_tokens_lemma = util.lemmatize_sent_tokens([abstract_words])
+        article_tokens = util.flatten_list_of_lists(article_sent_tokens_lemma)
+        abstract_tokens = util.flatten_list_of_lists(summary_sent_tokens_lemma)
+        enc_importances = [1. if token in abstract_tokens else 0. for token in article_tokens]
+        return enc_importances
 
 
     def get_dec_inp_targ_seqs(self, sequence, max_len, start_id, stop_id):
@@ -187,6 +200,10 @@ class Example(object):
             while len(self.enc_input_extend_vocab) < max_len:
                 self.enc_input_extend_vocab.append(pad_id)
             self.enc_input_extend_vocab = self.enc_input_extend_vocab[:max_len]
+        if self.hps.word_imp_reg:
+            while len(self.enc_importances) < max_len:
+                self.enc_importances.append(0.)
+            self.enc_importances = self.enc_importances[:max_len]
 
     def pad_doc_indices(self, max_len, pad_id):
         """Pad the encoder input sequence with pad_id up to max_len."""
@@ -329,6 +346,12 @@ class Batch(object):
             self.enc_batch_extend_vocab = np.zeros((hps.batch_size, max_enc_seq_len), dtype=np.int32)
             for i, ex in enumerate(example_list):
                 self.enc_batch_extend_vocab[i, :] = ex.enc_input_extend_vocab[:]
+
+        if hps.word_imp_reg:
+            self.enc_importances = np.zeros((hps.batch_size, max_enc_seq_len), dtype=np.float32)
+            for i, ex in enumerate(example_list):
+                self.enc_importances[i, :] = ex.enc_importances[:]
+
 
     def init_decoder_seq(self, example_list, hps):
         """Initializes the following:
@@ -501,6 +524,12 @@ class Batcher(object):
                 ssi_length_extractive = ssi_triple_list[counter][2]
                 ssi = ssi_triple_list[counter][1]
                 ssi = ssi[:ssi_length_extractive]
+
+            article = article.decode()
+            abstracts = [abstract.decode() for abstract in abstracts]
+            if type(doc_indices_str) != str:
+                doc_indices_str = doc_indices_str.decode()
+            raw_article_sents = [sent.decode() for sent in raw_article_sents]
 
             all_abstract_sentences = [[sent.strip() for sent in data.abstract2sents(
                 abstract)] for abstract in abstracts]

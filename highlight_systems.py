@@ -27,8 +27,8 @@ data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
 highlight_root = 'data/correctness/highlighted'
 processed_root = 'data/correctness/processed'
-systems = ['reference', 'abs-rl-rerank', 'pg', 'bottom-up']
-# systems = ['bottom-up']
+systems = ['reference', 'novel', 'dca', 'abs-rl-rerank', 'pg', 'bottom-up']
+# systems = ['novel', 'dca']
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 min_matched_tokens = 2
 

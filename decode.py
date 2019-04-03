@@ -200,10 +200,14 @@ class BeamSearchDecoder(object):
                 # article_withunks = data.show_art_oovs(original_article, self._vocab) # string
                 # abstract_withunks = data.show_abs_oovs(original_abstract, self._vocab, (batch.art_oovs[0] if FLAGS.pointer_gen else None)) # string
 
-                decoded_words, decoded_output, best_hyp = decode_example(self._sess, self._model, self._vocab, batch, example_idx, hps)
+                if FLAGS.first_intact and ssi_idx == 0:
+                    decoded_words = selected_article_text.strip().split()
+                    decoded_output = selected_article_text
+                else:
+                    decoded_words, decoded_output, best_hyp = decode_example(self._sess, self._model, self._vocab, batch, example_idx, hps)
+                    best_hyps.append(best_hyp)
                 final_decoded_words.extend(decoded_words)
                 final_decoded_outpus += decoded_output
-                best_hyps.append(best_hyp)
 
                 if example_idx < 1000:
                     min_matched_tokens = 2

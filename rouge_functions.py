@@ -142,10 +142,10 @@ def write_for_rouge(all_reference_sents, decoded_sents, ex_index, ref_dir, dec_d
                 file_name, ex_index, chr(ord('A') + abs_idx)))
         with open(ref_file, "w") as f:
             for idx, sent in enumerate(abs):
-                f.write(sent.encode('utf-8') + "\n")
+                f.write(sent + "\n")
     with open(decoded_file, "w") as f:
         for idx, sent in enumerate(decoded_sents):
-            f.write(sent.encode('utf-8') + "\n")
+            f.write(sent + "\n")
 
     # if log:
     #     logging.info("Wrote example %i to file" % ex_index)
@@ -195,7 +195,7 @@ def rouge_log(results_dict, dir_to_write, prefix=None, suffix=None):
     results_file = os.path.join(dir_to_write, "ROUGE_results.txt")
     print(("Writing final ROUGE results to %s...", results_file))
     with open(results_file, "w") as f:
-        f.write(log_str.encode('utf-8'))
+        f.write(log_str)
 
     print("\nROUGE-1, ROUGE-2, ROUGE-SU4 (PRF):\n")
     sheets_str = ""
@@ -213,7 +213,7 @@ def rouge_log(results_dict, dir_to_write, prefix=None, suffix=None):
     print(sheets_str)
     sheets_results_file = os.path.join(dir_to_write, "sheets_results.txt")
     with open(sheets_results_file, "w") as f:
-        f.write(sheets_str.encode('utf-8'))
+        f.write(sheets_str)
     return sheets_str
 
 

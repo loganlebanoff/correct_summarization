@@ -29,6 +29,7 @@ min_dec_steps=10
 max_dec_steps=30
 batch_size=128
 exp_suffix=""
+word_imp_reg=0
 
 dataset_suffix=""
 dataset_split=train
@@ -68,6 +69,9 @@ while [ $# -gt 0 ]; do
     --exp_suffix=*)
       exp_suffix="${1#*=}"
       ;;
+    --word_imp_reg=*)
+      word_imp_reg="${1#*=}"
+      ;;
     *)
         break
   esac
@@ -93,7 +97,7 @@ fi
 
 if [[ "$singles_and_pairs" = "both" ]]; then
     exp_suffix=_sent_both
-    dataset_suffix=_sent_both
+    dataset_suffix=_sent
 elif [[ "$singles_and_pairs" = "singles" ]]; then
     exp_suffix=_sent_singles
     dataset_suffix=_sent_singles
@@ -101,9 +105,18 @@ else
     data_root_flag=--data_root=$HOME/data/tf_data
 fi
 
+imp_flag=""
+word_imp_flag=""
+if [[ "$word_imp_reg" = "1" ]]; then
+    imp_flag=_imp
+    word_imp_flag=--word_imp_reg
+fi
+
 if [[ "$cuda" = "1" ]]; then
     port=7007
 fi
+
+
 
 echo "$dataset_name"
 echo "$mode"
@@ -113,17 +126,17 @@ echo "$@"
 
 
 if [[ "$mode" == *"tensorboard"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" tensorboard --logdir=logs/"$dataset_name""$exp_suffix"/eval --port="$port" &> $HOME/null &
+    CUDA_VISIBLE_DEVICES="$cuda" tensorboard --logdir=logs/"$dataset_name""$dataset_suffix"$imp_flag/eval --port="$port" &> $HOME/null &
 fi
 if [[ "$mode" == *"eval"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=eval --dataset_name="$dataset_name""$dataset_suffix" --dataset_split=val --exp_name="$dataset_name""$exp_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations=-1 $data_root_flag "$@" &> $HOME/null &
+    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=eval --dataset_name="$dataset_name""$dataset_suffix"_notchronological --dataset_split=val --exp_name="$dataset_name""$dataset_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations=-1 $data_root_flag $word_imp_flag "$@" &> $HOME/null &
 fi
 if [[ "$mode" == *"train"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=train --dataset_name="$dataset_name""$dataset_suffix" --dataset_split="$dataset_split" --exp_name="$dataset_name""$exp_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations="$num_iterations"  $data_root_flag "$@"
+    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=train --dataset_name="$dataset_name""$dataset_suffix"_notchronological --dataset_split="$dataset_split" --exp_name="$dataset_name""$dataset_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations="$num_iterations"  $data_root_flag $word_imp_flag "$@"
 fi
 if [[ "$mode" == *"restore"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=train --dataset_name="$dataset_name""$dataset_suffix" --dataset_split="$dataset_split" --exp_name="$dataset_name""$exp_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations="$num_iterations" $data_root_flag --restore_best_model "$@"
+    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=train --dataset_name="$dataset_name""$dataset_suffix" --dataset_split="$dataset_split" --exp_name="$dataset_name""$dataset_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations="$num_iterations" $data_root_flag $word_imp_flag --restore_best_model "$@"
 fi
 if [[ "$mode" == *"decode"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=decode --dataset_name="$dataset_name""$dataset_suffix" --dataset_split=test --exp_name="$dataset_name""$exp_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=True --batch_size="$batch_size" --num_iterations=-1 $data_root_flag "$@"
+    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=decode --dataset_name="$dataset_name""$dataset_suffix" --dataset_split=test --exp_name="$dataset_name""$dataset_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=True --batch_size="$batch_size" --num_iterations=-1 $data_root_flag $word_imp_flag "$@"
 fi

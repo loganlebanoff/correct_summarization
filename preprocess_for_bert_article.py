@@ -95,7 +95,7 @@ def main(unused_argv):
                 # similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, FLAGS.sentence_limit)
 
                 article = ' '.join(raw_article_sents)
-                writer.write(article.encode('utf-8') + '\n'.encode('utf-8'))
+                writer.write(article + '\n')
 
 
 

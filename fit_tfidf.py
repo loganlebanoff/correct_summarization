@@ -109,7 +109,7 @@ def save_as_txt_file(ex):
     example, example_idx = ex
     # print example_idx
     article_text, = util.unpack_tf_example(example, names_to_types)
-    article_text = article_text.encode('utf-8')
+    article_text = article_text
     # out_path = os.path.join(out_dir, in_dataset, 'article_%06d.txt' % example_idx)
     # with open(out_path, 'wb') as f:
     #     f.write(article_text)

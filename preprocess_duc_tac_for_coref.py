@@ -72,7 +72,7 @@ def main(unused_argv):
                     raw_article = ' '.join(raw_article_sents)
                     file_name = os.path.join(to_coref_dir, '%s_%06d.bin'%(dataset_split, out_idx))
                     with open(file_name, 'wb') as f:
-                        f.write(raw_article.encode('utf-8'))
+                        f.write(raw_article)
                     corenlp_list.append(file_name)
                 with open(os.path.join(corenlp_lists_dir, 'all_' + dataset_split + '.txt'), 'wb') as f:
                     f.write('\n'.join(corenlp_list))
