@@ -72,6 +72,9 @@ while [ $# -gt 0 ]; do
     --word_imp_reg=*)
       word_imp_reg="${1#*=}"
       ;;
+    --tag_tokens=*)
+      tag_tokens="${1#*=}"
+      ;;
     *)
         break
   esac
@@ -112,6 +115,13 @@ if [[ "$word_imp_reg" = "1" ]]; then
     word_imp_flag=--word_imp_reg
 fi
 
+tag_flag=""
+tag_tokens_flag=""
+if [[ "$tag_tokens" = "1" ]]; then
+    tag_flag=_tag
+    tag_tokens_flag=--tag_tokens
+fi
+
 if [[ "$cuda" = "1" ]]; then
     port=7007
 fi
@@ -126,17 +136,17 @@ echo "$@"
 
 
 if [[ "$mode" == *"tensorboard"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" tensorboard --logdir=logs/"$dataset_name""$dataset_suffix"$imp_flag/eval --port="$port" &> $HOME/null &
+    CUDA_VISIBLE_DEVICES="$cuda" tensorboard --logdir=logs/"$dataset_name""$dataset_suffix"$imp_flag$tag_flag/eval --port="$port" &> $HOME/null &
 fi
 if [[ "$mode" == *"eval"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=eval --dataset_name="$dataset_name""$dataset_suffix"_notchronological --dataset_split=val --exp_name="$dataset_name""$dataset_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations=-1 $data_root_flag $word_imp_flag "$@" &> $HOME/null &
+    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=eval --dataset_name="$dataset_name""$dataset_suffix" --dataset_split=val --exp_name="$dataset_name""$dataset_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations=-1 $data_root_flag $word_imp_flag $tag_tokens_flag "$@" &> $HOME/null &
 fi
 if [[ "$mode" == *"train"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=train --dataset_name="$dataset_name""$dataset_suffix"_notchronological --dataset_split="$dataset_split" --exp_name="$dataset_name""$dataset_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations="$num_iterations"  $data_root_flag $word_imp_flag "$@"
+    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=train --dataset_name="$dataset_name""$dataset_suffix" --dataset_split="$dataset_split" --exp_name="$dataset_name""$dataset_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations="$num_iterations"  $data_root_flag $word_imp_flag $tag_tokens_flag "$@"
 fi
 if [[ "$mode" == *"restore"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=train --dataset_name="$dataset_name""$dataset_suffix" --dataset_split="$dataset_split" --exp_name="$dataset_name""$dataset_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations="$num_iterations" $data_root_flag $word_imp_flag --restore_best_model "$@"
+    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=train --dataset_name="$dataset_name""$dataset_suffix" --dataset_split="$dataset_split" --exp_name="$dataset_name""$dataset_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=False --batch_size="$batch_size" --num_iterations="$num_iterations" $data_root_flag $word_imp_flag $tag_tokens_flag --restore_best_model "$@"
 fi
 if [[ "$mode" == *"decode"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=decode --dataset_name="$dataset_name""$dataset_suffix" --dataset_split=test --exp_name="$dataset_name""$dataset_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=True --batch_size="$batch_size" --num_iterations=-1 $data_root_flag $word_imp_flag "$@"
+    CUDA_VISIBLE_DEVICES="$cuda" python run_summarization.py --mode=decode --dataset_name="$dataset_name""$dataset_suffix" --dataset_split=test --exp_name="$dataset_name""$dataset_suffix" --max_enc_steps="$max_enc_steps" --min_dec_steps="$min_dec_steps" --max_dec_steps="$max_dec_steps" --single_pass=True --batch_size="$batch_size" --num_iterations=-1 $data_root_flag $word_imp_flag $tag_tokens_flag "$@"
 fi

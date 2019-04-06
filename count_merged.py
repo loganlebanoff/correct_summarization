@@ -116,32 +116,37 @@ def get_shortest_distance(indices1, indices2, relative_to_article, rel_sent_posi
     min_dist = min([abs(x - y) for x,y in pairs])
     return min_dist
 
-def get_merge_example(similar_source_indices, article_sent_tokens, summ_sent, corefs):
+def get_merge_example(similar_source_indices, article_sent_tokens, summ_sent, corefs, article_lcs_paths):
     # restricted_source_indices = []
     # for source_indices_idx, source_indices in enumerate(similar_source_indices):
     #     if source_indices_idx >= FLAGS.sentence_limit:
     #         break
     #     restricted_source_indices.append(source_indices[0])
     if FLAGS.chronological and len(similar_source_indices) > 1:
-        similar_source_indices = (min(similar_source_indices), max(similar_source_indices))
+        if similar_source_indices[0] > similar_source_indices[1]:
+            similar_source_indices = (min(similar_source_indices), max(similar_source_indices))
+            article_lcs_paths = (article_lcs_paths[1], article_lcs_paths[0])
     merged_example_sentences = [' '.join(sent) for sent in util.reorder(article_sent_tokens, similar_source_indices)]
     merged_example_article_text = ' '.join(merged_example_sentences)
     merged_example_abstracts = [[' '.join(summ_sent)]]
-    merge_example = convert_data.make_example(merged_example_article_text, merged_example_abstracts, None, merged_example_sentences, corefs)
+    merge_example = convert_data.make_example(merged_example_article_text, merged_example_abstracts, None, merged_example_sentences, corefs, article_lcs_paths)
     return merge_example
 
-def write_lambdamart_example(simple_similar_source_indices, raw_article_sents, summary_text, corefs_str, doc_indices, writer):
+def write_lambdamart_example(simple_similar_source_indices, raw_article_sents, summary_text, corefs_str, doc_indices, article_lcs_paths_list, writer):
     tf_example = example_pb2.Example()
     source_indices_str = ';'.join([' '.join(str(i) for i in source_indices) for source_indices in simple_similar_source_indices])
-    tf_example.features.feature['similar_source_indices'].bytes_list.value.extend([source_indices_str])
+    tf_example.features.feature['similar_source_indices'].bytes_list.value.extend([util.encode_text(source_indices_str)])
     for sent in raw_article_sents:
         s = sent.strip()
-        tf_example.features.feature['raw_article_sents'].bytes_list.value.extend([s])
+        tf_example.features.feature['raw_article_sents'].bytes_list.value.extend([util.encode_text(s)])
     for summ_text in summary_text:
-        tf_example.features.feature['summary_text'].bytes_list.value.extend([summ_text])
+        tf_example.features.feature['summary_text'].bytes_list.value.extend([util.encode_text(summ_text)])
     if doc_indices is not None:
-        tf_example.features.feature['doc_indices'].bytes_list.value.extend([doc_indices])
+        tf_example.features.feature['doc_indices'].bytes_list.value.extend([util.encode_text(doc_indices)])
     tf_example.features.feature['corefs'].bytes_list.value.extend([corefs_str])
+    if article_lcs_paths_list is not None:
+        article_lcs_paths_list_str = '|'.join([';'.join([' '.join(str(i) for i in source_indices) for source_indices in article_lcs_paths]) for article_lcs_paths in article_lcs_paths_list])
+        tf_example.features.feature['article_lcs_paths_list'].bytes_list.value.extend([util.encode_text(article_lcs_paths_list_str)])
     tf_example_str = tf_example.SerializeToString()
     str_len = len(tf_example_str)
     writer.write(struct.pack('q', str_len))
@@ -228,7 +233,11 @@ def main(unused_argv):
             kaiqiang_article_file = open(os.path.join(kaiqiang_dir, FLAGS.dataset_name + '_' + dataset_split + '_' + str(FLAGS.min_matched_tokens) + '_articles.txt'), 'wb')
             kaiqiang_abstract_file = open(os.path.join(kaiqiang_dir, FLAGS.dataset_name + '_' + dataset_split + '_' + str(FLAGS.min_matched_tokens)  + '_abstracts.txt'), 'wb')
         if FLAGS.ssi_dataset:
-            lambdamart_out_dir = os.path.join(lambdamart_dir, FLAGS.dataset_name)
+            if FLAGS.tag_tokens:
+                with_coref_and_ssi_dir = lambdamart_dir + '_and_tag_tokens'
+            else:
+                with_coref_and_ssi_dir = lambdamart_dir
+            lambdamart_out_dir = os.path.join(with_coref_and_ssi_dir, FLAGS.dataset_name)
             if FLAGS.sentence_limit == 1:
                 lambdamart_out_dir += '_singles'
             if FLAGS.consider_stopwords:
@@ -241,6 +250,7 @@ def main(unused_argv):
         example_idx = -1
         instance_idx = 0
         total = len(source_files) * 1000 if ('cnn' in FLAGS.dataset_name or 'newsroom' in FLAGS.dataset_name or 'xsum' in FLAGS.dataset_name) else len(source_files)
+        random_choices = None
         if FLAGS.randomize:
             if FLAGS.dataset_name == 'cnn_dm':
                 list_order = np.random.permutation(11490)
@@ -249,7 +259,7 @@ def main(unused_argv):
             example_idx += 1
             if FLAGS.num_instances != -1 and instance_idx >= FLAGS.num_instances:
                 break
-            if example_idx not in random_choices:
+            if random_choices and example_idx not in random_choices:
                 continue
         # for file_idx in tqdm(range(len(source_files))):
         #     example = get_tf_example(source_files[file_idx])
@@ -312,22 +322,23 @@ def main(unused_argv):
 
             similar_source_indices_list_plus_empty = []
 
-            simple_similar_source_indices, lcs_paths_list,article_lcs_paths_list =  ssi_functions.get_simple_source_indices_list(
+            simple_similar_source_indices, lcs_paths_list, article_lcs_paths_list =  ssi_functions.get_simple_source_indices_list(
                 summary_sent_tokens, article_sent_tokens, vocab, FLAGS.sentence_limit, FLAGS.min_matched_tokens, not FLAGS.consider_stopwords, lemmatize=FLAGS.lemmatize,
                 multiple_ssi=FLAGS.multiple_ssi)
 
+            article_paths_parameter = article_lcs_paths_list if FLAGS.tag_tokens else None
             restricted_source_indices = util.enforce_sentence_limit(simple_similar_source_indices, FLAGS.sentence_limit)
             for summ_sent_idx, summ_sent in enumerate(summary_sent_tokens):
                 if FLAGS.sent_dataset:
                     if len(restricted_source_indices[summ_sent_idx]) == 0:
                         continue
-                    merge_example = get_merge_example(restricted_source_indices[summ_sent_idx], article_sent_tokens, summ_sent, corefs)
+                    merge_example = get_merge_example(restricted_source_indices[summ_sent_idx], article_sent_tokens, summ_sent, corefs, article_paths_parameter[summ_sent_idx])
                     all_merge_examples.append(merge_example)
 
             simple_similar_source_indices_list_plus_empty.append(simple_similar_source_indices)
             if FLAGS.ssi_dataset:
-                summary_text_to_save = [s for s in all_summary_texts] if FLAGS.dataset_name == 'duc_2004' else summary_text
-                write_lambdamart_example(simple_similar_source_indices, raw_article_sents, summary_text_to_save, corefs_str, doc_indices_str, lambdamart_writer)
+                summary_text_to_save = [s for s in all_summary_texts] if FLAGS.dataset_name == 'duc_2004' else summary_text.split('\n')
+                write_lambdamart_example(simple_similar_source_indices, raw_article_sents, summary_text_to_save, corefs_str, doc_indices_str, article_paths_parameter, lambdamart_writer)
 
 
             if FLAGS.highlight:
@@ -350,16 +361,17 @@ def main(unused_argv):
             util.chunk_file(dataset_split, lambdamart_out_full_dir, lambdamart_out_dir, chunk_size=chunk_size)
 
         if FLAGS.sent_dataset:
-            out_dir = os.path.join(data_dir, FLAGS.dataset_name + '_sent')
+            with_coref_dir = data_dir + '_and_tag_tokens' if FLAGS.tag_tokens else data_dir
+            out_dir = os.path.join(with_coref_dir, FLAGS.dataset_name + '_sent')
             if FLAGS.sentence_limit == 1:
                 out_dir += '_singles'
             if FLAGS.consider_stopwords:
                 out_dir += '_stopwords'
-            util.create_dirs(out_dir)
             if FLAGS.coreference_replacement:
                 out_dir += '_coref'
             if FLAGS.top_n_sents != -1:
                 out_dir += '_n=' + str(FLAGS.top_n_sents)
+            util.create_dirs(out_dir)
             convert_data.write_with_generator(iter(all_merge_examples), len(all_merge_examples), out_dir, dataset_split)
 
         if FLAGS.print_output:
@@ -411,6 +423,7 @@ if __name__ == '__main__':
     flags.DEFINE_boolean('multiple_ssi', False, 'Allow multiple singles are pairs to be chosen for each summary sentence, rather than just the top similar sentence.')
     flags.DEFINE_boolean('chronological', True, 'Whether to make sent_dataset chronological for source indices. Does not apply to ssi_dataset.')
     flags.DEFINE_boolean('randomize', False, 'Whether to make sent_dataset chronological for source indices. Does not apply to ssi_dataset.')
+    flags.DEFINE_boolean('tag_tokens', False, 'Whether to add token-level tags, representing whether this token is copied from the source to the summary.')
 
     app.run(main)
 

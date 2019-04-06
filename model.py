@@ -49,6 +49,8 @@ class SummarizationModel(object):
             self._max_art_oovs = tf.placeholder(tf.int32, [], name='max_art_oovs')
         if FLAGS.word_imp_reg:
             self.enc_importances = tf.placeholder(tf.float32, [hps.batch_size, None], name='enc_importances')
+        if FLAGS.tag_tokens:
+            self.importance_masks = tf.placeholder(tf.int32, [hps.batch_size, None], name='importance_masks')
 
         # decoder part
         self._dec_batch = tf.placeholder(tf.int32, [hps.batch_size, hps.max_dec_steps], name='dec_batch')
@@ -85,6 +87,8 @@ class SummarizationModel(object):
         if FLAGS.pointer_gen:
             feed_dict[self._enc_batch_extend_vocab] = batch.enc_batch_extend_vocab
             feed_dict[self._max_art_oovs] = batch.max_art_oovs
+        if FLAGS.tag_tokens:
+            feed_dict[self.importance_masks] = batch.importance_masks
         if not just_enc:
             feed_dict[self._dec_batch] = batch.dec_batch
             feed_dict[self._target_batch] = batch.target_batch
@@ -246,6 +250,10 @@ class SummarizationModel(object):
                 # if hps.mode=="train": self._add_emb_vis(embedding) # add to tensorboard
                 emb_enc_inputs = tf.nn.embedding_lookup(embedding, self._enc_batch) # tensor with shape (batch_size, max_enc_steps, emb_size)
                 emb_dec_inputs = [tf.nn.embedding_lookup(embedding, x) for x in tf.unstack(self._dec_batch, axis=1)] # list length max_dec_steps containing shape (batch_size, emb_size)
+                if FLAGS.tag_tokens:
+                    imp_emb_matrix = tf.get_variable('imp_embedding', [2, hps.emb_dim], dtype=tf.float32, initializer=self.trunc_norm_init)
+                    emb_importances = tf.nn.embedding_lookup(imp_emb_matrix, self.importance_masks) # tensor with shape (batch_size, max_enc_steps, emb_size)
+                    emb_enc_inputs = emb_enc_inputs + emb_importances   # Add token embeddings and importance embeddings (which represent 0/1 for whether the word should be included in the summary). Can be changed to concatenation rather than addition.
 
             if hps.mode == "decode" and hps.coverage:
                 # Add embedder

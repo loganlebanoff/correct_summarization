@@ -10,6 +10,8 @@ import sys
 import glob
 import data
 from sklearn.feature_extraction.text import CountVectorizer
+import stanfordnlp
+# from spacy_stanfordnlp import StanfordNLPLanguage
 
 FLAGS = flags.FLAGS
 
@@ -30,11 +32,13 @@ data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
 raw_root = 'data/correctness/raw'
 processed_root = 'data/correctness/processed'
-systems = ['reference', 'novel', 'dca', 'abs-rl-rerank', 'pg', 'bottom-up']
-# systems = ['bottom-up']
+# systems = ['reference', 'novel', 'dca', 'abs-rl-rerank', 'pg', 'bottom-up']
+systems = ['reference', 'novel', 'dca']
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 min_matched_tokens = 1
 preprocess_article_and_human_summaries = True
+# nlp = stanfordnlp.Pipeline(lang="en")
+# nlp = StanfordNLPLanguage(snlp)
 
 
 def reorder_list_like(to_reorder, ref_summs, ordered_ref_summs):
@@ -71,6 +75,30 @@ def slash_t_to_tab_separated(text):
     new_text = fixed_flipped_slash_t_and_newline.replace(' </t> <t> ', '\t').replace(' </t>\n', '\n').replace('\n<t><t>', '\n').replace('\n<t>', '\n').replace('<t>', '')
     return new_text
 
+def get_sents(text):
+    # doc = nlp(text)
+    # sents = [' '.join([token.text for token in sent.tokens]) for sent in doc.sentences]
+    sents = nltk.tokenize.sent_tokenize(text)
+    fixed_sents = []
+    for i in range(len(sents)):
+        if sents[i].strip() == '.':
+            continue
+        fixed_sents.append(sents[i])
+    new_sents = []
+    for i in range(len(fixed_sents))[::-1]:
+        if len(fixed_sents[i].strip().split()) <= 2:
+            if len(new_sents) == 0:
+                if i == 0:
+                    new_sents.append(fixed_sents[i])
+                else:
+                    fixed_sents[i-1] = fixed_sents[i-1] + ' ' + fixed_sents[i]
+            else:
+                new_sents[0] = fixed_sents[i] + ' ' + new_sents[0]
+        else:
+            new_sents.insert(0, fixed_sents[i])
+    if len(new_sents) != len(sents):
+        a=0
+    return '\t'.join(new_sents)
 
 
 def main(unused_argv):
@@ -177,8 +205,8 @@ def main(unused_argv):
             with open(os.path.join(raw_dir, 'cnndm_m6_m7.txt')) as f:
                 text = f.read()
             lines = text.split('\n')
-            summaries = []
-            sys_ref_summaries = []
+            summary_texts = []
+            sys_ref_summary_texts = []
             for line in tqdm(lines[1:]):
                 if line.strip() == '':
                     continue
@@ -187,9 +215,10 @@ def main(unused_argv):
                 sys_ref_summary, _, summary = line.split('\t')
                 summary = summary.replace('u . s .', 'u.s.')
                 sys_ref_summary = sys_ref_summary.replace('u . s .', 'u.s.')
-                summaries.append('\t'.join(nltk.tokenize.sent_tokenize(summary)))
-                # summaries.append('\t'.join([sent + ' .' if sent_idx != len(summary.split(' . '))-1 else sent for sent_idx, sent in enumerate(summary.split(' . '))]))
-                sys_ref_summaries.append('\t'.join([sent + ' .' for sent in sys_ref_summary.split(' . ')]))
+                summary_texts.append(summary)
+                sys_ref_summary_texts.append(sys_ref_summary)
+            summaries = [get_sents(summary) for summary in tqdm(summary_texts)]
+            sys_ref_summaries = [get_sents(sys_ref_summary) for sys_ref_summary in tqdm(sys_ref_summary_texts)]
             reordered_summaries = reorder_list_like(summaries, sys_ref_summaries, reference_summaries)
             with open(os.path.join(processed_dir, 'summaries.txt'), 'w') as writer:
                 for summ in reordered_summaries:
@@ -200,14 +229,20 @@ def main(unused_argv):
             lines = text.split('\n')
             summaries = []
             sys_articles = []
+            summary_texts = []
+            sys_article_texts = []
             for line in tqdm(lines):
                 if line.strip() == '':
                     continue
                 obj = json.loads(line)
                 article = obj['article']
                 summary = obj['prediction']
-                summaries.append('\t'.join(nltk.tokenize.sent_tokenize(summary)))
-                sys_articles.append('\t'.join([sent + ' .' for sent in article.split(' . ')]))
+                summary_texts.append(summary)
+                sys_article_texts.append(article)
+            # nlp_summaries = nlp.pipe(summary_texts)
+            # nlp_sys_articles = nlp.pipe(sys_article_texts)
+            summaries = [get_sents(summary) for summary in tqdm(summary_texts, total=11490)]
+            sys_articles = [get_sents(article) for article in tqdm(sys_article_texts, total=11490)]
             reordered_summaries = reorder_list_like(summaries, sys_articles, reference_articles)
             with open(os.path.join(processed_dir, 'summaries.txt'), 'w') as writer:
                 for summ in reordered_summaries:

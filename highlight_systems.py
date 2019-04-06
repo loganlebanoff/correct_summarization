@@ -74,7 +74,7 @@ def main(unused_argv):
                                                                            article_lcs_paths_list=article_lcs_paths_list)
             all_html = '<u>System Summary</u><br><br>' + groundtruth_highlighted_html
             write_highlighted_html(all_html, highlight_dir, example_idx)
-            f_ssi.write('\t'.join([','.join(str(idx) for idx in source_indices) for source_indices in groundtruth_ssi_list]) + '\n')
+            f_ssi.write('\t'.join([','.join(str(idx) for idx in source_indices) if len(source_indices) >= 1 else '-1' for source_indices in groundtruth_ssi_list]) + '\n')
             for ssi_idx, ssi in enumerate(groundtruth_ssi_list):
                 if len(ssi) >= 2:
                     num_fuse += 1

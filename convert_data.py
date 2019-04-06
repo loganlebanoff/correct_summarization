@@ -269,12 +269,12 @@ def get_article_abstract(multidoc_dirname, article_dir, abstract_dir, is_tac, is
         abstracts = get_abstract(multidoc_dirname, abstract_dir, is_tac)
     return article, abstracts, doc_indices, raw_article_sents
 
-def make_example(article, abstracts, doc_indices, raw_article_sents, corefs):
+def make_example(article, abstracts, doc_indices, raw_article_sents, corefs, article_lcs_paths=None):
     tf_example = example_pb2.Example()
     tf_example.features.feature['article'].bytes_list.value.extend([util.encode_text(article)])
     for abstract in abstracts:
         if type(abstract) == list:
-            tf_example.features.feature['abstract'].bytes_list.value.extend([process_abstract(abstract)])
+            tf_example.features.feature['abstract'].bytes_list.value.extend([util.encode_text(process_abstract(abstract))])
         else:
             tf_example.features.feature['abstract'].bytes_list.value.extend([util.encode_text(abstract)])
     if doc_indices is not None:
@@ -287,6 +287,9 @@ def make_example(article, abstracts, doc_indices, raw_article_sents, corefs):
     if corefs is not None:
         corefs_str = json.dumps(corefs)
         tf_example.features.feature['corefs'].bytes_list.value.extend([util.encode_text(corefs_str)])
+    if article_lcs_paths is not None:
+        article_lcs_paths_str = ';'.join([' '.join(str(i) for i in source_indices) for source_indices in article_lcs_paths])
+        tf_example.features.feature['article_lcs_paths'].bytes_list.value.extend([util.encode_text(article_lcs_paths_str)])
     return tf_example
 
 def write_example(article, abstracts, doc_indices, raw_article_sents, corefs, writer):
@@ -323,12 +326,12 @@ def write_with_generator(example_generator, num_examples, out_dir, data_split):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     out_idx = 1
-    out_file_name = os.path.join(out_dir, data_split + '_{:05d}.bin'.format(out_idx / 1000 + 1))
+    out_file_name = os.path.join(out_dir, data_split + '_{:05d}.bin'.format(out_idx // 1000 + 1))
     writer = open(os.path.join(out_file_name), 'wb')
     for example in tqdm(example_generator, total=num_examples):
         if (out_idx - 1) % 1000 == 0 and out_idx != 1:
             writer.close()
-            out_file_name = os.path.join(out_dir, data_split + '_{:05d}.bin'.format(out_idx / 1000 + 1))
+            out_file_name = os.path.join(out_dir, data_split + '_{:05d}.bin'.format(out_idx // 1000 + 1))
             writer = open(os.path.join(out_file_name), 'wb')
         write_tf_example(example, writer)
 

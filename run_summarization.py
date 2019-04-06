@@ -53,7 +53,7 @@ original_pretrained_path = {'cnn_dm': 'logs/pretrained_model_tf1.2.1',
 # Where to find data
 flags.DEFINE_string('dataset_name', 'example_custom_dataset', 'Which dataset to use. Makes a log dir based on name.\
                                                 Must be one of {tac_2011, tac_2008, duc_2004, duc_tac, cnn_dm} or a custom dataset name')
-flags.DEFINE_string('data_root', os.path.expanduser('~') + '/data/tf_data/with_coref', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
+flags.DEFINE_string('data_root', os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi_and_tag_tokens', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
 flags.DEFINE_string('vocab_path', 'logs/vocab', 'Path expression to text vocabulary file.')
 flags.DEFINE_string('pretrained_path', original_pretrained_path['cnn_dm'], 'Directory of pretrained model from See et al.')
 flags.DEFINE_boolean('use_pretrained', False, 'If True, use pretrained model in the path FLAGS.pretrained_path.')
@@ -129,6 +129,7 @@ flags.DEFINE_boolean('finetune', False, 'If true, save plots of each distributio
 flags.DEFINE_boolean('word_imp_reg', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('convert_to_importance_model', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_float('imp_loss_wt', 1.0, 'Weight of coverage loss (lambda in the paper). If zero, then no incentive to minimize coverage loss.')
+flags.DEFINE_boolean('tag_tokens', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 
 
 flags.DEFINE_bool(
@@ -482,6 +483,8 @@ def main(unused_argv):
     if FLAGS.word_imp_reg:
         assert FLAGS.coverage, "To run with importance_loss, run with coverage=True as well"
         FLAGS.log_root += '_imp' + str(FLAGS.imp_loss_wt)
+    if FLAGS.tag_tokens:
+        FLAGS.log_root += '_tag'
 
     print(util.bcolors.OKGREEN + "Experiment path: " + FLAGS.log_root + util.bcolors.ENDC)
 
@@ -513,7 +516,7 @@ def main(unused_argv):
     hparam_list = ['mode', 'lr', 'adagrad_init_acc', 'rand_unif_init_mag', 'trunc_norm_init_std',
                    'max_grad_norm', 'hidden_dim', 'emb_dim', 'batch_size', 'max_dec_steps',
                    'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input', 'pg_mmr', 'singles_and_pairs', 'skip_with_less_than_3', 'ssi_data_path',
-                   'dataset_name', 'word_imp_reg', 'imp_loss_wt']
+                   'dataset_name', 'word_imp_reg', 'imp_loss_wt', 'tag_tokens']
     hps_dict = {}
     for key,val in FLAGS.__flags.items(): # for each flag
         if key in hparam_list: # if it's in the list

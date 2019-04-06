@@ -424,12 +424,19 @@ def unpack_tf_example(example, names_to_types):
     def get_delimited_list(name):
         text = get_string(name)
         return text.strip().split(' ')
-    def get_delimited_list_of_lists(name):
-        text = get_string(name)
+    def get_delimited_list_of_lists(name, is_string_list=False):
+        if not is_string_list:
+            text = get_string(name)
+        else:
+            text = name
         # print (text)
         my_list = text.strip()
         my_list = my_list.split(';')
         return [[int(i) for i in (l.strip().split(' ') if l != '' else [])] for l in my_list]
+    def get_delimited_list_of_list_of_lists(name):
+        text = get_string(name)
+        my_list = text.strip.split('|')
+        return [get_delimited_list_of_lists(list_of_lists, is_string_list=True) for list_of_lists in my_list]
     def get_delimited_list_of_tuples(name):
         list_of_lists = get_delimited_list_of_lists(name)
         return [tuple(l) for l in list_of_lists]
@@ -441,6 +448,7 @@ def unpack_tf_example(example, names_to_types):
             'string_list': get_string_list,
             'delimited_list': get_delimited_list,
             'delimited_list_of_lists': get_delimited_list_of_lists,
+            'delimited_list_of_list_of_lists': get_delimited_list_of_list_of_lists,
             'delimited_list_of_tuples': get_delimited_list_of_tuples,
             'json': get_json}
 
@@ -773,14 +781,49 @@ def is_quote(tokens):
     #     print "Skipping quote: ", ' '.join(tokens)
     return decision
 
-def process_sent(sent):
+def process_sent(sent, whitespace=False):
     # line = decode_text(sent.lower())
     line = sent.lower()
-    tokenized_sent = nltk.word_tokenize(line)
+    if whitespace:
+        tokenized_sent = line.split()
+    else:
+        tokenized_sent = nltk.word_tokenize(line)
     tokenized_sent = [fix_bracket_token(token) for token in tokenized_sent]
     return tokenized_sent
 
-
+def make_ssi_chronological(ssi, article_lcs_paths_list=None):
+    is_2d = type(ssi[0]) == list or type(ssi[0]) == tuple
+    if is_2d:
+        new_ssi = []
+        new_article_lcs_paths_list = []
+        for source_indices_idx, source_indices in enumerate(ssi):
+            if len(source_indices) >= 2:
+                if article_lcs_paths_list:
+                    article_lcs_paths = article_lcs_paths_list[source_indices_idx]
+                if source_indices[0] > source_indices[1]:
+                    source_indices = (min(source_indices), max(source_indices))
+                    if article_lcs_paths_list:
+                        article_lcs_paths = (article_lcs_paths[1], article_lcs_paths[0])
+            new_ssi.append(source_indices)
+            if article_lcs_paths_list:
+                new_article_lcs_paths_list.append(article_lcs_paths)
+        if article_lcs_paths_list:
+            return new_ssi, article_lcs_paths_list
+        else:
+            return new_ssi
+    else:
+        source_indices = ssi
+        if article_lcs_paths_list:
+            article_lcs_paths = article_lcs_paths_list
+        if len(source_indices) >= 2:
+            if source_indices[0] > source_indices[1]:
+                source_indices = (min(source_indices), max(source_indices))
+                if article_lcs_paths_list:
+                    article_lcs_paths = (article_lcs_paths[1], article_lcs_paths[0])
+        if article_lcs_paths_list:
+            return source_indices, article_lcs_paths
+        else:
+            return article_lcs_paths
 
 
 

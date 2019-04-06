@@ -83,7 +83,7 @@ def main(unused_argv):
                 process_coref_dir = os.path.join(coref_dir, 'processed')
 
                 out_idx = 0
-                out_file_name = os.path.join(data_coref_dir, dataset_split + '_{:05d}.bin'.format(out_idx / 1000))
+                out_file_name = os.path.join(data_coref_dir, dataset_split + '_{:05d}.bin'.format(out_idx // 1000))
                 writer = open(os.path.join(out_file_name), 'wb')
                 coref_files = sorted(glob.glob(os.path.join(process_coref_dir, dataset_split + '*')))
                 coref_dict = {}
@@ -97,7 +97,7 @@ def main(unused_argv):
                     raw_article_sents = [sent for sent in raw_article_sents if sent.strip() != '']
                     if out_idx % 1000 == 0 and out_idx != 0:
                         writer.close()
-                        out_file_name = os.path.join(data_coref_dir, dataset_split + '_{:05d}.bin'.format(out_idx / 1000))
+                        out_file_name = os.path.join(data_coref_dir, dataset_split + '_{:05d}.bin'.format(out_idx // 1000))
                         writer = open(os.path.join(out_file_name), 'wb')
 
                     # coref_file = os.path.join(process_coref_dir, 'test_%06d.bin.json' % example_idx)

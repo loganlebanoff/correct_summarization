@@ -36,7 +36,7 @@ chronological_ssi = True
 class Example(object):
     """Class representing a train/val/test example for text summarization."""
 
-    def __init__(self, article, abstract_sentences, all_abstract_sentences, doc_indices, raw_article_sents, ssi, vocab, hps):
+    def __init__(self, article, abstract_sentences, all_abstract_sentences, doc_indices, raw_article_sents, ssi, article_lcs_paths_list, vocab, hps):
         """Initializes the Example, performing tokenization and truncation to produce the encoder, decoder and target sequences, which are stored in self.
 
         Args:
@@ -138,6 +138,16 @@ class Example(object):
 
             self.sent_indices = pg_mmr_functions.convert_to_word_level(list(range(len(summary_sent_tokens))), summary_sent_tokens).tolist()
 
+        if article_lcs_paths_list is not None:
+            if len(article_lcs_paths_list) > 1:
+                raise Exception('Need to implement for non-sent_dataset')
+            article_lcs_paths = article_lcs_paths_list[0]
+            imp_mask = [0] * len(article_words)
+            for source_idx in article_lcs_paths_list:
+                imp_mask[source_idx] = 1
+            self.importance_mask = imp_mask
+
+
         # Store the original strings
         self.original_article = article
         self.raw_article_sents = raw_article_sents
@@ -147,6 +157,7 @@ class Example(object):
 
         self.doc_indices = doc_indices
         self.ssi = ssi
+        self.article_lcs_paths_list = article_lcs_paths_list
 
     def get_enc_importances(self, tokenized_sents, abstract_words):
         lemmatize = True
@@ -204,6 +215,11 @@ class Example(object):
             while len(self.enc_importances) < max_len:
                 self.enc_importances.append(0.)
             self.enc_importances = self.enc_importances[:max_len]
+        if self.hps.tag_tokens:
+            while len(self.importance_mask) < max_len:
+                self.importance_mask.append(0)
+            self.importance_mask = self.importance_mask[:max_len]
+
 
     def pad_doc_indices(self, max_len, pad_id):
         """Pad the encoder input sequence with pad_id up to max_len."""
@@ -352,6 +368,11 @@ class Batch(object):
             for i, ex in enumerate(example_list):
                 self.enc_importances[i, :] = ex.enc_importances[:]
 
+        if hps.tag_tokens:
+            self.importance_masks = np.zeros((hps.batch_size, max_enc_seq_len), dtype=np.int32)
+            for i, ex in enumerate(example_list):
+                self.importance_masks[i, :] = ex.importance_mask[:]
+
 
     def init_decoder_seq(self, example_list, hps):
         """Initializes the following:
@@ -412,6 +433,8 @@ class Batch(object):
         if example_list[0].ssi is not None:
             self.ssis = [ex.ssi for ex in example_list]
             self.ssi_masks = [ex.ssi_masks for ex in example_list]
+        if example_list[0].article_lcs_paths_list is not None:
+            self.article_lcs_paths_lists = [ex.article_lcs_paths_list for ex in example_list]
 
 
 class Batcher(object):
@@ -506,7 +529,7 @@ class Batcher(object):
         while True:
             try:
                 (article,
-                 abstracts, doc_indices_str, raw_article_sents, ssi) = next(input_gen)  # read the next example from file. article and abstract are both strings.
+                 abstracts, doc_indices_str, raw_article_sents, ssi, article_lcs_paths_list) = next(input_gen)  # read the next example from file. article and abstract are both strings.
             except StopIteration:  # if there are no more examples:
                 logging.info("The example generator for this example queue filling thread has exhausted data.")
                 if self._single_pass:
@@ -538,8 +561,20 @@ class Batcher(object):
             else:
                 abstract_sentences = []
             doc_indices = [int(idx) for idx in doc_indices_str.strip().split()]
-            example = Example(article, abstract_sentences, all_abstract_sentences, doc_indices, raw_article_sents, ssi, self._vocab, self._hps)  # Process into an Example.
-            self._example_queue.put(example)  # place the Example in the example queue.
+            if '_sent' in self._hps.dataset_name:   # if we are running iteratively on only instances (a singleton/pair + a summary sentence), not the whole article
+                for abs_idx, abstract_sentence in enumerate(abstract_sentences):
+                    inst_ssi = ssi[abs_idx]
+                    inst_abstract_sentences = abstract_sentence
+                    inst_raw_article_sents = util.reorder(raw_article_sents, inst_ssi)
+                    inst_article = ' '.join([' '.join(util.process_sent(sent, whitespace=True)) for sent in inst_raw_article_sents])
+                    inst_doc_indices = [0] * len(inst_article.split())
+                    inst_article_lcs_paths_list = article_lcs_paths_list[abs_idx]
+                    inst_example = Example(inst_article, [inst_abstract_sentences], all_abstract_sentences, inst_doc_indices, inst_raw_article_sents, None, [inst_article_lcs_paths_list], self._vocab, self._hps)
+                    self._example_queue.put(inst_example)
+            else:
+                example = Example(article, abstract_sentences, all_abstract_sentences, doc_indices, raw_article_sents, ssi, article_lcs_paths_list, self._vocab, self._hps)  # Process into an Example.
+                self._example_queue.put(example)  # place the Example in the example queue.
+
             # print "example num", counter
             counter += 1
 
@@ -620,13 +655,13 @@ class Batcher(object):
             e = next(example_generator) # e is a tf.Example
             abstract_texts = []
             raw_article_sents = []
-            if self._hps.pg_mmr:
+            if self._hps.pg_mmr or '_sent' in self._hps.dataset_name:
                 try:
-                    names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json')]
+                    names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('article_lcs_paths_list', 'delimited_list_of_list_of_lists')]
                     if self._hps.dataset_name == 'duc_2004':
                         names_to_types[2] = ('summary_text', 'string_list')
 
-                    raw_article_sents, ssi, groundtruth_summary_text, corefs = util.unpack_tf_example(
+                    raw_article_sents, ssi, groundtruth_summary_text, corefs, article_lcs_paths_list = util.unpack_tf_example(
                         e, names_to_types)
                     article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
                     article_text = ' '.join([' '.join(sent) for sent in article_sent_tokens])
@@ -647,13 +682,7 @@ class Batcher(object):
                     sentence_limit = 1 if self._hps.singles_and_pairs == 'singles' else 2
                     ssi = util.enforce_sentence_limit(ssi, sentence_limit)
                     ssi = ssi[:max_dec_sents]
-                    new_ssi = []
-                    for source_indices in ssi:
-                        if chronological_ssi and len(source_indices) >= 2:
-                            new_ssi.append((min(source_indices), max(source_indices)))
-                        else:
-                            new_ssi.append(source_indices)
-                    ssi = new_ssi
+                    ssi = util.make_ssi_chronological(ssi, article_lcs_paths_list)
                 except:
                     logging.error('Failed to get article or abstract from example')
                     raise
@@ -671,6 +700,7 @@ class Batcher(object):
                     for sent in e.features.feature['raw_article_sents'].bytes_list.value:
                         raw_article_sents.append(sent) # the abstract text was saved under the key 'abstract' in the data files
                     ssi = None
+                    article_lcs_paths_list = None
                 except ValueError:
                     logging.error('Failed to get article or abstract from example\n*********************************************')
                     raise
@@ -683,7 +713,7 @@ class Batcher(object):
                 print('Abstract has less than 3 tokens, so skipping\n*********************************************')
             else:
                 # print i
-                yield (article_text, abstract_texts, doc_indices_text, raw_article_sents, ssi)
+                yield (article_text, abstract_texts, doc_indices_text, raw_article_sents, ssi, article_lcs_paths_list)
 
 
 def get_delimited_list_of_lists(example, name):

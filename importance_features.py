@@ -183,7 +183,7 @@ def get_sentence_splits(enc_sentences):
     return indices
 
 def get_fw_bw_rep(enc_states, start_idx, end_idx):
-    fw_state_size = enc_states.shape[1] / 2
+    fw_state_size = enc_states.shape[1] // 2
     assert fw_state_size * 2 == enc_states.shape[1]
     fw_sent_rep = enc_states[end_idx, :fw_state_size]
     bw_sent_rep = enc_states[start_idx, fw_state_size:]
