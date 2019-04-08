@@ -259,7 +259,7 @@ def main(unused_argv):
             example_idx += 1
             if FLAGS.num_instances != -1 and instance_idx >= FLAGS.num_instances:
                 break
-            if random_choices and example_idx not in random_choices:
+            if random_choices is not None and example_idx not in random_choices:
                 continue
         # for file_idx in tqdm(range(len(source_files))):
         #     example = get_tf_example(source_files[file_idx])
@@ -322,11 +322,12 @@ def main(unused_argv):
 
             similar_source_indices_list_plus_empty = []
 
-            simple_similar_source_indices, lcs_paths_list, article_lcs_paths_list =  ssi_functions.get_simple_source_indices_list(
+            simple_similar_source_indices, lcs_paths_list, article_lcs_paths_list, smooth_article_paths_list =  ssi_functions.get_simple_source_indices_list(
                 summary_sent_tokens, article_sent_tokens, vocab, FLAGS.sentence_limit, FLAGS.min_matched_tokens, not FLAGS.consider_stopwords, lemmatize=FLAGS.lemmatize,
-                multiple_ssi=FLAGS.multiple_ssi)
+                multiple_ssi=FLAGS.multiple_ssi, smart_tags=FLAGS.smart_tags)
 
             article_paths_parameter = article_lcs_paths_list if FLAGS.tag_tokens else None
+            article_paths_parameter = smooth_article_paths_list if FLAGS.smart_tags else article_paths_parameter
             restricted_source_indices = util.enforce_sentence_limit(simple_similar_source_indices, FLAGS.sentence_limit)
             for summ_sent_idx, summ_sent in enumerate(summary_sent_tokens):
                 if FLAGS.sent_dataset:
@@ -342,10 +343,11 @@ def main(unused_argv):
 
 
             if FLAGS.highlight:
+                highlight_article_lcs_paths_list = smooth_article_paths_list if FLAGS.smart_tags else article_lcs_paths_list
                 # simple_ssi_plus_empty = [ [s[0] for s in sim_source_ind] for sim_source_ind in simple_similar_source_indices]
                 extracted_sents_in_article_html = ssi_functions.html_highlight_sents_in_article(summary_sent_tokens, simple_similar_source_indices,
                                                                                   article_sent_tokens, doc_indices,
-                                                                                  lcs_paths_list, article_lcs_paths_list)
+                                                                                  lcs_paths_list, highlight_article_lcs_paths_list)
                 extracted_sents_in_article_html_file.write(extracted_sents_in_article_html.encode())
             a=0
 
@@ -423,7 +425,8 @@ if __name__ == '__main__':
     flags.DEFINE_boolean('multiple_ssi', False, 'Allow multiple singles are pairs to be chosen for each summary sentence, rather than just the top similar sentence.')
     flags.DEFINE_boolean('chronological', True, 'Whether to make sent_dataset chronological for source indices. Does not apply to ssi_dataset.')
     flags.DEFINE_boolean('randomize', False, 'Whether to make sent_dataset chronological for source indices. Does not apply to ssi_dataset.')
-    flags.DEFINE_boolean('tag_tokens', False, 'Whether to add token-level tags, representing whether this token is copied from the source to the summary.')
+    flags.DEFINE_boolean('tag_tokens', True, 'Whether to add token-level tags, representing whether this token is copied from the source to the summary.')
+    flags.DEFINE_boolean('smart_tags', True, 'Whether to add token-level tags, representing whether this token is copied from the source to the summary.')
 
     app.run(main)
 

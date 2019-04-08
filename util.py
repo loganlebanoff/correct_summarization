@@ -211,7 +211,7 @@ def create_token_to_indices(lst):
             token_to_indices[token] = [token_idx]
     return token_to_indices
 
-def matching_unigrams(summ_sent, article_sent, should_remove_stop_words=False):
+def matching_unigrams(summ_sent, article_sent, should_remove_stop_words=False, should_remove_punctuation=False):
     if should_remove_stop_words:
         summ_sent = remove_stopwords_punctuation(summ_sent)
         article_sent = remove_stopwords_punctuation(article_sent)
@@ -242,6 +242,28 @@ def is_stopword_punctuation(word):
     if all(is_punctuation):
         return True
     return False
+
+def is_stopword(word):
+    if word in stop_words:
+        return True
+    return False
+
+def is_start_stop_symbol(word):
+    if word in ('<s>', '</s>'):
+        return True
+    return False
+
+def remove_start_stop_symbol(sent):
+    new_sent = [token for token in sent if not is_start_stop_symbol(token)]
+    return new_sent
+
+def remove_punctuation(sent):
+    new_sent = [token for token in sent if not is_punctuation(token)]
+    return new_sent
+
+def remove_stopwords(sent):
+    new_sent = [token for token in sent if not is_stopword(token)]
+    return new_sent
 
 def remove_stopwords_punctuation(sent):
     try:
