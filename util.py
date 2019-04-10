@@ -243,8 +243,16 @@ def is_stopword_punctuation(word):
         return True
     return False
 
+def is_content_word(word):
+    return not is_stopword_punctuation(word)
+
 def is_stopword(word):
     if word in stop_words:
+        return True
+    return False
+
+def is_quotation_mark(word):
+    if word in ["``", "''", "`", "'"]:
         return True
     return False
 
@@ -457,7 +465,7 @@ def unpack_tf_example(example, names_to_types):
         return [[int(i) for i in (l.strip().split(' ') if l != '' else [])] for l in my_list]
     def get_delimited_list_of_list_of_lists(name):
         text = get_string(name)
-        my_list = text.strip.split('|')
+        my_list = text.strip().split('|')
         return [get_delimited_list_of_lists(list_of_lists, is_string_list=True) for list_of_lists in my_list]
     def get_delimited_list_of_tuples(name):
         list_of_lists = get_delimited_list_of_lists(name)
@@ -819,9 +827,9 @@ def make_ssi_chronological(ssi, article_lcs_paths_list=None):
         new_ssi = []
         new_article_lcs_paths_list = []
         for source_indices_idx, source_indices in enumerate(ssi):
+            if article_lcs_paths_list:
+                article_lcs_paths = article_lcs_paths_list[source_indices_idx]
             if len(source_indices) >= 2:
-                if article_lcs_paths_list:
-                    article_lcs_paths = article_lcs_paths_list[source_indices_idx]
                 if source_indices[0] > source_indices[1]:
                     source_indices = (min(source_indices), max(source_indices))
                     if article_lcs_paths_list:
@@ -830,7 +838,7 @@ def make_ssi_chronological(ssi, article_lcs_paths_list=None):
             if article_lcs_paths_list:
                 new_article_lcs_paths_list.append(article_lcs_paths)
         if article_lcs_paths_list:
-            return new_ssi, article_lcs_paths_list
+            return new_ssi, new_article_lcs_paths_list
         else:
             return new_ssi
     else:

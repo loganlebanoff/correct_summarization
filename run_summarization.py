@@ -130,6 +130,7 @@ flags.DEFINE_boolean('word_imp_reg', False, 'If true, save plots of each distrib
 flags.DEFINE_boolean('convert_to_importance_model', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_float('imp_loss_wt', 1.0, 'Weight of coverage loss (lambda in the paper). If zero, then no incentive to minimize coverage loss.')
 flags.DEFINE_boolean('tag_tokens', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
+flags.DEFINE_boolean('by_instance', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 
 
 flags.DEFINE_bool(
@@ -405,6 +406,8 @@ log_dir = 'logs'
 def main(unused_argv):
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
+    # if '_sent' in FLAGS.dataset_name:
+    #     FLAGS.data_root = os.path.expanduser('~') + '/data/tf_data/with_coref_and_tag_tokens'
     if FLAGS.pg_mmr:
         FLAGS.data_root = os.path.expanduser('~') + "/data/tf_data/with_coref_and_ssi"
     if FLAGS.dataset_name != "":
@@ -427,12 +430,12 @@ def main(unused_argv):
     if FLAGS.pg_mmr:
         FLAGS.exp_name += '_pgmmr'
     if FLAGS.singles_and_pairs == 'both':
-        FLAGS.exp_name = FLAGS.dataset_name + FLAGS.exp_name + extractor + '_both'
+        FLAGS.exp_name = FLAGS.exp_name + extractor + '_both'
         if FLAGS.mode == 'decode':
             FLAGS.pretrained_path = os.path.join(FLAGS.log_root, pretrained_dataset + '_pgmmr_both')
         dataset_articles = FLAGS.dataset_name
     elif FLAGS.singles_and_pairs == 'singles':
-        FLAGS.exp_name = FLAGS.dataset_name + FLAGS.exp_name + extractor + '_singles'
+        FLAGS.exp_name = FLAGS.exp_name + extractor + '_singles'
         if FLAGS.mode == 'decode':
             FLAGS.pretrained_path = os.path.join(FLAGS.log_root, pretrained_dataset + '_pgmmr_singles')
         dataset_articles = FLAGS.dataset_name + '_singles'
@@ -513,10 +516,11 @@ def main(unused_argv):
         raise Exception("The single_pass flag should only be True in decode mode")
 
     # Make a namedtuple hps, containing the values of the hyperparameters that the model needs
-    hparam_list = ['mode', 'lr', 'adagrad_init_acc', 'rand_unif_init_mag', 'trunc_norm_init_std',
-                   'max_grad_norm', 'hidden_dim', 'emb_dim', 'batch_size', 'max_dec_steps',
-                   'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input', 'pg_mmr', 'singles_and_pairs', 'skip_with_less_than_3', 'ssi_data_path',
-                   'dataset_name', 'word_imp_reg', 'imp_loss_wt', 'tag_tokens']
+    # hparam_list = ['mode', 'lr', 'adagrad_init_acc', 'rand_unif_init_mag', 'trunc_norm_init_std',
+    #                'max_grad_norm', 'hidden_dim', 'emb_dim', 'batch_size', 'max_dec_steps',
+    #                'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input', 'pg_mmr', 'singles_and_pairs', 'skip_with_less_than_3', 'ssi_data_path',
+    #                'dataset_name', 'word_imp_reg', 'imp_loss_wt', 'tag_tokens']
+    hparam_list = [item for item in list(FLAGS.flag_values_dict().keys()) if item != '?']
     hps_dict = {}
     for key,val in FLAGS.__flags.items(): # for each flag
         if key in hparam_list: # if it's in the list

@@ -71,7 +71,8 @@ class Example(object):
         if hps.pointer_gen:
 
             if raw_article_sents is not None and len(raw_article_sents) > 0:
-                self.tokenized_sents = [util.process_sent(sent) for sent in raw_article_sents]
+                # self.tokenized_sents = [util.process_sent(sent) for sent in raw_article_sents]
+                self.tokenized_sents = [util.process_sent(sent, whitespace=True) for sent in raw_article_sents]
 
                 # Process the article
                 article_words = util.flatten_list_of_lists(self.tokenized_sents)
@@ -143,8 +144,18 @@ class Example(object):
                 raise Exception('Need to implement for non-sent_dataset')
             article_lcs_paths = article_lcs_paths_list[0]
             imp_mask = [0] * len(article_words)
-            for source_idx in article_lcs_paths_list:
-                imp_mask[source_idx] = 1
+            to_add = 0
+            for source_idx, word_indices_list in enumerate(article_lcs_paths):
+                if source_idx > 0:
+                    to_add += len(self.tokenized_sents[source_idx-1])
+                for word_idx in word_indices_list:
+                    if word_idx + to_add >= len(imp_mask):
+                        if len(imp_mask) == hps.max_enc_steps:
+                            continue
+                        else:
+                            print (self.tokenized_sents, article_lcs_paths)
+                            raise Exception('word_idx + to_add (%d) is larger than imp_mask size (%d)' % (word_idx + to_add, len(imp_mask)))
+                    imp_mask[word_idx + to_add] = 1
             self.importance_mask = imp_mask
 
 
@@ -515,7 +526,7 @@ class Batcher(object):
 
         if self._example_generator is None:
             input_gen = self.text_generator(
-                data.example_generator(self._data_path, self._single_pass, self._cnn_500_dm_500, is_pg_mmr=self._hps.pg_mmr))
+                data.example_generator(self._data_path, self._single_pass, self._cnn_500_dm_500, is_original=('with_coref' not in self._data_path)))
         else:
             input_gen = self.text_generator(self._example_generator)
         if self._hps.pg_mmr and self._hps.ssi_data_path != '':  # if use pg_mmr and bert
@@ -548,11 +559,11 @@ class Batcher(object):
                 ssi = ssi_triple_list[counter][1]
                 ssi = ssi[:ssi_length_extractive]
 
-            article = article.decode()
-            abstracts = [abstract.decode() for abstract in abstracts]
+            article = article
+            abstracts = [abstract for abstract in abstracts]
             if type(doc_indices_str) != str:
-                doc_indices_str = doc_indices_str.decode()
-            raw_article_sents = [sent.decode() for sent in raw_article_sents]
+                doc_indices_str = doc_indices_str
+            raw_article_sents = [sent for sent in raw_article_sents]
 
             all_abstract_sentences = [[sent.strip() for sent in data.abstract2sents(
                 abstract)] for abstract in abstracts]
@@ -561,16 +572,29 @@ class Batcher(object):
             else:
                 abstract_sentences = []
             doc_indices = [int(idx) for idx in doc_indices_str.strip().split()]
-            if '_sent' in self._hps.dataset_name:   # if we are running iteratively on only instances (a singleton/pair + a summary sentence), not the whole article
+            if self._hps.by_instance:   # if we are running iteratively on only instances (a singleton/pair + a summary sentence), not the whole article
                 for abs_idx, abstract_sentence in enumerate(abstract_sentences):
                     inst_ssi = ssi[abs_idx]
+                    if len(inst_ssi) == 0:
+                        continue
                     inst_abstract_sentences = abstract_sentence
                     inst_raw_article_sents = util.reorder(raw_article_sents, inst_ssi)
                     inst_article = ' '.join([' '.join(util.process_sent(sent, whitespace=True)) for sent in inst_raw_article_sents])
                     inst_doc_indices = [0] * len(inst_article.split())
                     inst_article_lcs_paths_list = article_lcs_paths_list[abs_idx]
-                    inst_example = Example(inst_article, [inst_abstract_sentences], all_abstract_sentences, inst_doc_indices, inst_raw_article_sents, None, [inst_article_lcs_paths_list], self._vocab, self._hps)
-                    self._example_queue.put(inst_example)
+
+                    if len(inst_article) == 0:  # See https://github.com/abisee/pointer-generator/issues/1
+                        logging.warning(
+                            'Found an example with empty article text. Skipping it.\n*********************************************')
+                    elif len(inst_article.strip().split()) < 3 and self._hps.skip_with_less_than_3:
+                        print(
+                            'Article has less than 3 tokens, so skipping\n*********************************************')
+                    elif len(inst_abstract_sentences.strip().split()) < 3 and self._hps.skip_with_less_than_3:
+                        print(
+                            'Abstract has less than 3 tokens, so skipping\n*********************************************')
+                    else:
+                        inst_example = Example(inst_article, [inst_abstract_sentences], all_abstract_sentences, inst_doc_indices, inst_raw_article_sents, None, [inst_article_lcs_paths_list], self._vocab, self._hps)
+                        self._example_queue.put(inst_example)
             else:
                 example = Example(article, abstract_sentences, all_abstract_sentences, doc_indices, raw_article_sents, ssi, article_lcs_paths_list, self._vocab, self._hps)  # Process into an Example.
                 self._example_queue.put(example)  # place the Example in the example queue.
@@ -655,56 +679,62 @@ class Batcher(object):
             e = next(example_generator) # e is a tf.Example
             abstract_texts = []
             raw_article_sents = []
-            if self._hps.pg_mmr or '_sent' in self._hps.dataset_name:
-                try:
-                    names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('article_lcs_paths_list', 'delimited_list_of_list_of_lists')]
-                    if self._hps.dataset_name == 'duc_2004':
-                        names_to_types[2] = ('summary_text', 'string_list')
+            # if self._hps.pg_mmr or '_sent' in self._hps.dataset_name:
+            try:
+                # names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('article_lcs_paths_list', 'delimited_list_of_list_of_lists')]
+                names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string_list'), ('corefs', 'json'), ('article_lcs_paths_list', 'delimited_list_of_list_of_lists')]
+                if self._hps.dataset_name == 'duc_2004':
+                    names_to_types[2] = ('summary_text', 'string_list')
 
-                    raw_article_sents, ssi, groundtruth_summary_text, corefs, article_lcs_paths_list = util.unpack_tf_example(
-                        e, names_to_types)
-                    article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
-                    article_text = ' '.join([' '.join(sent) for sent in article_sent_tokens])
-                    if self._hps.dataset_name == 'duc_2004':
-                        abstract_sentences = [['<s> ' + sent.strip() + ' </s>' for sent in
-                                              gt_summ_text.strip().split('\n')] for gt_summ_text in groundtruth_summary_text]
-                        abstract_sentences = [abs_sents[:max_dec_sents] for abs_sents in abstract_sentences]
-                        abstract_texts = [' '.join(abs_sents) for abs_sents in abstract_sentences]
-                    else:
-                        abstract_sentences = ['<s> ' + sent.strip() + ' </s>' for sent in groundtruth_summary_text.strip().split('\n')]
-                        abstract_sentences = abstract_sentences[:max_dec_sents]
-                        abstract_texts = [' '.join(abstract_sentences)]
-                    if 'doc_indices' not in e.features.feature or len(e.features.feature['doc_indices'].bytes_list.value) == 0:
-                        num_words = len(article_text.split())
-                        doc_indices_text = '0 ' * num_words
-                    else:
-                        doc_indices_text = e.features.feature['doc_indices'].bytes_list.value[0]
-                    sentence_limit = 1 if self._hps.singles_and_pairs == 'singles' else 2
-                    ssi = util.enforce_sentence_limit(ssi, sentence_limit)
-                    ssi = ssi[:max_dec_sents]
-                    ssi = util.make_ssi_chronological(ssi, article_lcs_paths_list)
-                except:
-                    logging.error('Failed to get article or abstract from example')
-                    raise
-                    # continue
-            else:
-                try:
-                    article_text = e.features.feature['article'].bytes_list.value[0] # the article text was saved under the key 'article' in the data files
-                    for abstract in e.features.feature['abstract'].bytes_list.value:
-                        abstract_texts.append(abstract) # the abstract text was saved under the key 'abstract' in the data files
-                    if 'doc_indices' not in e.features.feature or len(e.features.feature['doc_indices'].bytes_list.value) == 0:
-                        num_words = len(article_text.split())
-                        doc_indices_text = '0 ' * num_words
-                    else:
-                        doc_indices_text = e.features.feature['doc_indices'].bytes_list.value[0]
-                    for sent in e.features.feature['raw_article_sents'].bytes_list.value:
-                        raw_article_sents.append(sent) # the abstract text was saved under the key 'abstract' in the data files
-                    ssi = None
-                    article_lcs_paths_list = None
-                except ValueError:
-                    logging.error('Failed to get article or abstract from example\n*********************************************')
-                    raise
-                    # continue
+                # raw_article_sents, ssi, groundtruth_summary_text, corefs, article_lcs_paths_list = util.unpack_tf_example(
+                #     e, names_to_types)
+                raw_article_sents, ssi, groundtruth_summary_sents, corefs, article_lcs_paths_list = util.unpack_tf_example(
+                    e, names_to_types)
+                groundtruth_summary_text = '\n'.join(groundtruth_summary_sents)
+                article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
+                article_text = ' '.join([' '.join(sent) for sent in article_sent_tokens])
+                if self._hps.dataset_name == 'duc_2004':
+                    abstract_sentences = [['<s> ' + sent.strip() + ' </s>' for sent in
+                                          gt_summ_text.strip().split('\n')] for gt_summ_text in groundtruth_summary_text]
+                    abstract_sentences = [abs_sents[:max_dec_sents] for abs_sents in abstract_sentences]
+                    abstract_texts = [' '.join(abs_sents) for abs_sents in abstract_sentences]
+                else:
+                    abstract_sentences = ['<s> ' + sent.strip() + ' </s>' for sent in groundtruth_summary_text.strip().split('\n')]
+                    abstract_sentences = abstract_sentences[:max_dec_sents]
+                    abstract_texts = [' '.join(abstract_sentences)]
+                if 'doc_indices' not in e.features.feature or len(e.features.feature['doc_indices'].bytes_list.value) == 0:
+                    num_words = len(article_text.split())
+                    doc_indices_text = '0 ' * num_words
+                else:
+                    doc_indices_text = e.features.feature['doc_indices'].bytes_list.value[0]
+                sentence_limit = 1 if self._hps.singles_and_pairs == 'singles' else 2
+                ssi = util.enforce_sentence_limit(ssi, sentence_limit)
+                ssi = ssi[:max_dec_sents]
+                article_lcs_paths_list = util.enforce_sentence_limit(article_lcs_paths_list, sentence_limit)
+                article_lcs_paths_list = article_lcs_paths_list[:max_dec_sents]
+                ssi, article_lcs_paths_list = util.make_ssi_chronological(ssi, article_lcs_paths_list)
+            except:
+                logging.error('Failed to get article or abstract from example')
+                raise
+                # continue
+            # else:
+            #     try:
+            #         article_text = e.features.feature['article'].bytes_list.value[0] # the article text was saved under the key 'article' in the data files
+            #         for abstract in e.features.feature['abstract'].bytes_list.value:
+            #             abstract_texts.append(abstract) # the abstract text was saved under the key 'abstract' in the data files
+            #         if 'doc_indices' not in e.features.feature or len(e.features.feature['doc_indices'].bytes_list.value) == 0:
+            #             num_words = len(article_text.split())
+            #             doc_indices_text = '0 ' * num_words
+            #         else:
+            #             doc_indices_text = e.features.feature['doc_indices'].bytes_list.value[0]
+            #         for sent in e.features.feature['raw_article_sents'].bytes_list.value:
+            #             raw_article_sents.append(sent) # the abstract text was saved under the key 'abstract' in the data files
+            #         ssi = None
+            #         article_lcs_paths_list = None
+            #     except ValueError:
+            #         logging.error('Failed to get article or abstract from example\n*********************************************')
+            #         raise
+            #         # continue
             if len(article_text)==0: # See https://github.com/abisee/pointer-generator/issues/1
                 logging.warning('Found an example with empty article text. Skipping it.\n*********************************************')
             elif len(article_text.strip().split()) < 3 and self._hps.skip_with_less_than_3:
@@ -723,13 +753,13 @@ def get_delimited_list_of_lists(example, name):
 def get_string(example, name):
     return example.features.feature[name].bytes_list.value[0]
 
-def preprocess_example(article, groundtruth_summ_sents, doc_indices_str, raw_article_sents, hps, vocab):
+def preprocess_example(article, groundtruth_summ_sents, doc_indices_str, raw_article_sents, article_lcs_paths_list, hps, vocab):
     if len(groundtruth_summ_sents) != 0:
         abstract_sentences = groundtruth_summ_sents[0]
     else:
         abstract_sentences = []
     doc_indices = [int(idx) for idx in doc_indices_str.strip().split()]
-    example = Example(article, abstract_sentences, groundtruth_summ_sents, doc_indices, raw_article_sents, None, vocab, hps)  # Process into an Example.
+    example = Example(article, abstract_sentences, groundtruth_summ_sents, doc_indices, raw_article_sents, None, article_lcs_paths_list, vocab, hps)  # Process into an Example.
     return example
 
 def preprocess_batch(ex, batch_size, hps, vocab):
@@ -737,7 +767,7 @@ def preprocess_batch(ex, batch_size, hps, vocab):
     batch = Batch(b, hps, vocab)
     return batch
 
-def create_batch(article, groundtruth_summ_sents, doc_indices_str, raw_article_sents, batch_size, hps, vocab):
-    ex = preprocess_example(article, groundtruth_summ_sents, doc_indices_str, raw_article_sents, hps, vocab)
+def create_batch(article, groundtruth_summ_sents, doc_indices_str, raw_article_sents, article_lcs_paths_list, batch_size, hps, vocab):
+    ex = preprocess_example(article, groundtruth_summ_sents, doc_indices_str, raw_article_sents, article_lcs_paths_list, hps, vocab)
     batch = preprocess_batch(ex, batch_size, hps, vocab)
     return batch

@@ -107,10 +107,10 @@ class Vocab(object):
             for i in range(self.size()):
                 writer.writerow({"word": self._id_to_word[i]})
 
-def is_valid_example(e, is_pg_mmr=False):
+def is_valid_example(e, is_original=True):
     abstract_texts = []
     raw_article_sents = []
-    if is_pg_mmr:
+    if not is_original:
         try:
             names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json')]
 
@@ -138,7 +138,7 @@ def is_valid_example(e, is_pg_mmr=False):
             return False
     return True
 
-def example_generator(data_path, single_pass, cnn_500_dm_500, should_check_valid=True, is_pg_mmr=False):
+def example_generator(data_path, single_pass, cnn_500_dm_500, should_check_valid=True, is_original=False):
     """Generates tf.Examples from data files.
 
         Binary data format: <length><blob>. <length> represents the byte size
@@ -172,7 +172,7 @@ def example_generator(data_path, single_pass, cnn_500_dm_500, should_check_valid
                 str_len = struct.unpack('q', len_bytes)[0]
                 example_str = struct.unpack('%ds' % str_len, reader.read(str_len))[0]
                 e = example_pb2.Example.FromString(example_str)
-                if should_check_valid and is_valid_example(e, is_pg_mmr=is_pg_mmr):
+                if should_check_valid and is_valid_example(e, is_original=is_original):
                     valid_ex_count += 1
                 yield e
         if single_pass:

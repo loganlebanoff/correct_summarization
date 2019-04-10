@@ -153,7 +153,7 @@ def get_sent_similarities(summ_sent, article_sent_tokens, vocab, only_rouge_l=Fa
 
     return similarities
 
-def get_simple_source_indices_list(summary_sent_tokens, article_sent_tokens, vocab, sentence_limit, min_matched_tokens, remove_stop_words=True, lemmatize=True, multiple_ssi=False, smart_tags=False):
+def get_simple_source_indices_list(summary_sent_tokens, article_sent_tokens, vocab, sentence_limit, min_matched_tokens, remove_stop_words=True, lemmatize=True, multiple_ssi=False):
     if lemmatize:
         article_sent_tokens_lemma = util.lemmatize_sent_tokens(article_sent_tokens)
         summary_sent_tokens_lemma = util.lemmatize_sent_tokens(summary_sent_tokens)
@@ -171,7 +171,7 @@ def get_simple_source_indices_list(summary_sent_tokens, article_sent_tokens, voc
         if remove_lcs:
             similar_source_indices, lcs_paths, article_lcs_paths, smooth_article_paths = get_similar_source_sents_by_lcs(
                 summ_sent, summ_sent, list(range(len(summ_sent))), article_sent_tokens_lemma, vocab, similarities, 0,
-                sentence_limit, min_matched_tokens, remove_stop_words=remove_stop_words, multiple_ssi=multiple_ssi, smart_tags=smart_tags)
+                sentence_limit, min_matched_tokens, remove_stop_words=remove_stop_words, multiple_ssi=multiple_ssi)
             similar_source_indices_list.append(similar_source_indices)
             lcs_paths_list.append(lcs_paths)
             article_lcs_paths_list.append(article_lcs_paths)
@@ -200,7 +200,7 @@ def get_simple_source_indices_list(summary_sent_tokens, article_sent_tokens, voc
     return simple_similar_source_indices, lcs_paths_list, article_lcs_paths_list, smooth_article_paths_list
 
 
-def get_similar_source_sents_by_lcs(summ_sent, partial_summ_sent, selection, article_sent_tokens, vocab, similarities, depth, sentence_limit, min_matched_tokens, remove_stop_words=True, multiple_ssi=False, smart_tags=False):
+def get_similar_source_sents_by_lcs(summ_sent, partial_summ_sent, selection, article_sent_tokens, vocab, similarities, depth, sentence_limit, min_matched_tokens, remove_stop_words=True, multiple_ssi=False):
     remove_unigrams = True
     if sentence_limit == 1:
         if depth > 2:
@@ -222,10 +222,7 @@ def get_similar_source_sents_by_lcs(summ_sent, partial_summ_sent, selection, art
         if remove_unigrams:
             nonstopword_matches, _ = util.matching_unigrams(partial_summ_sent, article_sent_tokens[top_sent_idx], should_remove_stop_words=remove_stop_words)
             lcs_len, (summ_lcs_path, article_lcs_path) = util.matching_unigrams(partial_summ_sent, article_sent_tokens[top_sent_idx])
-            if smart_tags:
-                smooth_article_path = get_smooth_path(summ_sent, article_sent_tokens[top_sent_idx])
-            else:
-                smooth_article_path = article_lcs_path
+            smooth_article_path = get_smooth_path(summ_sent, article_sent_tokens[top_sent_idx])
         if len(nonstopword_matches) < min_matched_tokens:
             continue
         # new_selection = [selection[idx] for idx in summ_lcs_path]
@@ -236,7 +233,7 @@ def get_similar_source_sents_by_lcs(summ_sent, partial_summ_sent, selection, art
 
         sent_indices, lcs_paths, article_lcs_paths, smooth_article_paths = get_similar_source_sents_by_lcs(
             summ_sent, partial_summ_sent, leftover_selection, article_sent_tokens, vocab, similarities, depth+1,
-            sentence_limit, min_matched_tokens, remove_stop_words, multiple_ssi, smart_tags)   # recursive call
+            sentence_limit, min_matched_tokens, remove_stop_words, multiple_ssi)   # recursive call
 
         combined_sent_indices = [[top_sent_idx] + indices for indices in sent_indices]      # append my result to the recursive collection
         combined_lcs_paths = [[summ_lcs_path] + paths for paths in lcs_paths]
@@ -256,32 +253,41 @@ def get_smooth_path(summ_sent, article_sent):
     article_sent = ['<s>'] + article_sent + ['</s>']
 
     matches = []
-    summ_indices = []
     article_indices = []
     summ_token_to_indices = util.create_token_to_indices(summ_sent)
     article_token_to_indices = util.create_token_to_indices(article_sent)
     for key in list(article_token_to_indices.keys()):
-        if util.is_punctuation(key) or util.is_stopword(key):
+        if (util.is_punctuation(key) and not util.is_quotation_mark(key)):
             del article_token_to_indices[key]
     for token in list(summ_token_to_indices.keys()):
         if token in article_token_to_indices:
-            summ_indices.extend(summ_token_to_indices[token])
             article_indices.extend(article_token_to_indices[token])
             matches.extend([token] * len(summ_token_to_indices[token]))
-    summ_indices = sorted(summ_indices)
     article_indices = sorted(article_indices)
+
+    # Add a single word or a pair of words if they are in between two hightlighted content words
     new_article_indices = []
     new_article_indices.append(0)
     for article_idx in article_indices[1:]:
-        if article_idx - new_article_indices[-1] <= 3:
+        word = article_sent[article_idx]
+        prev_highlighted_word = article_sent[new_article_indices[-1]]
+        if article_idx - new_article_indices[-1] <= 3 \
+                and ((util.is_content_word(word) and util.is_content_word(prev_highlighted_word)) \
+                or (len(new_article_indices) >= 2 and util.is_content_word(word) and util.is_content_word(article_sent[new_article_indices[-2]]))):
             in_between_indices = list(range(new_article_indices[-1] + 1, article_idx))
             are_not_punctuation = [not util.is_punctuation(article_sent[in_between_idx]) for in_between_idx in in_between_indices]
             if all(are_not_punctuation):
                 new_article_indices.extend(in_between_indices)
         new_article_indices.append(article_idx)
-    new_article_indices = new_article_indices[1:-1]
-    new_article_indices = [idx-1 for idx in new_article_indices]
-    return new_article_indices
+    new_article_indices = new_article_indices[1:-1] # remove <s> and </s> from list
+
+    # Remove isolated stopwords
+    new_new_article_indices = []
+    for idx, article_idx in enumerate(new_article_indices):
+        if (not util.is_stopword_punctuation(article_sent[article_idx])) or (idx > 0 and new_article_indices[idx-1] == article_idx-1) or (idx < len(new_article_indices)-1 and new_article_indices[idx+1] == article_idx+1):
+            new_new_article_indices.append(article_idx)
+    new_new_article_indices = [idx-1 for idx in new_new_article_indices]    # fix indexing since we don't count <s> and </s>
+    return new_new_article_indices
 
 def get_top_similar_sent(summ_sent, article_sent_tokens, vocab, remove_stop_words=True, multiple_ssi=False):
     try:

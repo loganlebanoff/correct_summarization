@@ -150,7 +150,7 @@ class BeamSearchDecoder(object):
     def decode_iteratively(self, example_generator, total, names_to_types, ssi_list, hps):
         attn_vis_idx = 0
         for example_idx, example in enumerate(tqdm(example_generator, total=total)):
-            raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs = util.unpack_tf_example(
+            raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, groundtruth_article_lcs_paths_list = util.unpack_tf_example(
                 example, names_to_types)
             article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
             groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
@@ -182,6 +182,10 @@ class BeamSearchDecoder(object):
             best_hyps = []
             highlight_html_total = ''
             for ssi_idx, ssi in enumerate(sys_ssi):
+                selected_article_lcs_paths = None
+                # selected_article_lcs_paths = article_lcs_paths_list[ssi_idx]
+                # ssi, selected_article_lcs_paths = util.make_ssi_chronological(ssi, selected_article_lcs_paths)
+                # selected_article_lcs_paths = [selected_article_lcs_paths]
                 selected_raw_article_sents = util.reorder(raw_article_sents, ssi)
                 selected_article_text = ' '.join( [' '.join(sent) for sent in util.reorder(article_sent_tokens, ssi)] )
                 selected_doc_indices_str = '0 ' * len(selected_article_text.split())
@@ -190,7 +194,7 @@ class BeamSearchDecoder(object):
                 else:
                     selected_groundtruth_summ_sent = groundtruth_summ_sents
 
-                batch = create_batch(selected_article_text, selected_groundtruth_summ_sent, selected_doc_indices_str, selected_raw_article_sents, FLAGS.batch_size, hps, self._vocab)
+                batch = create_batch(selected_article_text, selected_groundtruth_summ_sent, selected_doc_indices_str, selected_raw_article_sents, selected_article_lcs_paths, FLAGS.batch_size, hps, self._vocab)
 
                 original_article = batch.original_articles[0]  # string
                 original_abstract = batch.original_abstracts[0]  # string
@@ -213,14 +217,14 @@ class BeamSearchDecoder(object):
                     min_matched_tokens = 2
                     selected_article_sent_tokens = [util.process_sent(sent) for sent in selected_raw_article_sents]
                     highlight_summary_sent_tokens = [decoded_words]
-                    highlight_ssi_list, lcs_paths_list, article_lcs_paths_list = ssi_functions.get_simple_source_indices_list(
+                    highlight_ssi_list, lcs_paths_list, highlight_article_lcs_paths_list, highlight_smooth_article_lcs_paths_list = ssi_functions.get_simple_source_indices_list(
                         highlight_summary_sent_tokens,
                         selected_article_sent_tokens, None, 2, min_matched_tokens)
                     highlighted_html = ssi_functions.html_highlight_sents_in_article(highlight_summary_sent_tokens,
                                                                                    highlight_ssi_list,
                                                                                      selected_article_sent_tokens,
                                                                                    lcs_paths_list=lcs_paths_list,
-                                                                                   article_lcs_paths_list=article_lcs_paths_list)
+                                                                                   article_lcs_paths_list=highlight_smooth_article_lcs_paths_list)
                     highlight_html_total += '<u>System Summary</u><br><br>' + highlighted_html + '<br><br>'
 
                 if FLAGS.attn_vis and example_idx < 200:

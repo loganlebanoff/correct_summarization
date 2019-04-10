@@ -139,8 +139,11 @@ def write_lambdamart_example(simple_similar_source_indices, raw_article_sents, s
     for sent in raw_article_sents:
         s = sent.strip()
         tf_example.features.feature['raw_article_sents'].bytes_list.value.extend([util.encode_text(s)])
-    for summ_text in summary_text:
-        tf_example.features.feature['summary_text'].bytes_list.value.extend([util.encode_text(summ_text)])
+    if FLAGS.dataset_name == 'duc_2004':
+        for summ_text in summary_text:
+            tf_example.features.feature['summary_text'].bytes_list.value.extend([util.encode_text(summ_text)])
+    else:
+        tf_example.features.feature['summary_text'].bytes_list.value.extend([util.encode_text(summary_text)])
     if doc_indices is not None:
         tf_example.features.feature['doc_indices'].bytes_list.value.extend([util.encode_text(doc_indices)])
     tf_example.features.feature['corefs'].bytes_list.value.extend([corefs_str])
@@ -172,10 +175,10 @@ def main(unused_argv):
     if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
         raise Exception("Problem with flags: %s" % unused_argv)
 
-    if FLAGS.only_highlight:
-        FLAGS.sent_dataset = False
-        FLAGS.ssi_dataset = False
-        FLAGS.print_output = False
+    if FLAGS.all_actions:
+        FLAGS.sent_dataset = True
+        FLAGS.ssi_dataset = True
+        FLAGS.print_output = True
         FLAGS.highlight = True
 
     original_dataset_name = 'xsum' if 'xsum' in FLAGS.dataset_name else 'cnn_dm' if ('cnn_dm' in FLAGS.dataset_name or 'duc_2004' in FLAGS.dataset_name) else ''
@@ -210,7 +213,7 @@ def main(unused_argv):
             summary_files = sorted(glob.glob(summary_dir + '/*'))
         if len(summary_files) == 0:
             raise Exception('No files found in %s' % summary_dir)
-        example_generator = data.example_generator(source_dir + '/' + dataset_split + '*', True, False)
+        example_generator = data.example_generator(source_dir + '/' + dataset_split + '*', True, False, is_original=True)
         pros = {'annotators': 'dcoref', 'outputFormat': 'json', 'timeout': '5000000'}
         all_merge_examples = []
         num_extracted_list = []
@@ -273,7 +276,7 @@ def main(unused_argv):
                 raw_article_sents = example.features.feature['raw_article_sents'].bytes_list.value
 
                 raw_article_sents = [sent.decode() for sent in raw_article_sents if sent.decode().strip() != '']
-                article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
+                article_sent_tokens = [util.process_sent(sent, whitespace=True) for sent in raw_article_sents]
             else:
                 # article_text = util.to_unicode(article_text)
 
@@ -324,7 +327,7 @@ def main(unused_argv):
 
             simple_similar_source_indices, lcs_paths_list, article_lcs_paths_list, smooth_article_paths_list =  ssi_functions.get_simple_source_indices_list(
                 summary_sent_tokens, article_sent_tokens, vocab, FLAGS.sentence_limit, FLAGS.min_matched_tokens, not FLAGS.consider_stopwords, lemmatize=FLAGS.lemmatize,
-                multiple_ssi=FLAGS.multiple_ssi, smart_tags=FLAGS.smart_tags)
+                multiple_ssi=FLAGS.multiple_ssi)
 
             article_paths_parameter = article_lcs_paths_list if FLAGS.tag_tokens else None
             article_paths_parameter = smooth_article_paths_list if FLAGS.smart_tags else article_paths_parameter
@@ -338,7 +341,7 @@ def main(unused_argv):
 
             simple_similar_source_indices_list_plus_empty.append(simple_similar_source_indices)
             if FLAGS.ssi_dataset:
-                summary_text_to_save = [s for s in all_summary_texts] if FLAGS.dataset_name == 'duc_2004' else summary_text.split('\n')
+                summary_text_to_save = [s for s in all_summary_texts] if FLAGS.dataset_name == 'duc_2004' else summary_text
                 write_lambdamart_example(simple_similar_source_indices, raw_article_sents, summary_text_to_save, corefs_str, doc_indices_str, article_paths_parameter, lambdamart_writer)
 
 
@@ -420,7 +423,7 @@ if __name__ == '__main__':
     flags.DEFINE_boolean('highlight', False, 'Whether to save an html file that shows the selected sentences as highlighted in the article.')
     flags.DEFINE_boolean('sent_dataset', False, 'Whether to save the merged sentences as a dataset.')
     flags.DEFINE_boolean('ssi_dataset', False, 'Whether to save features as a dataset that will be used to predict which sentences should be merged, using the LambdaMART system.')
-    flags.DEFINE_boolean('only_highlight', False, 'Which human abstract to process on. Only applies to duc_2004.')
+    flags.DEFINE_boolean('all_actions', False, 'Which human abstract to process on. Only applies to duc_2004.')
     flags.DEFINE_boolean('lemmatize', True, 'Which human abstract to process on. Only applies to duc_2004.')
     flags.DEFINE_boolean('multiple_ssi', False, 'Allow multiple singles are pairs to be chosen for each summary sentence, rather than just the top similar sentence.')
     flags.DEFINE_boolean('chronological', True, 'Whether to make sent_dataset chronological for source indices. Does not apply to ssi_dataset.')

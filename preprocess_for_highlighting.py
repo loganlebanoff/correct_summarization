@@ -33,7 +33,7 @@ ssi_dir = 'data/ssi'
 raw_root = 'data/correctness/raw'
 processed_root = 'data/correctness/processed'
 # systems = ['reference', 'novel', 'dca', 'abs-rl-rerank', 'pg', 'bottom-up']
-systems = ['reference', 'novel', 'dca']
+systems = []
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 min_matched_tokens = 1
 preprocess_article_and_human_summaries = True
@@ -100,6 +100,9 @@ def get_sents(text):
         a=0
     return '\t'.join(new_sents)
 
+def fix_punctuations(text):
+    return text.replace(" ''", '"').replace('`` ', '"').replace('` ', '`').replace(" '", "'").replace(' :', ':').replace(' .', '.').replace(' !', '!').replace(' ?', '?').replace(' ,', ',').replace('( ', '(').replace(' )', ')').replace(" 's", "'s").replace(' %', '%').replace('$ ', '$').replace(" 'll", "'ll").replace(" 're", "'re")
+
 
 def main(unused_argv):
 
@@ -130,9 +133,10 @@ def main(unused_argv):
                 example, names_to_types)
             groundtruth_summ_sents = [util.unfix_bracket_tokens_in_sent(sent.strip()) for sent in groundtruth_summary_text.strip().split('\n')]
             writer.write('\t'.join(groundtruth_summ_sents) + '\n')
-            reference_article = '\t'.join([util.unfix_bracket_tokens_in_sent(sent.strip()) for sent in raw_article_sents])
+            reference_article = '\t'.join([util.unfix_bracket_tokens_in_sent(util.unfix_bracket_tokens_in_sent(sent.strip())) for sent in raw_article_sents])
             reference_articles.append(reference_article)
-            writer_article.write(reference_article + '\n')
+            pretty_reference_article = '\t'.join([fix_punctuations(sent.strip()) for sent in raw_article_sents])
+            writer_article.write(pretty_reference_article + '\n')
         writer.close()
 
     for system in systems:

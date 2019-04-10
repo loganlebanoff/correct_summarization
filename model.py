@@ -389,12 +389,12 @@ class SummarizationModel(object):
                 'summaries': self._summaries,
                 'loss': self._loss,
                 'global_step': self.global_step,
-                'attn_dists': self.attn_dists,
-                'importance_loss': self._importance_loss,
-                'coverage_loss': self._coverage_loss,
+                'attn_dists': self.attn_dists
         }
         if self._hps.coverage:
             to_return['coverage_loss'] = self._coverage_loss
+        if self._hps.word_imp_reg:
+            to_return['importance_loss'] = self._importance_loss
         try:
             result = sess.run(to_return, feed_dict)
         except:

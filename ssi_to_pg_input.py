@@ -28,7 +28,7 @@ FLAGS = flags.FLAGS
 # Where to find data
 flags.DEFINE_string('dataset_name', 'cnn_dm', 'Which dataset to use. Makes a log dir based on name.\
                                                 Must be one of {tac_2011, tac_2008, duc_2004, duc_tac, cnn_dm} or a custom dataset name')
-flags.DEFINE_string('data_root', os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
+flags.DEFINE_string('data_root', os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi_and_tag_tokens', 'Path to root directory for all datasets (already converted to TensorFlow examples).')
 flags.DEFINE_string('vocab_path', 'logs/vocab', 'Path expression to text vocabulary file.')
 flags.DEFINE_string('pretrained_path', '', 'Directory of pretrained model for PG trained on singles or pairs of sentences.')
 flags.DEFINE_boolean('use_pretrained', True, 'If True, use pretrained model in the path FLAGS.pretrained_path.')
@@ -112,6 +112,7 @@ flags.DEFINE_boolean('word_imp_reg', False, 'If true, save plots of each distrib
 flags.DEFINE_float('imp_loss_wt', 1.0, 'Weight of coverage loss (lambda in the paper). If zero, then no incentive to minimize coverage loss.')
 flags.DEFINE_boolean('first_intact', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('tag_tokens', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
+flags.DEFINE_boolean('by_instance', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 
 
 _exp_name = 'lambdamart'
@@ -128,7 +129,7 @@ lambdamart_in_dir = 'data/temp/to_lambdamart'
 lambdamart_out_dir = 'data/temp/lambdamart_results'
 ssi_out_dir = 'data/temp/ssi'
 log_dir = 'logs'
-names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json')]
+names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('article_lcs_paths_list', 'delimited_list_of_list_of_lists')]
 
 
 def main(unused_argv):
@@ -202,6 +203,8 @@ def main(unused_argv):
     FLAGS.actual_log_root = FLAGS.log_root
     FLAGS.log_root = os.path.join(FLAGS.log_root, FLAGS.exp_name)
 
+    print(util.bcolors.OKGREEN + "Experiment path: " + FLAGS.log_root + util.bcolors.ENDC)
+
 
     if FLAGS.dataset_name == 'duc_2004':
         vocab = Vocab(FLAGS.vocab_path + '_' + 'cnn_dm', FLAGS.vocab_size) # create a vocabulary
@@ -227,10 +230,11 @@ def main(unused_argv):
         raise Exception("The single_pass flag should only be True in decode mode")
 
     # Make a namedtuple hps, containing the values of the hyperparameters that the model needs
-    hparam_list = ['mode', 'lr', 'adagrad_init_acc', 'rand_unif_init_mag', 'trunc_norm_init_std',
-                   'max_grad_norm', 'hidden_dim', 'emb_dim', 'batch_size', 'max_dec_steps',
-                   'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input', 'pg_mmr', 'singles_and_pairs', 'skip_with_less_than_3',
-                   'ssi_data_path', 'word_imp_reg', 'imp_loss_wt']
+    # hparam_list = ['mode', 'lr', 'adagrad_init_acc', 'rand_unif_init_mag', 'trunc_norm_init_std',
+    #                'max_grad_norm', 'hidden_dim', 'emb_dim', 'batch_size', 'max_dec_steps',
+    #                'max_enc_steps', 'coverage', 'cov_loss_wt', 'pointer_gen', 'lambdamart_input', 'pg_mmr', 'singles_and_pairs', 'skip_with_less_than_3',
+    #                'ssi_data_path', 'word_imp_reg', 'imp_loss_wt']
+    hparam_list = [item for item in list(FLAGS.flag_values_dict().keys()) if item != '?']
     hps_dict = {}
     for key,val in FLAGS.__flags.items(): # for each flag
         if key in hparam_list: # if it's in the list
