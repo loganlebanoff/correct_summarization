@@ -855,6 +855,36 @@ def make_ssi_chronological(ssi, article_lcs_paths_list=None):
         else:
             return article_lcs_paths
 
+def filter_pairs_by_sent_position(possible_pairs, rel_sent_indices=None):
+    max_sent_position = {
+        'cnn_dm': 30,
+        'xsum': 20,
+        'duc_2004': np.inf
+    }
+    if FLAGS.dataset_name == 'duc_2004':
+        return [pair for pair in possible_pairs if max(rel_sent_indices[pair[0]], rel_sent_indices[pair[1]]) < 5]
+    else:
+        return [pair for pair in possible_pairs if max(pair) < max_sent_position[FLAGS.dataset_name]]
+
+def get_rel_sent_indices(doc_indices, article_sent_tokens):
+    if FLAGS.dataset_name != 'duc_2004' and len(doc_indices) != len(flatten_list_of_lists(article_sent_tokens)):
+        doc_indices = [0] * len(flatten_list_of_lists(article_sent_tokens))
+    doc_indices_sent_tokens = reshape_like(doc_indices, article_sent_tokens)
+    sent_doc = [sent[0] for sent in doc_indices_sent_tokens]
+    rel_sent_indices = []
+    doc_sent_indices = []
+    cur_doc_idx = 0
+    rel_sent_idx = 0
+    for doc_idx in sent_doc:
+        if doc_idx != cur_doc_idx:
+            rel_sent_idx = 0
+            cur_doc_idx = doc_idx
+        rel_sent_indices.append(rel_sent_idx)
+        doc_sent_indices.append(cur_doc_idx)
+        rel_sent_idx += 1
+    doc_sent_lens = [sum(1 for my_doc_idx in doc_sent_indices if my_doc_idx == doc_idx) for doc_idx in range(max(doc_sent_indices) + 1)]
+    return rel_sent_indices, doc_sent_indices, doc_sent_lens
+
 
 
 

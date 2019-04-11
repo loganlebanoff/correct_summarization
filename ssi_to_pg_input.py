@@ -113,6 +113,7 @@ flags.DEFINE_float('imp_loss_wt', 1.0, 'Weight of coverage loss (lambda in the p
 flags.DEFINE_boolean('first_intact', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('tag_tokens', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('by_instance', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
+flags.DEFINE_boolean('sep', False, 'If true, add a separator token [SEP] between sentences.')
 
 
 _exp_name = 'lambdamart'
@@ -156,19 +157,22 @@ def main(unused_argv):
     if FLAGS.word_imp_reg:
         FLAGS.pretrained_path += '_imp' + str(FLAGS.imp_loss_wt)
         FLAGS.exp_name += '_imp' + str(FLAGS.imp_loss_wt)
+    if FLAGS.sep:
+        FLAGS.pretrained_path += '_sep'
+        FLAGS.exp_name += '_sep'
 
 
     bert_suffix = ''
-    if FLAGS.use_bert:
-        if FLAGS.sentemb:
-            FLAGS.exp_name += '_sentemb'
-            bert_suffix += '_sentemb'
-        if FLAGS.artemb:
-            FLAGS.exp_name += '_artemb'
-            bert_suffix += '_artemb'
-        if FLAGS.plushidden:
-            FLAGS.exp_name += '_plushidden'
-            bert_suffix += '_plushidden'
+    # if FLAGS.use_bert:
+    #     if FLAGS.sentemb:
+    #         FLAGS.exp_name += '_sentemb'
+    #         bert_suffix += '_sentemb'
+    #     if FLAGS.artemb:
+    #         FLAGS.exp_name += '_artemb'
+    #         bert_suffix += '_artemb'
+    #     if FLAGS.plushidden:
+    #         FLAGS.exp_name += '_plushidden'
+    #         bert_suffix += '_plushidden'
     if FLAGS.upper_bound:
         FLAGS.exp_name = FLAGS.exp_name + '_upperbound'
         ssi_list = None     # this is if we are doing the upper bound evaluation (ssi_list comes straight from the groundtruth)
@@ -207,7 +211,7 @@ def main(unused_argv):
 
 
     if FLAGS.dataset_name == 'duc_2004':
-        vocab = Vocab(FLAGS.vocab_path + '_' + 'cnn_dm', FLAGS.vocab_size) # create a vocabulary
+        vocab = Vocab(FLAGS.vocab_path + '_' + 'cnn_dm', FLAGS.vocab_size, add_sep=FLAGS.sep) # create a vocabulary
     else:
         vocab_datasets = [os.path.basename(file_path).split('vocab_')[1] for file_path in glob.glob(FLAGS.vocab_path + '_*')]
         original_dataset_name = [file_name for file_name in vocab_datasets if file_name in FLAGS.dataset_name]
@@ -217,7 +221,7 @@ def main(unused_argv):
             raise Exception('No vocab file for dataset created. Run make_vocab.py --dataset_name=<my original dataset name>')
         original_dataset_name = original_dataset_name[0]
         FLAGS.original_dataset_name = original_dataset_name
-        vocab = Vocab(FLAGS.vocab_path + '_' + original_dataset_name, FLAGS.vocab_size) # create a vocabulary
+        vocab = Vocab(FLAGS.vocab_path + '_' + original_dataset_name, FLAGS.vocab_size, add_sep=FLAGS.sep) # create a vocabulary
 
     # If in decode mode, set batch_size = beam_size
     # Reason: in decode mode, we decode one example at a time.

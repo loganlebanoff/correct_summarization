@@ -323,12 +323,12 @@ class SummarizationModel(object):
                         self._total_loss = self._loss + hps.cov_loss_wt * self._coverage_loss
                         tf.summary.scalar('total_loss', self._total_loss)
 
-                        if hps.word_imp_reg:
-                            with tf.variable_scope('importance_loss'):
-                                self._importance_loss = _importance_loss(self.attn_dists, self._enc_padding_mask, self.enc_importances)
-                                tf.summary.scalar('importance_loss', self._importance_loss)
-                            self._total_with_imp_loss = self._total_loss + hps.imp_loss_wt * self._importance_loss
-                            tf.summary.scalar('total_with_imp_loss', self._total_with_imp_loss)
+                    if hps.word_imp_reg:
+                        with tf.variable_scope('importance_loss'):
+                            self._importance_loss = _importance_loss(self.attn_dists, self._enc_padding_mask, self.enc_importances)
+                            tf.summary.scalar('importance_loss', self._importance_loss)
+                        self._total_with_imp_loss = (1-hps.imp_loss_wt) * self._total_loss + hps.imp_loss_wt * self._importance_loss
+                        tf.summary.scalar('total_with_imp_loss', self._total_with_imp_loss)
 
 
         if hps.mode == "decode":
@@ -343,10 +343,9 @@ class SummarizationModel(object):
         """Sets self._train_op, the op to run for training."""
         # Take gradients of the trainable variables w.r.t. the loss function to minimize
         if self._hps.coverage:
-            if self._hps.word_imp_reg:
-                loss_to_minimize = self._total_with_imp_loss
-            else:
-                loss_to_minimize = self._total_loss
+            loss_to_minimize = self._total_loss
+        elif self._hps.word_imp_reg:
+            loss_to_minimize = self._total_with_imp_loss
         else:
             loss_to_minimize = self._loss
         # loss_to_minimize = self._total_loss if self._hps.coverage else self._loss
@@ -597,6 +596,6 @@ def _importance_loss(attn_dists, padding_mask, importances):
     coverage = tf.zeros_like(attn_dists[0]) # shape (batch_size, attn_length). Initial coverage is zero.
     for a in attn_dists:
         coverage += a # update the coverage vector
-    importance_losses = tf.abs(coverage - importances)
+    importance_losses = coverage * importances
     importance_loss = _mask_and_avg_enc(importance_losses, padding_mask)
     return importance_loss

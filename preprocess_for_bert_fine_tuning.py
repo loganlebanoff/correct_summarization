@@ -10,6 +10,8 @@ import sys
 import glob
 import data
 
+from util import filter_pairs_by_sent_position
+
 FLAGS = flags.FLAGS
 
 if 'dataset_name' not in flags.FLAGS:
@@ -28,11 +30,6 @@ if 'tag_tokens' not in flags.FLAGS:
                          'Number of instances to run for before stopping. Use -1 to run on all instances.')
 
 FLAGS(sys.argv)
-
-from preprocess_for_lambdamart_no_flags import filter_pairs_by_sent_position
-
-import convert_data
-import preprocess_for_lambdamart_no_flags
 
 data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi_and_tag_tokens'
 ssi_dir = 'data/ssi'
@@ -55,7 +52,7 @@ def get_bert_example(raw_article_sents, ssi):
 def get_string_bert_example(raw_article_sents, ssi, label, example_idx, inst_id, article_lcs_paths):
     first_sent, second_sent = get_bert_example(raw_article_sents, ssi)
     instance = [str(label), first_sent, second_sent, str(example_idx), str(inst_id), ' '.join([str(i) for i in ssi])]
-    if FLAGS.article_lcs_paths is not None:
+    if article_lcs_paths is not None:
         article_lcs_paths_str = ';'.join([' '.join(str(i) for i in path) for path in article_lcs_paths])
         instance.append(article_lcs_paths_str)
     else:
@@ -113,7 +110,7 @@ def main(unused_argv):
 
             writer = open(os.path.join(out_dir, dataset_split) + '.tsv', 'wb')
             header_list = ['should_merge', 'sent1', 'sent2', 'example_idx', 'inst_id', 'ssi', 'article_lcs_paths']
-            writer.write('\t'.join(header_list) + '\n')
+            writer.write(('\t'.join(header_list) + '\n').encode())
             inst_id = 0
             for example_idx, example in enumerate(tqdm(example_generator, total=total)):
                 raw_article_sents, groundtruth_similar_source_indices_list, groundtruth_summary_text, corefs, doc_indices, article_lcs_paths_list = util.unpack_tf_example(
@@ -123,7 +120,7 @@ def main(unused_argv):
                 if doc_indices is None or (dataset_name != 'duc_2004' and len(doc_indices) != len(util.flatten_list_of_lists(article_sent_tokens))):
                     doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
                 doc_indices = [int(doc_idx) for doc_idx in doc_indices]
-                rel_sent_indices, _, _ = preprocess_for_lambdamart_no_flags.get_rel_sent_indices(doc_indices, article_sent_tokens)
+                rel_sent_indices, _, _ = util.get_rel_sent_indices(doc_indices, article_sent_tokens)
                 similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, FLAGS.sentence_limit)
                 # print doc_indices, rel_sent_indices
 
@@ -148,11 +145,11 @@ def main(unused_argv):
                             if ssi[0] > ssi[1]:
                                 ssi = (min(ssi), max(ssi))
                                 article_lcs_paths = (article_lcs_paths[1], article_lcs_paths[0])
-                        writer.write(get_string_bert_example(raw_article_sents, ssi, 1, example_idx, inst_id, article_lcs_paths))
+                        writer.write(get_string_bert_example(raw_article_sents, ssi, 1, example_idx, inst_id, article_lcs_paths).encode())
                         inst_id += 1
                     for ssi in negatives:
                         article_lcs_paths = None
-                        writer.write(get_string_bert_example(raw_article_sents, ssi, 0, example_idx, inst_id, article_lcs_paths))
+                        writer.write(get_string_bert_example(raw_article_sents, ssi, 0, example_idx, inst_id, article_lcs_paths).encode())
                         inst_id += 1
 
                 else:
@@ -162,7 +159,7 @@ def main(unused_argv):
                     random_negative_pairs = np.random.permutation(len(negative_pairs)).tolist()
                     random_negative_singles = np.random.permutation(len(negative_singles)).tolist()
 
-                    for ssi in similar_source_indices_list:
+                    for ssi_idx, ssi in enumerate(similar_source_indices_list):
                         if len(ssi) == 0:
                             continue
                         article_lcs_paths = article_lcs_paths_list[ssi_idx]
@@ -171,7 +168,7 @@ def main(unused_argv):
                                 ssi = (min(ssi), max(ssi))
                                 article_lcs_paths = (article_lcs_paths[1], article_lcs_paths[0])
                         is_pair = len(ssi) == 2
-                        writer.write(get_string_bert_example(raw_article_sents, ssi, 1, example_idx, inst_id, article_lcs_paths))
+                        writer.write(get_string_bert_example(raw_article_sents, ssi, 1, example_idx, inst_id, article_lcs_paths).encode())
                         inst_id += 1
 
                         # False sentence single/pair
@@ -184,7 +181,7 @@ def main(unused_argv):
                                 continue
                             negative_indices = negative_singles[random_negative_singles.pop()]
                         article_lcs_paths = None
-                        writer.write(get_string_bert_example(raw_article_sents, negative_indices, 0, example_idx, inst_id, article_lcs_paths))
+                        writer.write(get_string_bert_example(raw_article_sents, negative_indices, 0, example_idx, inst_id, article_lcs_paths).encode())
                         inst_id += 1
 
 

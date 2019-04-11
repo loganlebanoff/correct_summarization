@@ -219,8 +219,8 @@ class BasicTokenizer(object):
         token = self._run_strip_accents(token)
       split_token = self._run_split_on_punc(token)
       split_tokens.extend(split_token)
-      mapping = [token_idx] * len(split_token)
-      mappings.append(mapping)
+      for _ in split_token:
+        mappings.append(token_idx)
 
     output_tokens = whitespace_tokenize(" ".join(split_tokens))
     assert len(output_tokens) == len(mappings), ' '.join(output_tokens) + '\n' + ' '.join([str(mapping) for mapping in mappings])

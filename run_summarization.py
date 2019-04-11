@@ -128,9 +128,10 @@ flags.DEFINE_boolean('finetune', False, 'If true, save plots of each distributio
 # flags.DEFINE_boolean('l_sents', True, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('word_imp_reg', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('convert_to_importance_model', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
-flags.DEFINE_float('imp_loss_wt', 1.0, 'Weight of coverage loss (lambda in the paper). If zero, then no incentive to minimize coverage loss.')
+flags.DEFINE_float('imp_loss_wt', 0.5, 'Weight of importance loss (lambda in the paper). If zero, then no incentive to minimize importance loss. 0.5 means equal weight.')
 flags.DEFINE_boolean('tag_tokens', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('by_instance', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
+flags.DEFINE_boolean('sep', False, 'If true, add a separator token [SEP] between sentences.')
 
 
 flags.DEFINE_bool(
@@ -447,16 +448,18 @@ def main(unused_argv):
         FLAGS.exp_name += '_finetune'
         if FLAGS.mode == 'decode':
             FLAGS.pretrained_path += '_finetune'
+    if FLAGS.sep:
+        FLAGS.exp_name += '_sep'
 
     extractor = 'bert' if FLAGS.use_bert else 'lambdamart'
     bert_suffix = ''
-    if FLAGS.use_bert:
-        if FLAGS.sentemb:
-            bert_suffix += '_sentemb'
-        if FLAGS.artemb:
-            bert_suffix += '_artemb'
-        if FLAGS.plushidden:
-            bert_suffix += '_plushidden'
+    # if FLAGS.use_bert:
+    #     if FLAGS.sentemb:
+    #         bert_suffix += '_sentemb'
+    #     if FLAGS.artemb:
+    #         bert_suffix += '_artemb'
+    #     if FLAGS.plushidden:
+    #         bert_suffix += '_plushidden'
         # if FLAGS.mode == 'decode':
         #     if FLAGS.sentemb:
         #         FLAGS.exp_name += '_sentemb'
@@ -492,7 +495,7 @@ def main(unused_argv):
     print(util.bcolors.OKGREEN + "Experiment path: " + FLAGS.log_root + util.bcolors.ENDC)
 
     if FLAGS.dataset_name == 'duc_2004':
-        vocab = Vocab(FLAGS.vocab_path + '_' + 'cnn_dm', FLAGS.vocab_size) # create a vocabulary
+        vocab = Vocab(FLAGS.vocab_path + '_' + 'cnn_dm', FLAGS.vocab_size, add_sep=FLAGS.sep) # create a vocabulary
     else:
         vocab_datasets = [os.path.basename(file_path).split('vocab_')[1] for file_path in glob.glob(FLAGS.vocab_path + '_*')]
         original_dataset_name = [file_name for file_name in vocab_datasets if file_name in FLAGS.dataset_name]
@@ -502,7 +505,7 @@ def main(unused_argv):
             raise Exception('No vocab file for dataset created. Run make_vocab.py --dataset_name=<my original dataset name>')
         original_dataset_name = original_dataset_name[0]
         FLAGS.original_dataset_name = original_dataset_name
-        vocab = Vocab(FLAGS.vocab_path + '_' + original_dataset_name, FLAGS.vocab_size) # create a vocabulary
+        vocab = Vocab(FLAGS.vocab_path + '_' + original_dataset_name, FLAGS.vocab_size, add_sep=FLAGS.sep) # create a vocabulary
 
 
     # If in decode mode, set batch_size = beam_size

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -x
+set -o errexit
 
 intexit() {
     # Kill all subprocesses (all processes in the current process group)
@@ -103,10 +104,10 @@ fi
 
 
 if [[ "$singles_and_pairs" = "both" ]]; then
-    exp_suffix=_both
+    exp_suffix=_both"$exp_suffix"
 #    dataset_suffix=_sent
 elif [[ "$singles_and_pairs" = "singles" ]]; then
-    exp_suffix=_singles
+    exp_suffix=_singles"$exp_suffix"
 #    dataset_suffix=_sent_singles
 else
     data_root_flag=--data_root=$HOME/data/tf_data

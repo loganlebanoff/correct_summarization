@@ -32,6 +32,7 @@ PAD_TOKEN = '[PAD]' # This has a vocab id, which is used to pad the encoder inpu
 UNKNOWN_TOKEN = '[UNK]' # This has a vocab id, which is used to represent out-of-vocabulary words
 START_DECODING = '[START]' # This has a vocab id, which is used at the start of every decoder input sequence
 STOP_DECODING = '[STOP]' # This has a vocab id, which is used at the end of untruncated target sequences
+SEP_TOKEN = '[SEP]' # This has a vocab id, which is in between input sentences
 PERIOD = '.'
 
 # Note: none of <s>, </s>, [PAD], [UNK], [START], [STOP] should appear in the vocab file.
@@ -40,7 +41,7 @@ PERIOD = '.'
 class Vocab(object):
     """Vocabulary class for mapping between words and ids (integers)"""
 
-    def __init__(self, vocab_file, max_size):
+    def __init__(self, vocab_file, max_size, add_sep=False):
         """Creates a vocab of up to max_size words, reading from the vocab_file. If max_size is 0, reads the entire vocab file.
 
         Args:
@@ -51,7 +52,10 @@ class Vocab(object):
         self._count = 0 # keeps track of total number of words in the Vocab
 
         # [UNK], [PAD], [START] and [STOP] get the ids 0,1,2,3.
-        for w in [UNKNOWN_TOKEN, PAD_TOKEN, START_DECODING, STOP_DECODING]:
+        tokens_to_add = [UNKNOWN_TOKEN, PAD_TOKEN, START_DECODING, STOP_DECODING]
+        if add_sep:
+            tokens_to_add.append(SEP_TOKEN)
+        for w in tokens_to_add:
             self._word_to_id[w] = self._count
             self._id_to_word[self._count] = w
             self._count += 1

@@ -154,7 +154,7 @@ if 'dataset_name' not in flags.FLAGS:
     flags.DEFINE_string('dataset_name', 'cnn_dm', 'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
 
 flags.DEFINE_bool("plushidden", True, "Whether to use TPU or GPU/CPU.")
-flags.DEFINE_bool("tag_tokens", True, "Whether to use TPU or GPU/CPU.")
+flags.DEFINE_bool("tag_tokens", False, "Whether to use TPU or GPU/CPU.")
 
 
 class InputExample(object):
@@ -307,7 +307,7 @@ class MergeProcessor(DataProcessor):
       else:
         label = tokenization.convert_to_unicode(line[0])
       sentence_ids = [int(idx) for idx in line[5].split()]
-      article_lcs_paths = [[int(art_idx) for art_idx in (l.strip().split(' ') if l != '' else [])] for l in line[6]]
+      article_lcs_paths = [[int(art_idx) for art_idx in (l.strip().split(' ') if l != '' else [])] for l in line[6].strip().split(';')]
       if json_lines:
           json_idx = example_idx + 1
           json_line = json_lines[json_idx].strip()
@@ -525,9 +525,14 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   tokens_b = None
   mappings_b = None
   labels_b = None
-  if example.text_b:
+  if example.text_b is not None:
     tokens_b, mappings_b = tokenizer.tokenize(example.text_b)
-    labels_b = create_token_labels(mappings_b, example.article_lcs_paths[1])
+    if example.article_lcs_paths == [[]]:                                                                                                                                                                                                                                                                                               
+    try:
+        labels_b = create_token_labels(mappings_b, example.article_lcs_paths[1])
+    except:
+        print (example.article_lcs_paths)
+        raise
 
   if tokens_b:
     # Modifies `tokens_a` and `tokens_b` in place so that the total
@@ -817,37 +822,39 @@ def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
     cls_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
 
 
+    if FLAGS.tag_tokens:
+        final_hidden = model.get_sequence_output()
 
-    final_hidden = model.get_sequence_output()
+        final_hidden_shape = modeling.get_shape_list(final_hidden, expected_rank=3)
+        batch_size = final_hidden_shape[0]
+        seq_length = final_hidden_shape[1]
+        hidden_size_seq = final_hidden_shape[2]
 
-    final_hidden_shape = modeling.get_shape_list(final_hidden, expected_rank=3)
-    batch_size = final_hidden_shape[0]
-    seq_length = final_hidden_shape[1]
-    hidden_size_seq = final_hidden_shape[2]
+        output_weights_seq = tf.get_variable(
+            "cls/squad/output_weights", [2, hidden_size_seq],
+            initializer=tf.truncated_normal_initializer(stddev=0.02))
 
-    output_weights_seq = tf.get_variable(
-        "cls/squad/output_weights", [2, hidden_size_seq],
-        initializer=tf.truncated_normal_initializer(stddev=0.02))
+        output_bias_seq = tf.get_variable(
+            "cls/squad/output_bias", [2], initializer=tf.zeros_initializer())
 
-    output_bias_seq = tf.get_variable(
-        "cls/squad/output_bias", [2], initializer=tf.zeros_initializer())
+        final_hidden_matrix = tf.reshape(final_hidden,
+                                         [batch_size * seq_length, hidden_size_seq])
+        logits_seq = tf.matmul(final_hidden_matrix, output_weights_seq, transpose_b=True)
+        logits_seq = tf.nn.bias_add(logits_seq, output_bias_seq)
+        log_probs_seq = tf.nn.log_softmax(logits_seq, axis=-1)
 
-    final_hidden_matrix = tf.reshape(final_hidden,
-                                     [batch_size * seq_length, hidden_size_seq])
-    logits_seq = tf.matmul(final_hidden_matrix, output_weights_seq, transpose_b=True)
-    logits_seq = tf.nn.bias_add(logits_seq, output_bias_seq)
-    log_probs_seq = tf.nn.log_softmax(logits_seq, axis=-1)
-
-    logits_seq = tf.reshape(logits_seq, [batch_size, seq_length, 2])
-    # logits_seq = tf.transpose(logits_seq, [2, 0, 1])
-    # token_labels_reshaped = tf.reshape(token_labels, [batch_size * seq_length])
-    one_hot_labels_seq = tf.one_hot(token_labels, depth=num_labels, dtype=tf.float32)
-    seq_loss = tf.reduce_sum(one_hot_labels_seq * log_probs_seq, axis=-1)
-    seq_loss = -tf.reduce_sum(seq_loss, axis=-1)
+        logits_seq = tf.reshape(logits_seq, [batch_size, seq_length, 2])
+        # logits_seq = tf.transpose(logits_seq, [2, 0, 1])
+        # token_labels_reshaped = tf.reshape(token_labels, [batch_size * seq_length])
+        one_hot_labels_seq = tf.one_hot(token_labels, depth=num_labels, dtype=tf.float32)
+        seq_loss = tf.reduce_sum(one_hot_labels_seq * log_probs_seq, axis=-1)
+        seq_loss = -tf.reduce_sum(seq_loss, axis=-1)
 
 
 
-    per_example_loss = cls_loss + seq_loss
+        per_example_loss = cls_loss + seq_loss
+    else:
+        per_example_loss = cls_loss
     loss = tf.reduce_mean(per_example_loss)
 
     return (loss, per_example_loss, logits, probabilities, model.embedding_output)
@@ -871,6 +878,8 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
     label_ids = features["label_ids"]
     sentence_ids = features["sentence_ids"] if FLAGS.sentemb else None
     article_embedding = features["article_embedding"] if FLAGS.artemb else None
+    token_labels = features["token_labels"] if FLAGS.tag_tokens else None
+    mappings = features["mappings"] if FLAGS.tag_tokens else None
     is_real_example = None
     if "is_real_example" in features:
       is_real_example = tf.cast(features["is_real_example"], dtype=tf.float32)
@@ -881,7 +890,7 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
 
     (total_loss, per_example_loss, logits, probabilities, embedding_output) = create_model(
         bert_config, is_training, input_ids, input_mask, segment_ids, label_ids,
-        num_labels, use_one_hot_embeddings, sentence_ids, article_embedding)
+        num_labels, use_one_hot_embeddings, sentence_ids, article_embedding, token_labels, mappings)
 
     tvars = tf.trainable_variables()
     initialized_variable_names = {}
@@ -968,12 +977,12 @@ def main(_):
 
   data_root = os.path.expanduser('~') + '/discourse/data/bert'
   output_folder = 'output'
-  if FLAGS.sentemb:
-      output_folder += '_sentemb'
-  if FLAGS.artemb:
-      output_folder += '_artemb'
-  if FLAGS.plushidden:
-      output_folder += '_plushidden'
+  # if FLAGS.sentemb:
+  #     output_folder += '_sentemb'
+  # if FLAGS.artemb:
+  #     output_folder += '_artemb'
+  # if FLAGS.plushidden:
+  #     output_folder += '_plushidden'
   if FLAGS.dataset_name == 'duc_2004':
       FLAGS.model_dir = os.path.join(data_root, 'cnn_dm', FLAGS.singles_and_pairs, output_folder)
   else:

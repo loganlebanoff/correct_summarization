@@ -75,17 +75,17 @@ if [[ "$mode" = "eval" ]]; then
 fi
 
 
-if [[ "$sentemb" = "True" ]]; then
-    exp_suffix="$exp_suffix"_sentemb
-fi
-
-if [[ "$artemb" = "True" ]]; then
-    exp_suffix="$exp_suffix"_artemb
-fi
-
-if [[ "$plushidden" = "True" ]]; then
-    exp_suffix="$exp_suffix"_plushidden
-fi
+#if [[ "$sentemb" = "True" ]]; then
+#    exp_suffix="$exp_suffix"_sentemb
+#fi
+#
+#if [[ "$artemb" = "True" ]]; then
+#    exp_suffix="$exp_suffix"_artemb
+#fi
+#
+#if [[ "$plushidden" = "True" ]]; then
+#    exp_suffix="$exp_suffix"_plushidden
+#fi
 
 
 

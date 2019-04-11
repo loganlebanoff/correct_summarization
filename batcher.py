@@ -73,6 +73,9 @@ class Example(object):
             if raw_article_sents is not None and len(raw_article_sents) > 0:
                 # self.tokenized_sents = [util.process_sent(sent) for sent in raw_article_sents]
                 self.tokenized_sents = [util.process_sent(sent, whitespace=True) for sent in raw_article_sents]
+                if self.hps.sep:
+                    for sent in self.tokenized_sents[:-1]:
+                        sent.append(data.SEP_TOKEN)
 
                 # Process the article
                 article_words = util.flatten_list_of_lists(self.tokenized_sents)
@@ -572,6 +575,7 @@ class Batcher(object):
             else:
                 abstract_sentences = []
             doc_indices = [int(idx) for idx in doc_indices_str.strip().split()]
+            # join_separator = ' [SEP] ' if self._hps.sep else ' '
             if self._hps.by_instance:   # if we are running iteratively on only instances (a singleton/pair + a summary sentence), not the whole article
                 for abs_idx, abstract_sentence in enumerate(abstract_sentences):
                     inst_ssi = ssi[abs_idx]
@@ -593,10 +597,10 @@ class Batcher(object):
                         print(
                             'Abstract has less than 3 tokens, so skipping\n*********************************************')
                     else:
-                        inst_example = Example(inst_article, [inst_abstract_sentences], all_abstract_sentences, inst_doc_indices, inst_raw_article_sents, None, [inst_article_lcs_paths_list], self._vocab, self._hps)
+                        inst_example = Example(None, [inst_abstract_sentences], all_abstract_sentences, None, inst_raw_article_sents, None, [inst_article_lcs_paths_list], self._vocab, self._hps)
                         self._example_queue.put(inst_example)
             else:
-                example = Example(article, abstract_sentences, all_abstract_sentences, doc_indices, raw_article_sents, ssi, article_lcs_paths_list, self._vocab, self._hps)  # Process into an Example.
+                example = Example(None, abstract_sentences, all_abstract_sentences, None, raw_article_sents, ssi, article_lcs_paths_list, self._vocab, self._hps)  # Process into an Example.
                 self._example_queue.put(example)  # place the Example in the example queue.
 
             # print "example num", counter

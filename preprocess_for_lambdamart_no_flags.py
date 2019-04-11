@@ -264,36 +264,6 @@ def filter_pairs_by_criteria(raw_article_sents, possible_pairs, corefs):
     new_possible_pairs = list(set(overlap_pairs).union(set(entity_pairs)))
     return new_possible_pairs
 
-def filter_pairs_by_sent_position(possible_pairs, rel_sent_indices=None):
-    max_sent_position = {
-        'cnn_dm': 30,
-        'xsum': 20,
-        'duc_2004': np.inf
-    }
-    if FLAGS.dataset_name == 'duc_2004':
-        return [pair for pair in possible_pairs if max(rel_sent_indices[pair[0]], rel_sent_indices[pair[1]]) < 5]
-    else:
-        return [pair for pair in possible_pairs if max(pair) < max_sent_position[FLAGS.dataset_name]]
-
-def get_rel_sent_indices(doc_indices, article_sent_tokens):
-    if FLAGS.dataset_name != 'duc_2004' and len(doc_indices) != len(util.flatten_list_of_lists(article_sent_tokens)):
-        doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
-    doc_indices_sent_tokens = util.reshape_like(doc_indices, article_sent_tokens)
-    sent_doc = [sent[0] for sent in doc_indices_sent_tokens]
-    rel_sent_indices = []
-    doc_sent_indices = []
-    cur_doc_idx = 0
-    rel_sent_idx = 0
-    for doc_idx in sent_doc:
-        if doc_idx != cur_doc_idx:
-            rel_sent_idx = 0
-            cur_doc_idx = doc_idx
-        rel_sent_indices.append(rel_sent_idx)
-        doc_sent_indices.append(cur_doc_idx)
-        rel_sent_idx += 1
-    doc_sent_lens = [sum(1 for my_doc_idx in doc_sent_indices if my_doc_idx == doc_idx) for doc_idx in range(max(doc_sent_indices) + 1)]
-    return rel_sent_indices, doc_sent_indices, doc_sent_lens
-
 def convert_article_to_lambdamart_features(ex):
     # example_idx += 1
     # if num_instances != -1 and example_idx >= num_instances:
@@ -307,7 +277,7 @@ def convert_article_to_lambdamart_features(ex):
     doc_indices = [int(doc_idx) for doc_idx in doc_indices]
     if len(doc_indices) != len(util.flatten_list_of_lists(article_sent_tokens)):
         doc_indices = [0] * len(util.flatten_list_of_lists(article_sent_tokens))
-    rel_sent_indices, _, _ = get_rel_sent_indices(doc_indices, article_sent_tokens)
+    rel_sent_indices, _, _ = util.get_rel_sent_indices(doc_indices, article_sent_tokens)
     if FLAGS.singles_and_pairs == 'singles':
         sentence_limit = 1
     else:
