@@ -1,0 +1,349 @@
+<link rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+      integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+      crossorigin="anonymous">
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"
+        integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+        crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"
+        integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
+        crossorigin="anonymous"></script>
+
+<!-- Instructions -->
+<section class="col-12 my-4" id="instructions">
+    <div class="card border-info">
+        <div class="card-header bg-info text-white text-center">
+            <h5 class="m-0">Instructions</h5>
+        </div>
+        <div class="card-body row">
+            <p class="d-block col-12 text-center"><em>Firstly, thanks for
+                participating in our study!</em></p>
+            <div class="col-12 col-md-6">
+                <p><strong>Description: </strong> We have machine-generated (AI)
+                    summaries of an Article. Each summary pulls from 0-2 article
+                    sentences to create the result you see.</p>
+                
+                <p class="mb-0"><strong>What we need <em>you</em> to do:</strong></p>
+                <ol class="list">
+                    <li class="list-item">
+                        <strong>Read the entire article.</strong> (It
+                        should be a pretty quick read.)
+                    </li>
+                    <li class="list-item">
+                        Go through each the <a href="#summaries">Summaries</a>,
+                        hover over each to highlight the corresponding
+                        sentences in the article. <strong>Read each summary
+                        and answer the following questions:</strong>
+                        <ol class="list">
+                            <li class="list-item">
+                                Is this sentence true to the original
+                                article?
+                            </li>
+                            <li class="list-item">
+                                Does this sentence contain information not
+                                represented by the highlighted sentences?
+                            </li>
+                            <li class="list-item">
+                                Is this sentence grammatically correct?
+                            </li>
+                        </ol>
+                    </li>
+                </ol>
+            </div>
+            <div class="col-12 col-md-6">
+                <blockquote class="blockquote border-left pl-3"
+                            style="border-width: 4px !important;">
+                    Some pairs of sentences...
+                </blockquote>
+                <p><strong>Summary: </strong> some summary </p>
+                <ol class="list">
+                    <li class="list-item">
+                        <p class="m-1 d-flex justify-content-between">
+                            <span class="d-flex flex-column justify-content-center">
+                                <strong>Is this sentence true to the
+                                    original article?</strong>
+                            </span>
+                            <span class="btn-group">
+                                <span class="btn btn-sm btn-success d-flex flex-column justify-content-center">YES</span>
+                                <span class="btn btn-sm btn-danger d-flex flex-column justify-content-center">NO</span>
+                            </span>
+                        </p>
+                        <p class="m-0">
+                            <span class="btn btn-sm btn-success">YES</span>
+                            This summary is true to the original article it's
+                            been sourced from.
+                        </p>
+                    </li>
+                    <li class="list-item">
+                        <p class="m-1 d-flex justify-content-between">
+                            <span class="d-flex flex-column justify-content-center">
+                                <strong>Does this sentence contain
+                                    information not represented by the
+                                    highlighted sentences?</strong>
+                            </span>
+                            <span class="btn-group">
+                                <span class="btn btn-sm btn-success d-flex flex-column justify-content-center">YES</span>
+                                <span class="btn btn-sm btn-danger d-flex flex-column justify-content-center">NO</span>
+                            </span>
+                        </p>
+                        <p class="m-0">
+                            <span class="btn btn-sm btn-danger">NO</span>
+                            This summary only contains information presented
+                            in the sentences cited above.
+                        </p>
+                    </li>
+                    <li class="list-item">
+                        <p class="m-1 d-flex justify-content-between">
+                            <span class="d-flex flex-column justify-content-center">
+                                <strong>Is this sentence grammatically
+                                    correct?</strong>
+                            </span>
+                            <span class="btn-group">
+                                <span class="btn btn-sm btn-success d-flex flex-column justify-content-center">YES</span>
+                                <span class="btn btn-sm btn-danger d-flex flex-column justify-content-center">NO</span>
+                            </span>
+                        </p>
+                        <p class="m-0">
+                            <span class="btn btn-sm btn-success">YES</span>
+                            This sentence is well-formed, following the rules of
+                            English grammar.
+                        </p>
+                    </li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</section>
+<!-- /Instructions -->
+
+
+<script>
+    function putArticle(articleSents) {
+        let article = document.getElementById("src-article-content");
+        let idx = 0;
+        articleSents.split("||").forEach(function (sent) {
+            let p = document.createElement("p");
+            p.id = `sent${idx}`;
+            p.innerHTML = sent;
+            p.setAttribute("class", "alert py-1 px-2");
+            article.appendChild(p);
+            idx++;
+        })
+    }
+
+    let   usedColors = new Set();
+    const fromColors = [
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072",
+        "#80b1d3", "#fdb462", "#b3de69", "#fccde5",
+        "#d9d9d9", "#bc80bd", "#ccebc5", "#ffed6f",
+    ];
+
+    function addYNQuestion(id, text, name) {
+        let wrapper = document.createElement("div");
+        wrapper.setAttribute("class", "d-md-flex mb-3");
+        wrapper.innerHTML = `
+                <div class="p-0 m-0 col-12 col-md-8 m-0 d-flex flex-column text-center text-md-left">
+                    <p class="mx-0 my-md-auto mb-3">${text}</p>
+                </div>
+                <div class="p-0 m-0 col-12 col-md-4 d-flex justify-content-center justify-content-md-between">
+                    <div class="custom-control custom-radio">
+                        <input type="radio" id="Y${id}_${name}" name="${name}" class="custom-control-input">
+                        <label class="custom-control-label btn btn-success btn-sm" for="Y${id}_${name}">YES</label>
+                    </div>
+                    <div class="custom-control custom-radio">
+                        <input type="radio" id="N${id}_${name}" name="${name}" class="custom-control-input">
+                        <label class="custom-control-label btn btn-danger btn-sm" for="N${id}_${name}">NO</label>
+                    </div>
+                </div>`;
+
+        return wrapper;
+    }
+
+    function newColor() {
+        let rand = null, color = null;
+        do {
+            sleep(20);
+            rand = Math.floor(Math.random() * fromColors.length);
+            color = fromColors[rand];
+        } while (usedColors.has(color));
+        usedColors.add(color);
+
+        if (usedColors.size === fromColors.length)
+            usedColors = new Set();
+
+        return fromColors[rand];
+    }
+
+    function addSummary(idx, sent) {
+        let tasks = document.getElementById("tasks");
+
+        let card = document.createElement("div");
+        card.setAttribute("class", "alert summary-sent px-2 py-1 pb-2 my-2");
+
+        card.style.backgroundColor = newColor();
+        card.id = `summary${idx}`;
+        card.setAttribute("data-srcs", sent.srcs);
+
+        let summary = document.createElement("strong");
+        summary.setAttribute("class", "mb-1");
+        summary.innerHTML = sent.sent;
+
+        card.appendChild(summary);
+
+        let hr = document.createElement("hr");
+        hr.setAttribute("class", "my-2");
+        card.appendChild(hr);
+
+        card.appendChild(
+            addYNQuestion(idx, 
+                "Is this sentence <strong>true to the original article?</strong>",
+                `Accuracy_${idx}`));
+
+        card.appendChild(
+            addYNQuestion(idx,
+                "Does this sentence <strong>contain information not " +
+                "represented by the highlighted sentences?</strong>",
+                `ExtraInfo_${idx}`));
+
+        card.appendChild(
+            addYNQuestion(idx,
+                "Is this sentence <strong>grammatically correct?</strong>",
+                `Grammatical_${idx}`));
+
+        tasks.appendChild(card);
+
+        card.addEventListener("mouseenter", function () {
+            let srcs = card.getAttribute("data-srcs").split(",");
+            if (parseInt(srcs) !== -1) {
+                srcs.forEach(function (id) {
+                    document.getElementById(`sent${id}`).style.backgroundColor = card.style.backgroundColor;
+                })
+            }
+        });
+
+        card.addEventListener("mouseleave", function () {
+            let srcs = card.getAttribute("data-srcs").split(",");
+            if (parseInt(srcs) !== -1) {
+                srcs.forEach(function (id) {
+                    document.getElementById(`sent${id}`).style.backgroundColor = "#fff";
+                })
+            }
+        })
+    }
+
+     function zip(srcs, summs) {
+        return srcs.map(function (el, idx) {
+            return [srcs[idx], summs[idx]]
+        })
+    }
+
+    function shuffle(arr) {
+        let c_idx = arr.length;
+        let t_val, r_idx;
+
+        while (c_idx !== 0) {
+            r_idx = Math.floor(Math.random() * c_idx);
+            c_idx -= 1;
+
+            t_val = arr[c_idx];
+            arr[c_idx] = arr[r_idx];
+            arr[r_idx] = t_val;
+        }
+
+        return arr;
+    }
+
+    function  parseSummaries(srcs, summs) {
+        let summaries = [];
+        zip(srcs, summs).forEach(function (el, idx) {
+            let tru_src = el[0].split("||");
+            let tru_sum = el[1].split("||");
+            zip(tru_src, tru_sum).forEach(function (trus, idx) {
+                summaries.push({"srcs": trus[0],  "sent": trus[1]})
+            });
+        });
+
+        shuffle(summaries);
+
+        return summaries;
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+</script>
+
+
+<!-- Tasks -->
+<section id="tasks-to-complete">
+    <div class="row mx-0">
+        <div class="col-12 col-md-6" id="src-article">
+            <div class="card border-secondary">
+                <div class="card-header bg-secondary text-light text-center"><strong>Article</strong></div>
+                <div class="card-body p-2" id="src-article-content"></div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6" id="summaries">
+            <div class="card">
+                <div class="card-header text-center"><strong>Summary Sentences</strong></div>
+                <div class="card-body p-2">
+                    <fieldset id="tasks">
+                    </fieldset>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p hidden="">${article_id} b4bc18629514d75299236eeaa0dacb856aae15126ab6e1537c541619838fe026</p>
+    <p hidden=""></p>
+    <script>
+        let article_id = "b4bc18629514d75299236eeaa0dacb856aae15126ab6e1537c541619838fe026";
+        let article_content = "Marseille, France -LRB- CNN -RRB- The French prosecutor leading an investigation into the crash of Germanwings Flight 9525 insisted Wednesday that he was not aware of any video footage from on board the plane.||Marseille prosecutor Brice Robin told CNN that &quot;so far no videos were used in the crash investigation.&quot;||He added, &quot;A person who has such a video needs to immediately give it to the investigators.&quot;||Robin&apos;s comments follow claims by two magazines, German daily Bild and French Paris Match, of a cell phone video showing the harrowing final seconds from on board Germanwings Flight 9525 as it crashed into the French Alps.||All 150 on board were killed.||Paris Match and Bild reported that the video was recovered from a phone at the wreckage site.||The two publications described the supposed video, but did not post it on their websites.||The publications said that they watched the video, which was found by a source close to the investigation.||&quot;One can hear cries of &apos;My God&apos; in several languages,&quot; Paris Match reported.||&quot;Metallic banging can also be heard more than three times, perhaps of the pilot trying to open the cockpit door with a heavy object.||Towards the end, after a heavy shake, stronger than the others, the screaming intensifies.||Then nothing.&quot;||&quot;It is a very disturbing scene,&quot; said Julian Reichelt, editor-in-chief of Bild online.||An official with France&apos;s accident investigation agency, the BEA, said the agency is not aware of any such video.||Lt. Col. Jean-Marc Menichini, a French Gendarmerie spokesman in charge of communications on rescue efforts around the Germanwings crash site, told CNN that the reports were &quot;completely wrong&quot; and &quot;unwarranted.&quot;||Cell phones have been collected at the site, he said, but that they &quot;had n&apos;t been exploited yet.&quot;||Menichini said he believed the cell phones would need to be sent to the Criminal Research Institute in Rosny sous-Bois, near Paris, in order to be analyzed by specialized technicians working hand-in-hand with investigators.||But none of the cell phones found so far have been sent to the institute, Menichini said.||Asked whether staff involved in the search could have leaked a memory card to the media, Menichini answered with a categorical &quot;no.&quot;||Reichelt told &quot;Erin Burnett: Outfront&quot; that he had watched the video and stood by the report, saying Bild and Paris Match are &quot;very confident&quot; that the clip is real.||He noted that investigators only revealed they&apos;d recovered cell phones from the crash site after Bild and Paris Match published their reports.||&quot;That is something we did not know before.||... Overall we can say many things of the investigation were n&apos;t revealed by the investigation at the beginning,&quot; he said.||What was mental state of Germanwings co-pilot?||German airline Lufthansa confirmed Tuesday that co-pilot Andreas Lubitz had battled depression years before he took the controls of Germanwings Flight 9525, which he&apos;s accused of deliberately crashing last week in the French Alps.||Lubitz told his Lufthansa flight training school in 2009 that he had a &quot;previous episode of severe depression,&quot; the airline said Tuesday.||Email correspondence between Lubitz and the school discovered in an internal investigation, Lufthansa said, included medical documents he submitted in connection with resuming his flight training.||The announcement indicates that Lufthansa, the parent company of Germanwings, knew of Lubitz&apos;s battle with depression, allowed him to continue training and ultimately put him in the cockpit.||Lufthansa, whose CEO Carsten Spohr previously said Lubitz was 100% fit to fly, described its statement Tuesday as a &quot;swift and seamless clarification&quot; and said it was sharing the information and documents -- including training and medical records -- with public prosecutors.||Spohr traveled to the crash site Wednesday, where recovery teams have been working for the past week to recover human remains and plane debris scattered across a steep mountainside.||He saw the crisis center set up in Seyne-les-Alpes, laid a wreath in the village of Le Vernet, closer to the crash site, where grieving families have left flowers at a simple stone memorial.||Menichini told CNN late Tuesday that no visible human remains were left at the site but recovery teams would keep searching.||French President Francois Hollande, speaking Tuesday, said that it should be possible to identify all the victims using DNA analysis by the end of the week, sooner than authorities had previously suggested.||In the meantime, the recovery of the victims&apos; personal belongings will start Wednesday, Menichini said.||Among those personal belongings could be more cell phones belonging to the 144 passengers and six crew on board.||Check out the latest from our correspondents.||The details about Lubitz&apos;s correspondence with the flight school during his training were among several developments as investigators continued to delve into what caused the crash and Lubitz&apos;s possible motive for downing the jet.||A Lufthansa spokesperson told CNN on Tuesday that Lubitz had a valid medical certificate, had passed all his examinations and &quot;held all the licenses required.&quot;||Earlier, a spokesman for the prosecutor&apos;s office in Dusseldorf, Christoph Kumpa, said medical records reveal Lubitz suffered from suicidal tendencies at some point before his aviation career and underwent psychotherapy before he got his pilot&apos;s license.||Kumpa emphasized there&apos;s no evidence suggesting Lubitz was suicidal or acting aggressively before the crash.||Investigators are looking into whether Lubitz feared his medical condition would cause him to lose his pilot&apos;s license, a European government official briefed on the investigation told CNN on Tuesday.||While flying was &quot;a big part of his life,&quot; the source said, it&apos;s only one theory being considered.||Another source, a law enforcement official briefed on the investigation, also told CNN that authorities believe the primary motive for Lubitz to bring down the plane was that he feared he would not be allowed to fly because of his medical problems.||Lubitz&apos;s girlfriend told investigators he had seen an eye doctor and a neuropsychologist, both of whom deemed him unfit to work recently and concluded he had psychological issues, the European government official said.||But no matter what details emerge about his previous mental health struggles, there&apos;s more to the story, said Brian Russell, a forensic psychologist.||&quot;Psychology can explain why somebody would turn rage inward on themselves about the fact that maybe they were n&apos;t going to keep doing their job and they&apos;re upset about that and so they&apos;re suicidal,&quot; he said.||&quot;But there is no mental illness that explains why somebody then feels entitled to also take that rage and turn it outward on 149 other people who had nothing to do with the person&apos;s problems.&quot;||Germanwings crash compensation: What we know.||Who was the captain of Germanwings Flight 9525?||CNN&apos;s Margot Haddad reported from Marseille and Pamela Brown from Dusseldorf, while Laura Smith-Spark wrote from London.||CNN&apos;s Frederik Pleitgen, Pamela Boykoff, Antonia Mortensen, Sandrine Amiel and Anna-Maja Rappard contributed to this report.";
+        let abs_rl_rerank_srcs = "0||3||5||1||2";
+        let abs_rl_rerank_summ = "french prosecutor says he was not aware of any video footage .||robin &apos;s comments follow claims by two magazines , daily bild and french paris match .||the video was recovered from a phone at the wreckage site .||marseille prosecutor brice robin says &apos;&apos; no videos were used in the crash investigation &apos;&apos;||new : &apos;&apos; a person who has such a video needs to immediately give it to the investigators , &apos;&apos; he says .";
+        let bottom_up_srcs = "0||3||4";
+        let bottom_up_summ = "marseille prosecutor says he was not aware of any video footage from on board plane .||robin &apos;s comments follow claims by two magazines .||all 150 on board were killed .";
+        let dca_srcs = "1||3||4||5";
+        let dca_summ = "marseille prosecutor brice robin told cnn that &quot; so far no videos were used in the crash investigation &quot; .||robin &apos;s comments follow claims by two magazines , german daily bild and french paris match .||all 150 on board were killed .||paris match and bild reported that the video was recovered from a phone .";
+        let novel_srcs = "0||3||4||3";
+        let novel_summ = "french prosecutor says he was not aware of video footage from on board plane .||germanwings flight 9525 was crashed into french alps .||all 150 on board were killed .||robin &apos;s comments follow claims by two magazines , german daily bild and french media .";
+        let pg_srcs = "0,1||7||3";
+        let pg_summ = "marseille prosecutor brice robin says he was not aware of any video footage from board the plane .||the video was found by a source close to the investigation .||robin &apos;s comments follow claims by two magazines , german daily bild and french paris match .";
+        let reference_srcs = "1,19||19||25";
+        let reference_summ = "marseille prosecutor says &apos;&apos; so far no videos were used in the crash investigation &apos;&apos; despite media reports .||journalists at bild and paris match are &apos;&apos; very confident &apos;&apos; the video clip is real , an editor says .||andreas lubitz had informed his lufthansa training school of an episode of severe depression , airline says .";
+        
+        let sourceArticle = `${article_content}`;
+        putArticle(sourceArticle);
+
+        let srcs = [`${abs_rl_rerank_srcs}`, `${bottom_up_srcs}`, `${dca_srcs}`,  `${novel_srcs}`,  `${pg_srcs}`,  `${reference_srcs}`,];
+        let summ = [`${abs_rl_rerank_summ}`, `${bottom_up_summ}`, `${dca_summ}`,  `${novel_summ}`,  `${pg_summ}`,  `${reference_summ}`,];
+
+        let summaries = parseSummaries(srcs, summ);
+
+        let idx = 0;
+        console.log(summaries);
+        summaries.forEach(function (value) {
+            addSummary(idx,  value);
+            idx++;
+        });
+    </script>
+</section>
+
+<style>
+    p[id^="sent"] {
+        transition: background-color 200ms ease-in-out;
+        /*border-color: rgba(25, 25, 25, 0.25);*/
+        margin-bottom: 0.25em;
+        -webkit-border-radius: 0;
+        -moz-border-radius: 0;
+        border-radius: 0.25em;
+        /*padding: 0.25em 0.5em;*/
+    }
+
+    div.summary-sent > div:last-child {
+        margin: 0 !important;
+    }
+</style>
+<!-- /Tasks -->
