@@ -2,8 +2,23 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="cc7d95ba-239b-4f49-9b1e-e1efd97cd253" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/mturk/actual.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mturk/vagueness.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.empty.rslsc" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/abs-rl-rerank/source_indices.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/abs-rl-rerank/source_indices.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/article/articles.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/article/articles.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/bottom-up/source_indices.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/bottom-up/source_indices.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/dca/source_indices.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/dca/source_indices.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/dca/summaries.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/dca/summaries.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/novel/source_indices.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/novel/source_indices.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/novel/summaries.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/novel/summaries.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/pg/source_indices.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/pg/source_indices.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/reference/source_indices.txt" beforeDir="false" afterPath="$PROJECT_DIR$/data/reference/source_indices.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mturk/acl2019.html.rsls" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mturk/collect_refs.py" beforeDir="false" afterPath="$PROJECT_DIR$/mturk/collect_refs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mturk/data/articles.csv" beforeDir="false" afterPath="$PROJECT_DIR$/mturk/data/articles.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mturk/data/articles.hdf" beforeDir="false" afterPath="$PROJECT_DIR$/mturk/data/articles.hdf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mturk/emnlp2019.html" beforeDir="false" afterPath="$PROJECT_DIR$/mturk/emnlp2019.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mturk/vagueness.html.rsls" beforeDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -12,94 +27,33 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="FileEditorManager">
-    <leaf>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/env.yml">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="256">
-              <caret line="16" column="8" selection-start-line="16" selection-start-column="8" selection-end-line="16" selection-end-column="8" />
-            </state>
-          </provider>
-        </entry>
-      </file>
+    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
       <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/mturk/acl2019.html">
+        <entry file="file://$PROJECT_DIR$/mturk/emnlp2019.html">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="616">
-              <caret line="116" selection-start-line="116" selection-end-line="116" />
+            <state relative-caret-position="931">
+              <caret line="268" column="27" selection-start-line="268" selection-start-column="27" selection-end-line="268" selection-end-column="27" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/mturk/collect_refs.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="336">
+              <caret line="23" column="12" selection-start-line="23" selection-start-column="12" selection-end-line="23" selection-end-column="22" />
               <folding>
-                <element signature="n#div#0;n#div#0;n#section#0;n#!!top" />
-                <element signature="n#style#0;n#blockquote#0;n#li#0;n#ul#0;n#div#1;n#div#0;n#section#0;n#!!top" expanded="true" />
-                <element signature="n#style#0;n#blockquote#0;n#li#1;n#ul#0;n#div#1;n#div#0;n#section#0;n#!!top" expanded="true" />
+                <element signature="e#0#14#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/mturk/vagueness.html">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-350">
-              <caret line="70" column="16" selection-start-line="70" selection-start-column="16" selection-end-line="70" selection-end-column="16" />
-              <folding>
-                <element signature="e#595#601#1" expanded="true" />
-                <element signature="e#662#668#0" expanded="true" />
-                <element signature="e#932#938#0" expanded="true" />
-                <element signature="e#2478#2484#0" expanded="true" />
-                <element signature="n#style#0;n#img#0;n#p#5;n#div#0;n#div#0;n#div#0;n#div#0;n#section#0;n#!!top" expanded="true" />
-                <element signature="e#2644#2650#1" expanded="true" />
-                <element signature="e#2828#2834#0" expanded="true" />
-                <element signature="e#2841#2847#0" expanded="true" />
-                <element signature="e#2965#2971#0" expanded="true" />
-                <element signature="e#2978#2984#0" expanded="true" />
-                <element signature="e#2997#3003#0" expanded="true" />
-                <element signature="e#3089#3095#0" expanded="true" />
-                <element signature="e#3106#3112#0" expanded="true" />
-                <element signature="n#style#0;n#div#0;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="n#style#0;n#input#0;n#div#0;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="n#style#0;n#span#0;n#div#0;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="e#3746#3752#1" expanded="true" />
-                <element signature="e#3765#3771#1" expanded="true" />
-                <element signature="e#3996#4002#1" expanded="true" />
-                <element signature="n#style#0;n#div#0;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="n#style#0;n#input#0;n#div#0;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="n#style#0;n#span#0;n#div#0;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="e#4366#4372#1" expanded="true" />
-                <element signature="e#4385#4391#1" expanded="true" />
-                <element signature="e#4616#4622#1" expanded="true" />
-                <element signature="n#style#0;n#div#0;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="n#style#0;n#input#0;n#div#0;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="n#style#0;n#span#0;n#div#0;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="e#4986#4992#1" expanded="true" />
-                <element signature="e#5005#5011#1" expanded="true" />
-                <element signature="e#5236#5242#1" expanded="true" />
-                <element signature="n#style#0;n#div#0;n#div#5;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="n#style#0;n#input#0;n#div#0;n#div#5;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="n#style#0;n#span#0;n#div#0;n#div#5;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="e#5606#5612#1" expanded="true" />
-                <element signature="e#5625#5631#1" expanded="true" />
-                <element signature="e#5856#5862#1" expanded="true" />
-                <element signature="n#style#0;n#div#0;n#div#5;n#div#5;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="n#style#0;n#input#0;n#div#0;n#div#5;n#div#5;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="n#style#0;n#span#0;n#div#0;n#div#5;n#div#5;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-                <element signature="e#6226#6232#1" expanded="true" />
-                <element signature="e#6245#6251#1" expanded="true" />
-                <element signature="e#6476#6482#1" expanded="true" />
-                <element signature="e#6557#6563#1" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/mturk/actual.html">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="614">
-              <caret line="69" column="12" selection-start-line="69" selection-start-column="12" selection-end-line="69" selection-end-column="13" />
-              <folding>
-                <element signature="n#style#0;n#blockquote#0;n#li#0;n#ul#0;n#div#1;n#div#0;n#section#0;n#!!top" expanded="true" />
-                <element signature="n#style#0;n#blockquote#0;n#li#1;n#ul#0;n#div#1;n#div#0;n#section#0;n#!!top" expanded="true" />
-              </folding>
+        <entry file="file://$PROJECT_DIR$/mturk/data/articles.csv">
+          <provider selected="true" editor-type-id="LargeFileEditor">
+            <state relative-caret-position="16">
+              <caret line="1" selection-start-line="1" selection-end-line="1" selection-end-column="9512" />
             </state>
           </provider>
         </entry>
@@ -113,6 +67,24 @@
       </list>
     </option>
   </component>
+  <component name="FindInProjectRecents">
+    <findStrings>
+      <find>While we don't sho</find>
+      <find>srcs</find>
+      <find>(\$\{[\w-?]+\})</find>
+      <find>&quot;&quot;</find>
+      <find>b4bc18629514d75299236eeaa0dacb856aae15126ab6e1537c541619838fe026,&quot;Marseille, France -LRB- CNN -RRB- The French prosecutor leading an investigation into the crash of Germanwings Flight 9525 insisted Wednesday that he was not aware of any video footage from on board the plane.||Marseille prosecutor Brice Robin told CNN that \&quot;&quot;so far no videos were used in the crash investigation.\&quot;&quot;||He added, \&quot;&quot;A person who has such a video needs to immediately give it to the investigators.\&quot;&quot;||Robin\'s comments follow claims by two magazines, German daily Bild and French Paris Match, of a cell phone video showing the harrowing final seconds from on board Germanwings Flight 9525 as it crashed into the French Alps.||All 150 on board were killed.||Paris Match and Bild reported that the video was recovered from a phone at the wreckage site.||The two publications described the supposed video, but did not post it on their websites.||The publications said that they watched the video, which was found by a source close to the investigation.||\&quot;&quot;One can hear cries of \'My God\' in several languages,\&quot;&quot; Paris Match reported.||\&quot;&quot;Metallic banging can also be heard more than three times, perhaps of the pilot trying to open the cockpit door with a heavy object.||Towards the end, after a heavy shake, stronger than the others, the screaming intensifies.||Then nothing.\&quot;&quot;||\&quot;&quot;It is a very disturbing scene,\&quot;&quot; said Julian Reichelt, editor-in-chief of Bild online.||An official with France\'s accident investigation agency, the BEA, said the agency is not aware of any such video.||Lt. Col. Jean-Marc Menichini, a French Gendarmerie spokesman in charge of communications on rescue efforts around the Germanwings crash site, told CNN that the reports were \&quot;&quot;completely wrong\&quot;&quot; and \&quot;&quot;unwarranted.\&quot;&quot;||Cell phones have been collected at the site, he said, but that they \&quot;&quot;had n\'t been exploited yet.\&quot;&quot;||Menichini said he believed the cell phones would need to be sent to the Criminal Research Institute in Rosny sous-Bois, near Paris, in order to be analyzed by specialized technicians working hand-in-hand with investigators.||But none of the cell phones found so far have been sent to the institute, Menichini said.||Asked whether staff involved in the search could have leaked a memory card to the media, Menichini answered with a categorical \&quot;&quot;no.\&quot;&quot;||Reichelt told \&quot;&quot;Erin Burnett: Outfront\&quot;&quot; that he had watched the video and stood by the report, saying Bild and Paris Match are \&quot;&quot;very confident\&quot;&quot; that the clip is real.||He noted that investigators only revealed they\'d recovered cell phones from the crash site after Bild and Paris Match published their reports.||\&quot;&quot;That is something we did not know before.||... Overall we can say many things of the investigation were n\'t revealed by the investigation at the beginning,\&quot;&quot; he said.||What was mental state of Germanwings co-pilot?||German airline Lufthansa confirmed Tuesday that co-pilot Andreas Lubitz had battled depression years before he took the controls of Germanwings Flight 9525, which he\'s accused of deliberately crashing last week in the French Alps.||Lubitz told his Lufthansa flight training school in 2009 that he had a \&quot;&quot;previous episode of severe depression,\&quot;&quot; the airline said Tuesday.||Email correspondence between Lubitz and the school discovered in an internal investigation, Lufthansa said, included medical documents he submitted in connection with resuming his flight training.||The announcement indicates that Lufthansa, the parent company of Germanwings, knew of Lubitz\'s battle with depression, allowed him to continue training and ultimately put him in the cockpit.||Lufthansa, whose CEO Carsten Spohr previously said Lubitz was 100% fit to fly, described its statement Tuesday as a \&quot;&quot;swift and seamless clarification\&quot;&quot; and said it was sharing the information and documents -- including training and medical records -- with public prosecutors.||Spohr traveled to the crash site Wednesday, where recovery teams have been working for the past week to recover human remains and plane debris scattered across a steep mountainside.||He saw the crisis center set up in Seyne-les-Alpes, laid a wreath in the village of Le Vernet, closer to the crash site, where grieving families have left flowers at a simple stone memorial.||Menichini told CNN late Tuesday that no visible human remains were left at the site but recovery teams would keep searching.||French President Francois Hollande, speaking Tuesday, said that it should be possible to identify all the victims using DNA analysis by the end of the week, sooner than authorities had previously suggested.||In the meantime, the recovery of the victims\' personal belongings will start Wednesday, Menichini said.||Among those personal belongings could be more cell phones belonging to the 144 passengers and six crew on board.||Check out the latest from our correspondents.||The details about Lubitz\'s correspondence with the flight school during his training were among several developments as investigators continued to delve into what caused the crash and Lubitz\'s possible motive for downing the jet.||A Lufthansa spokesperson told CNN on Tuesday that Lubitz had a valid medical certificate, had passed all his examinations and \&quot;&quot;held all the licenses required.\&quot;&quot;||Earlier, a spokesman for the prosecutor\'s office in Dusseldorf, Christoph Kumpa, said medical records reveal Lubitz suffered from suicidal tendencies at some point before his aviation career and underwent psychotherapy before he got his pilot\'s license.||Kumpa emphasized there\'s no evidence suggesting Lubitz was suicidal or acting aggressively before the crash.||Investigators are looking into whether Lubitz feared his medical condition would cause him to lose his pilot\'s license, a European government official briefed on the investigation told CNN on Tuesday.||While flying was \&quot;&quot;a big part of his life,\&quot;&quot; the source said, it\'s only one theory being considered.||Another source, a law enforcement official briefed on the investigation, also told CNN that authorities believe the primary motive for Lubitz to bring down the plane was that he feared he would not be allowed to fly because of his medical problems.||Lubitz\'s girlfriend told investigators he had seen an eye doctor and a neuropsychologist, both of whom deemed him unfit to work recently and concluded he had psychological issues, the European government official said.||But no matter what details emerge about his previous mental health struggles, there\'s more to the story, said Brian Russell, a forensic psychologist.||\&quot;&quot;Psychology can explain why somebody would turn rage inward on themselves about the fact that maybe they were n\'t going to keep doing their job and they\'re upset about that and so they\'re suicidal,\&quot;&quot; he said.||\&quot;&quot;But there is no mental illness that explains why somebody then feels entitled to also take that rage and turn it outward on 149 other people who had nothing to do with the person\'s problems.\&quot;&quot;||Germanwings crash compensation: What we know.||Who was the captain of Germanwings Flight 9525?||CNN\'s Margot Haddad reported from Marseille and Pamela Brown from Dusseldorf, while Laura Smith-Spark wrote from London.||CNN\'s Frederik Pleitgen, Pamela Boykoff, Antonia Mortensen, Sandrine Amiel and Anna-Maja Rappard contributed to this report.&quot;,0||3||5||1||2,&quot;french prosecutor says he was not aware of any video footage .||robin \'s comments follow claims by two magazines , daily bild and french paris match .||the video was recovered from a phone at the wreckage site .||marseille prosecutor brice robin says \'\' no videos were used in the crash investigation \'\'||new : \'\' a person who has such a video needs to immediately give it to the investigators , \'\' he says .&quot;,0||3||4,marseille prosecutor says he was not aware of any video footage from on board plane .||robin \'s comments follow claims by two magazines .||all 150 on board were killed .,1||3||4||5,&quot;marseille prosecutor brice robin told cnn that \&quot;&quot; so far no videos were used in the crash investigation \&quot;&quot; .||robin \'s comments follow claims by two magazines , german daily bild and french paris match .||all 150 on board were killed .||paris match and bild reported that the video was recovered from a phone .&quot;,0||3||4||3,&quot;french prosecutor says he was not aware of video footage from on board plane .||germanwings flight 9525 was crashed into french alps .||all 150 on board were killed .||robin \'s comments follow claims by two magazines , german daily bild and french media .&quot;,&quot;0,1||7||3&quot;,&quot;marseille prosecutor brice robin says he was not aware of any video footage from board the plane .||the video was found by a source close to the investigation .||robin \'s comments follow claims by two magazines , german daily bild and french paris match .&quot;,&quot;1,19||19||25&quot;,&quot;marseille prosecutor says \'\' so far no videos were used in the crash investigation \'\' despite media reports .||journalists at bild and paris match are \'\' very confident \'\' the video clip is real , an editor says .||andreas lubitz had informed his lufthansa training school of an episode of severe depression , airline says .&quot;</find>
+      <find>&quot;,&quot;</find>
+      <find>srcs = card</find>
+      <find>putArticle</find>
+    </findStrings>
+    <replaceStrings>
+      <replace>summ</replace>
+      <replace>`$1</replace>
+      <replace>`$1`</replace>
+      <replace>&quot;,\n&quot;</replace>
+    </replaceStrings>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
@@ -121,16 +93,17 @@
       <list>
         <option value="$PROJECT_DIR$/env.yml" />
         <option value="$PROJECT_DIR$/mturk/thanks.html" />
-        <option value="$PROJECT_DIR$/mturk/actual.html" />
         <option value="$PROJECT_DIR$/mturk/vagueness.html" />
         <option value="$PROJECT_DIR$/mturk/acl2019.html" />
+        <option value="$PROJECT_DIR$/mturk/actual.html" />
+        <option value="$PROJECT_DIR$/mturk/collect_refs.py" />
+        <option value="$PROJECT_DIR$/mturk/emnlp2019.html" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds" fullScreen="true">
-    <option name="y" value="23" />
-    <option name="width" value="1680" />
-    <option name="height" value="975" />
+    <option name="width" value="594" />
+    <option name="height" value="1050" />
   </component>
   <component name="ProjectLevelVcsManager">
     <ConfirmationsSetting value="2" id="Add" />
@@ -140,7 +113,6 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -156,6 +128,53 @@
             <path>
               <item name="correctness" type="b2602c69:ProjectViewProjectNode" />
               <item name="correctness" type="462c0819:PsiDirectoryNode" />
+              <item name="data" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="correctness" type="b2602c69:ProjectViewProjectNode" />
+              <item name="correctness" type="462c0819:PsiDirectoryNode" />
+              <item name="data" type="462c0819:PsiDirectoryNode" />
+              <item name="abs-rl-rerank" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="correctness" type="b2602c69:ProjectViewProjectNode" />
+              <item name="correctness" type="462c0819:PsiDirectoryNode" />
+              <item name="data" type="462c0819:PsiDirectoryNode" />
+              <item name="article" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="correctness" type="b2602c69:ProjectViewProjectNode" />
+              <item name="correctness" type="462c0819:PsiDirectoryNode" />
+              <item name="data" type="462c0819:PsiDirectoryNode" />
+              <item name="bottom-up" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="correctness" type="b2602c69:ProjectViewProjectNode" />
+              <item name="correctness" type="462c0819:PsiDirectoryNode" />
+              <item name="data" type="462c0819:PsiDirectoryNode" />
+              <item name="dca" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="correctness" type="b2602c69:ProjectViewProjectNode" />
+              <item name="correctness" type="462c0819:PsiDirectoryNode" />
+              <item name="data" type="462c0819:PsiDirectoryNode" />
+              <item name="novel" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="correctness" type="b2602c69:ProjectViewProjectNode" />
+              <item name="correctness" type="462c0819:PsiDirectoryNode" />
+              <item name="data" type="462c0819:PsiDirectoryNode" />
+              <item name="pg" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="correctness" type="b2602c69:ProjectViewProjectNode" />
+              <item name="correctness" type="462c0819:PsiDirectoryNode" />
+              <item name="data" type="462c0819:PsiDirectoryNode" />
+              <item name="reference" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="correctness" type="b2602c69:ProjectViewProjectNode" />
+              <item name="correctness" type="462c0819:PsiDirectoryNode" />
               <item name="extr_vis" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
@@ -163,10 +182,17 @@
               <item name="correctness" type="462c0819:PsiDirectoryNode" />
               <item name="mturk" type="462c0819:PsiDirectoryNode" />
             </path>
+            <path>
+              <item name="correctness" type="b2602c69:ProjectViewProjectNode" />
+              <item name="correctness" type="462c0819:PsiDirectoryNode" />
+              <item name="mturk" type="462c0819:PsiDirectoryNode" />
+              <item name="data" type="462c0819:PsiDirectoryNode" />
+            </path>
           </expand>
           <select />
         </subPane>
       </pane>
+      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -199,19 +225,21 @@
       <option name="presentableId" value="Default" />
       <updated>1553999712679</updated>
       <workItem from="1553999713893" duration="10511000" />
+      <workItem from="1554750893391" duration="15374000" />
+      <workItem from="1555248661636" duration="334000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="10511000" />
+    <option name="totallyTimeSpent" value="26219000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="0" y="0" width="1680" height="1050" extended-state="0" />
+    <frame x="0" y="0" width="1247" height="1440" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info id="Favorites" side_tool="true" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.12759463" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.17925312" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
+      <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Docker" order="0" show_stripe_button="false" />
       <window_info anchor="bottom" id="Database Changes" order="1" />
       <window_info anchor="bottom" id="Version Control" order="2" />
@@ -224,6 +252,7 @@
       <window_info anchor="bottom" id="Cvs" order="9" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="10" weight="0.4" />
       <window_info anchor="bottom" id="TODO" order="11" />
+      <window_info active="true" anchor="bottom" id="Terminal" order="12" visible="true" weight="0.36451373" />
       <window_info anchor="right" id="JuliaSciView" order="0" />
       <window_info anchor="right" id="Database" order="1" />
       <window_info anchor="right" id="Remote Host" order="2" />
@@ -233,7 +262,6 @@
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="6" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="7" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="8" weight="0.25" />
-      <window_info anchor="right" id="Terminal" order="9" weight="0.32967034" />
     </layout>
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -250,6 +278,11 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/mturk/vagueness.html" />
+    <entry file="file://$PROJECT_DIR$/mturk/acl2019.html" />
+    <entry file="file://$PROJECT_DIR$/.gitignore">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
     <entry file="file://$PROJECT_DIR$/env.yml">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="256">
@@ -257,79 +290,47 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/mturk/actual.html">
+    <entry file="file://$PROJECT_DIR$/data/pg/source_indices.txt">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/data/pg/summaries.txt">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="614">
-          <caret line="69" column="12" selection-start-line="69" selection-start-column="12" selection-end-line="69" selection-end-column="13" />
+        <state>
+          <caret column="100" selection-start-column="100" selection-end-column="100" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/data/reference/source_indices.txt">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/data/dca/summaries.txt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="32">
+          <caret line="2" column="45" selection-start-line="2" selection-start-column="45" selection-end-line="2" selection-end-column="45" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/mturk/emnlp2019.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="931">
+          <caret line="268" column="27" selection-start-line="268" selection-start-column="27" selection-end-line="268" selection-end-column="27" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/mturk/collect_refs.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="336">
+          <caret line="23" column="12" selection-start-line="23" selection-start-column="12" selection-end-line="23" selection-end-column="22" />
           <folding>
-            <element signature="n#style#0;n#blockquote#0;n#li#0;n#ul#0;n#div#1;n#div#0;n#section#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#blockquote#0;n#li#1;n#ul#0;n#div#1;n#div#0;n#section#0;n#!!top" expanded="true" />
+            <element signature="e#0#14#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/mturk/vagueness.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-350">
-          <caret line="70" column="16" selection-start-line="70" selection-start-column="16" selection-end-line="70" selection-end-column="16" />
-          <folding>
-            <element signature="e#595#601#1" expanded="true" />
-            <element signature="e#662#668#0" expanded="true" />
-            <element signature="e#932#938#0" expanded="true" />
-            <element signature="e#2478#2484#0" expanded="true" />
-            <element signature="n#style#0;n#img#0;n#p#5;n#div#0;n#div#0;n#div#0;n#div#0;n#section#0;n#!!top" expanded="true" />
-            <element signature="e#2644#2650#1" expanded="true" />
-            <element signature="e#2828#2834#0" expanded="true" />
-            <element signature="e#2841#2847#0" expanded="true" />
-            <element signature="e#2965#2971#0" expanded="true" />
-            <element signature="e#2978#2984#0" expanded="true" />
-            <element signature="e#2997#3003#0" expanded="true" />
-            <element signature="e#3089#3095#0" expanded="true" />
-            <element signature="e#3106#3112#0" expanded="true" />
-            <element signature="n#style#0;n#div#0;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#input#0;n#div#0;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#span#0;n#div#0;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="e#3746#3752#1" expanded="true" />
-            <element signature="e#3765#3771#1" expanded="true" />
-            <element signature="e#3996#4002#1" expanded="true" />
-            <element signature="n#style#0;n#div#0;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#input#0;n#div#0;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#span#0;n#div#0;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="e#4366#4372#1" expanded="true" />
-            <element signature="e#4385#4391#1" expanded="true" />
-            <element signature="e#4616#4622#1" expanded="true" />
-            <element signature="n#style#0;n#div#0;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#input#0;n#div#0;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#span#0;n#div#0;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="e#4986#4992#1" expanded="true" />
-            <element signature="e#5005#5011#1" expanded="true" />
-            <element signature="e#5236#5242#1" expanded="true" />
-            <element signature="n#style#0;n#div#0;n#div#5;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#input#0;n#div#0;n#div#5;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#span#0;n#div#0;n#div#5;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="e#5606#5612#1" expanded="true" />
-            <element signature="e#5625#5631#1" expanded="true" />
-            <element signature="e#5856#5862#1" expanded="true" />
-            <element signature="n#style#0;n#div#0;n#div#5;n#div#5;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#input#0;n#div#0;n#div#5;n#div#5;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#span#0;n#div#0;n#div#5;n#div#5;n#div#5;n#div#5;n#div#0;n#div#1;n#section#0;n#!!top" expanded="true" />
-            <element signature="e#6226#6232#1" expanded="true" />
-            <element signature="e#6245#6251#1" expanded="true" />
-            <element signature="e#6476#6482#1" expanded="true" />
-            <element signature="e#6557#6563#1" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/mturk/acl2019.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="616">
-          <caret line="116" selection-start-line="116" selection-end-line="116" />
-          <folding>
-            <element signature="n#div#0;n#div#0;n#section#0;n#!!top" />
-            <element signature="n#style#0;n#blockquote#0;n#li#0;n#ul#0;n#div#1;n#div#0;n#section#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#blockquote#0;n#li#1;n#ul#0;n#div#1;n#div#0;n#section#0;n#!!top" expanded="true" />
-          </folding>
+    <entry file="file://$PROJECT_DIR$/mturk/data/articles.csv">
+      <provider selected="true" editor-type-id="LargeFileEditor">
+        <state relative-caret-position="16">
+          <caret line="1" selection-start-line="1" selection-end-line="1" selection-end-column="9512" />
         </state>
       </provider>
     </entry>
