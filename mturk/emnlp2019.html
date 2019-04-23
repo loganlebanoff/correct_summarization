@@ -1,0 +1,385 @@
+<link rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+      integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+      crossorigin="anonymous">
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"
+        integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+        crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"
+        integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
+        crossorigin="anonymous"></script>
+
+<!-- Instructions -->
+<section class="col-12 my-4" id="instructions">
+    <div class="card border-info">
+        <div class="card-header bg-info text-white text-center">
+            <h5 class="m-0">Instructions</h5>
+        </div>
+        <div class="card-body row">
+            <p class="d-block col-12 text-center"><em>Firstly, thanks for
+                participating in our study!</em></p>
+            <div class="col-12 col-md-6">
+                <p><strong>Description: </strong> We have machine-generated (AI)
+                    summaries of an Article. Each summary pulls from 0-2 article
+                    sentences to create the result you see.</p>
+
+                <p class="mb-0"><strong>What we need <em>you</em> to do:</strong></p>
+                <ol class="list">
+                    <li class="list-item">
+                        <strong>Read the entire article.</strong> (It
+                        should be a pretty quick read.)
+                    </li>
+                    <li class="list-item">
+                        Go through each the <a href="#summaries">Summaries</a>,
+                        hover over each to highlight the corresponding
+                        sentences in the article. <strong>Read each summary
+                        and answer the following questions:</strong>
+                        <ol class="list">
+                            <li class="list-item">
+                                Is this sentence true to the original
+                                article?
+                            </li>
+                            <li class="list-item">
+                                Does this sentence contain information not
+                                represented by the highlighted sentences?
+                            </li>
+                            <li class="list-item">
+                                Is this sentence grammatically correct?
+                            </li>
+                        </ol>
+                    </li>
+                </ol>
+            </div>
+            <div class="col-12 col-md-6">
+                <blockquote class="blockquote border-left pl-3"
+                            style="border-width: 4px !important;">
+                    Some pairs of sentences...
+                </blockquote>
+                <p><strong>Summary: </strong> some summary </p>
+                <ol class="list">
+                    <li class="list-item">
+                        <p class="m-1 d-flex justify-content-between">
+                            <span class="d-flex flex-column justify-content-center">
+                                <strong>Is this sentence true to the
+                                    original article?</strong>
+                            </span>
+                            <span class="btn-group">
+                                <span class="btn btn-sm btn-success d-flex flex-column justify-content-center">YES</span>
+                                <span class="btn btn-sm btn-danger d-flex flex-column justify-content-center">NO</span>
+                            </span>
+                        </p>
+                        <p class="m-0">
+                            <span class="btn btn-sm btn-success">YES</span>
+                            This summary is true to the original article it's
+                            been sourced from.
+                        </p>
+                    </li>
+                    <li class="list-item">
+                        <p class="m-1 d-flex justify-content-between">
+                            <span class="d-flex flex-column justify-content-center">
+                                <strong>Does this sentence contain
+                                    information not represented by the
+                                    highlighted sentences?</strong>
+                            </span>
+                            <span class="btn-group">
+                                <span class="btn btn-sm btn-success d-flex flex-column justify-content-center">YES</span>
+                                <span class="btn btn-sm btn-danger d-flex flex-column justify-content-center">NO</span>
+                            </span>
+                        </p>
+                        <p class="m-0">
+                            <span class="btn btn-sm btn-danger">NO</span>
+                            This summary only contains information presented
+                            in the sentences cited above.
+                        </p>
+                    </li>
+                    <li class="list-item">
+                        <p class="m-1 d-flex justify-content-between">
+                            <span class="d-flex flex-column justify-content-center">
+                                <strong>Is this sentence grammatically
+                                    correct?</strong>
+                            </span>
+                            <span class="btn-group">
+                                <span class="btn btn-sm btn-success d-flex flex-column justify-content-center">YES</span>
+                                <span class="btn btn-sm btn-danger d-flex flex-column justify-content-center">NO</span>
+                            </span>
+                        </p>
+                        <p class="m-0">
+                            <span class="btn btn-sm btn-success">YES</span>
+                            This sentence is well-formed, following the rules of
+                            English grammar.
+                        </p>
+                    </li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</section>
+<!-- /Instructions -->
+
+
+<script>
+    function putArticle(articleSents) {
+        let article = document.getElementById("src-article-content");
+        let idx = 0;
+        articleSents.split("||").forEach(function (sent) {
+            let p = document.createElement("p");
+            p.id = `sent${idx}`;
+            p.innerHTML = sent;
+            p.setAttribute("class", "alert py-1 px-2");
+            article.appendChild(p);
+            idx++;
+        })
+    }
+
+    let   usedColors = new Set();
+    const fromColors = [
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072",
+        "#80b1d3", "#fdb462", "#b3de69", "#fccde5",
+        "#d9d9d9", "#bc80bd", "#ccebc5", "#ffed6f",
+    ];
+
+    function addYNQuestion(id, text, name) {
+        let wrapper = document.createElement("div");
+        wrapper.setAttribute("class", "d-md-flex mb-3 col-6");
+
+        let keyword = document.createElement("div");
+        keyword.setAttribute("class", "p-0 m-0 col-6 d-flex flex-column text-center text-md-left");
+        let keyword_txt = document.createElement("p");
+        keyword_txt.setAttribute("class",   "mx-0 my-auto");
+        keyword_txt.innerHTML = `${text}`;
+        keyword.appendChild(keyword_txt);
+        wrapper.appendChild(keyword);
+
+        let choices = document.createElement("div");
+        choices.setAttribute("class", "p-0 m-0 col-6 d-flex justify-content-center justify-content-md-between");
+
+        let y = document.createElement("label");
+        y.setAttribute("class", "my-auto btn btn-success btn-sm");
+        y.setAttribute("for", `Y${id}_${name}`);
+        y.innerHTML = `YES <input type="radio" id="Y${id}_${name}" name="${name}">`;
+
+        let n = document.createElement("label");
+        n.setAttribute("class", "my-auto btn btn-danger btn-sm");
+        n.setAttribute("for", `N${id}_${name}`);
+        n.innerHTML = `NO <input type="radio" id="N${id}_${name}" name="${name}">`;
+
+        choices.appendChild(y);
+        choices.appendChild(n);
+
+        wrapper.append(choices);
+
+        return wrapper;
+    }
+
+    function newColor() {
+        let rand = null, color = null;
+        do {
+            sleep(20);
+            rand = Math.floor(Math.random() * fromColors.length);
+            color = fromColors[rand];
+        } while (usedColors.has(color));
+        usedColors.add(color);
+
+        if (usedColors.size === fromColors.length)
+            usedColors = new Set();
+
+        return fromColors[rand];
+    }
+
+    function setBG(el, bg=el.style.backgroundColor) {
+        let srcs = el.getAttribute("data-srcs").split(",");
+        if (parseInt(srcs) !== -1) {
+            srcs.forEach(function (id) {
+                document.getElementById(`sent${id}`).style.backgroundColor = bg;
+            })
+        }
+    }
+
+
+    function addSummary(idx, meta) {
+        let tasks = document.getElementById("tasks");
+
+        let card = document.createElement("div");
+        card.setAttribute("class", "alert summary-sent px-2 py-1 pb-2 my-2");
+
+        card.style.backgroundColor = newColor();
+        card.id = `summary${idx}`;
+        card.setAttribute("data-srcs", meta.src);
+
+        let summary = document.createElement("strong");
+        summary.setAttribute("class", "mb-1");
+        summary.innerHTML = meta.sum;
+
+        card.appendChild(summary);
+
+        let hr = document.createElement("hr");
+        hr.setAttribute("class", "my-2");
+        card.appendChild(hr);
+
+        let row = document.createElement("div");
+        row.setAttribute("class", "row m-0");
+        row.appendChild(addYNQuestion(idx, "Faithfulness", `Faithfulness_${idx}`));
+        row.appendChild(addYNQuestion(idx, "Coverage",     `Coverage_${idx}`));
+        row.appendChild(addYNQuestion(idx, "Grammatical",  `Grammatical_${idx}`));
+        row.appendChild(addYNQuestion(idx, "Merging",      `Merging_${idx}`));
+
+        card.appendChild(row);
+
+        let src_id = document.createElement("input");
+        src_id.setAttribute("type", "hidden");
+        src_id.setAttribute("value", meta.sys);
+        card.appendChild(src_id)
+
+        tasks.appendChild(card);
+        card.setAttribute("data-clicked", false);
+
+        card.addEventListener("mouseenter", function () { setBG(card); })
+        card.addEventListener("mouseleave", function () {
+            if (card.getAttribute("data-clicked") !== "true")
+                setBG(card, "#fff");
+        })
+        card.addEventListener("click", function () {
+            let tasks = document.getElementById("tasks");
+            Array.prototype.forEach.call(tasks.children, function (el) {
+                setBG(el, "#fff");
+            })
+
+            setBG(card);
+            card.setAttribute("data-clicked", true);
+        })
+    }
+
+    function zip2(srcs, summs) {
+        return srcs.map(function (el, idx) {
+            return [srcs[idx], summs[idx]];
+        })
+    }
+
+    function zip3(srcs, summs, syss) {
+        return srcs.map(function (el, idx) {
+            return [srcs[idx], summs[idx], syss[idx]];
+        })
+    }
+
+    function shuffle(arr) {
+        let c_idx = arr.length;
+        let t_val, r_idx;
+
+        while (c_idx !== 0) {
+            r_idx = Math.floor(Math.random() * c_idx);
+            c_idx -= 1;
+
+            t_val = arr[c_idx];
+            arr[c_idx] = arr[r_idx];
+            arr[r_idx] = t_val;
+        }
+
+        return arr;
+    }
+
+    function parseSummaries(meta) {
+        let summaries = [];
+        meta.forEach(function (el, idx) {
+            summaries.push({
+                "src": el[0].split("||"),
+                "sum": el[1],
+                "sys": el[2],
+            })
+        });
+
+        shuffle(summaries);
+
+        return summaries;
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+</script>
+
+
+<!-- Tasks -->
+<section id="tasks-to-complete">
+    <div class="row mx-0">
+        <div class="col-12 col-md-6" id="src-article">
+            <div class="card border-secondary">
+                <div class="card-header bg-secondary text-light text-center"><strong>Article</strong></div>
+                <div class="card-body p-2" id="src-article-content"></div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6" id="summaries">
+            <div class="card">
+                <div class="card-header text-center"><strong>Summary Sentences</strong></div>
+                <div class="card-body p-2">
+                    <fieldset id="tasks">
+                    </fieldset>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p hidden="">${article_id} b4bc18629514d75299236eeaa0dacb856aae15126ab6e1537c541619838fe026</p>
+    <p hidden=""></p>
+    <script>
+        let article_id = "c646bd9c55607b1c13e3b828345efa8128e58847dd4412244dd5c45ba8644f23";
+        let article_content = "(CNN) Michele Bachmann is comparing President Obama to the co-pilot of the doomed Germanwings flight.||&quot;With his Iran deal, Barack Obama is for the 300 million souls of the United States what Andreas Lubitz was for the 150 souls on the German Wings flight - a deranged pilot flying his entire nation into the rocks,&quot; the Minnesota Republican and former representative wrote in a Facebook comment posted March 31.||&quot;After the fact, among the smoldering remains of American cities, the shocked survivors will ask, why did he do it?&quot;||Andreas Lubitz, the co-pilot of Germanwings Flight 9525, is accused by authorities of deliberately crashing the plane in the French Alps.||He died in the crash along with 149 other crew and passengers.||The motive of the March 24 crash is under investigation, though investigators are looking in to whether Lubitz feared a medical condition would cause him to lose his pilot&apos;s license.||Many comments posted on her Facebook page blasted the former representative.||Melissa Coca wrote, &quot;Comparing this tragedy to anything is moronic and despicable.&quot;||Michael J Pristash wrote, &quot;Your allusion is so inappropriate and divisive, not to mention disrespectful on so many levels.||Shame on you.&quot;||Some also accused her of taking desperate measures to stay in the public eye.||Lynda Anderson wrote, &quot;Posting outrageous things in a pathetic attempt to stay relevant?&quot;||Negotiations are coming down to the wire between Iran, the United States and other nations on restricting Tehran&apos;s nuclear program to prevent the ability to develop an atomic bomb.||One deadline passed Tuesday, but there is a June 30 deadline for a comprehensive deal -- with all technical and diplomatic impasses fully worked out.||Bachmann is no stranger to voicing her opinion on the President&apos;s dealing with Iran, personally telling him to &quot;bomb Iran&quot; during the 2014 White House Christmas Party.||&quot;I turned to the president and I said, something to the effect of,&apos;Mr. President, you need to bomb the Iranian nuclear facilities, because if you do n&apos;t, Iran will have a nuclear weapon on your watch and the course of world history will change,&apos;&quot; she told the Washington Free Beacon.||The congresswoman, who sought the GOP presidential nomination in 2012, said Obama had a &quot;condescending smile on his face and laughed at me.&quot;||She said he told her: &quot;Well Michele, it&apos;s just not that easy.&quot;";
+        let sources_0 = "3,4";
+        let sources_1 = "2,1";
+        let sources_2 = "1,2";
+        let sources_3 = "3,4";
+        let sources_4 = "0,6";
+        let sources_5 = "1,0";
+        let summary_0 = "barker&apos;s &quot;lucky seven&quot; game show for 35 years.";
+        let summary_1 = "contestants told to &quot;come on down!&quot; on the april 1 edition of &quot;the price is right&quot; encountered not host drew carey.";
+        let summary_2 = "the price is in a price is right, &quot; contestants told to &quot; come on.";
+        let summary_3 = "bob barker was the first price-guessing game of the show for 35 years before stepping down in 2007.";
+        let summary_4 = "former gop representative compares president obama to andreas lubitz.";
+        let summary_5 = "contestants told to &quot;come on down!&quot; for the first time in eight years.";
+        let system_0 = "bottom-up";
+        let system_1 = "pg";
+        let system_2 = "dca";
+        let system_3 = "novel";
+        let system_4 = "reference";
+        let system_5 = "bottom-up";
+
+        let sourceArticle = `${article_content}`;
+        putArticle(sourceArticle);
+
+        let summary_meta = [
+            [`${sources_0}`, `${summary_0}`, `${system_0}`],
+            [`${sources_1}`, `${summary_1}`, `${system_1}`],
+            [`${sources_2}`, `${summary_2}`, `${system_2}`],
+            [`${sources_3}`, `${summary_3}`, `${system_3}`],
+            [`${sources_4}`, `${summary_4}`, `${system_4}`],
+            [`${sources_5}`, `${summary_5}`, `${system_5}`],
+        ];
+
+        let summaries = parseSummaries(summary_meta);
+
+        let idx = 0;
+        console.log(summaries);
+        summaries.forEach(function (meta) {
+            addSummary(idx,  meta);
+            idx++;
+        });
+    </script>
+</section>
+
+<style>
+    p[id^="sent"] {
+        transition: background-color 200ms ease-in-out;
+        /*border-color: rgba(25, 25, 25, 0.25);*/
+        margin-bottom: 0.25em;
+        -webkit-border-radius: 0;
+        -moz-border-radius: 0;
+        border-radius: 0.25em;
+        /*padding: 0.25em 0.5em;*/
+    }
+
+    div.summary-sent > div:last-child {
+        margin: 0 !important;
+    }
+</style>
+<!-- /Tasks -->
