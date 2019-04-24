@@ -32,8 +32,8 @@ data_dir = os.path.expanduser('~') + '/data/tf_data/with_coref_and_ssi'
 ssi_dir = 'data/ssi'
 raw_root = 'data/correctness/raw'
 processed_root = 'data/correctness/processed'
-# systems = ['reference', 'novel', 'dca', 'abs-rl-rerank', 'pg', 'bottom-up']
-systems = []
+systems = ['reference', 'novel', 'dca', 'abs-rl-rerank', 'pg', 'bottom-up']
+# systems = ['novel']
 names_to_types = [('raw_article_sents', 'string_list'), ('similar_source_indices', 'delimited_list_of_tuples'), ('summary_text', 'string'), ('corefs', 'json'), ('doc_indices', 'delimited_list')]
 min_matched_tokens = 1
 preprocess_article_and_human_summaries = True
@@ -101,7 +101,7 @@ def get_sents(text):
     return '\t'.join(new_sents)
 
 def fix_punctuations(text):
-    return text.replace(" ''", '"').replace('`` ', '"').replace('` ', '`').replace(" '", "'").replace(' :', ':').replace(' .', '.').replace(' !', '!').replace(' ?', '?').replace(' ,', ',').replace('( ', '(').replace(' )', ')').replace(" 's", "'s").replace(' %', '%').replace('$ ', '$').replace(" 'll", "'ll").replace(" 're", "'re")
+    return text.replace(" ''", '"').replace('`` ', '"').replace('` ', "'").replace(" '", "'").replace(' :', ':').replace(' .', '.').replace(' !', '!').replace(' ?', '?').replace(' ,', ',').replace('( ', '(').replace(' )', ')').replace(" 's", "'s").replace(' %', '%').replace('$ ', '$').replace(" 'll", "'ll").replace(" 're", "'re").replace(" n't", "n't")
 
 
 def main(unused_argv):
@@ -125,6 +125,7 @@ def main(unused_argv):
     if preprocess_article_and_human_summaries:
         writer = open(os.path.join(raw_root, 'reference', 'summaries.txt'), 'w')
         writer_article = open(os.path.join(processed_root, 'article', 'articles.txt'), 'w')
+        writer_tokenized_article = open(os.path.join(processed_root, 'article', 'articles_tokenized.txt'), 'w')
         reference_articles = []
         for example_idx, example in enumerate(tqdm(example_generator, total=total)):
             if FLAGS.num_instances != -1 and example_idx >= FLAGS.num_instances:
@@ -133,10 +134,11 @@ def main(unused_argv):
                 example, names_to_types)
             groundtruth_summ_sents = [util.unfix_bracket_tokens_in_sent(sent.strip()) for sent in groundtruth_summary_text.strip().split('\n')]
             writer.write('\t'.join(groundtruth_summ_sents) + '\n')
-            reference_article = '\t'.join([util.unfix_bracket_tokens_in_sent(util.unfix_bracket_tokens_in_sent(sent.strip())) for sent in raw_article_sents])
+            reference_article = '\t'.join([util.unfix_bracket_tokens_in_sent(sent.strip()) for sent in raw_article_sents])
             reference_articles.append(reference_article)
-            pretty_reference_article = '\t'.join([fix_punctuations(sent.strip()) for sent in raw_article_sents])
+            pretty_reference_article = fix_punctuations(reference_article)
             writer_article.write(pretty_reference_article + '\n')
+            writer_tokenized_article.write(reference_article + '\n')
         writer.close()
 
     for system in systems:
@@ -148,8 +150,12 @@ def main(unused_argv):
             with open(os.path.join(raw_dir, 'summaries.txt')) as f:
                 with open(os.path.join(processed_dir, 'summaries.txt'), 'w') as writer:
                     text = f.read()
-                    writer.write(text)
+                    pretty_reference_summaries = fix_punctuations(text)
+                    writer.write(pretty_reference_summaries)
                     reference_summaries = [summ.strip() for summ in text.split('\n') if summ.strip() != '']
+                with open(os.path.join(processed_dir, 'summaries_tokenized.txt'), 'w') as writer_tokenized:
+                    writer_tokenized.write(text + '\n')
+
 
         elif system == 'abs-rl-rerank':
             decoded_files = sorted(glob.glob(os.path.join(raw_dir, 'rnn-ext_abs_rl_rerank', 'decoded', '*.dec')))
@@ -170,8 +176,10 @@ def main(unused_argv):
                     sys_ref_summaries.append('\t'.join(summary_sents))
             reordered_summaries = reorder_list_like(summaries, sys_ref_summaries, reference_summaries)
             with open(os.path.join(processed_dir, 'summaries.txt'), 'w') as writer:
-                for summ in reordered_summaries:
-                    writer.write(summ + '\n')
+                with open(os.path.join(processed_dir, 'summaries_tokenized.txt'), 'w') as writer_tokenized:
+                    for summ in reordered_summaries:
+                        writer_tokenized.write(summ + '\n')
+                        writer.write(fix_punctuations(summ) + '\n')
         elif system == 'pg':
             decoded_files = sorted(glob.glob(os.path.join(raw_dir, 'pointer-gen-cov', '*_decoded.txt')))
             summaries = []
@@ -189,8 +197,10 @@ def main(unused_argv):
             reordered_summaries = reorder_list_like(summaries, sys_ref_summaries, reference_summaries)
 
             with open(os.path.join(processed_dir, 'summaries.txt'), 'w') as writer:
-                for summ in reordered_summaries:
-                    writer.write(summ + '\n')
+                with open(os.path.join(processed_dir, 'summaries_tokenized.txt'), 'w') as writer_tokenized:
+                    for summ in reordered_summaries:
+                        writer_tokenized.write(summ + '\n')
+                        writer.write(fix_punctuations(summ) + '\n')
         elif system == 'bottom-up':
             with open(os.path.join(raw_dir, 'bottom_up_cnndm_015_threshold.out')) as f:
                 text_with_slash_t = f.read()
@@ -203,8 +213,10 @@ def main(unused_argv):
                 sys_ref_summaries = [summ.strip() for summ in text_tab_separated.split('\n') if summ.strip() != '']
             reordered_summaries = reorder_list_like(summaries, sys_ref_summaries, reference_summaries)
             with open(os.path.join(processed_dir, 'summaries.txt'), 'w') as writer:
-                for summ in reordered_summaries:
-                    writer.write(summ + '\n')
+                with open(os.path.join(processed_dir, 'summaries_tokenized.txt'), 'w') as writer_tokenized:
+                    for summ in reordered_summaries:
+                        writer_tokenized.write(summ + '\n')
+                        writer.write(fix_punctuations(summ) + '\n')
         elif system == 'dca':
             with open(os.path.join(raw_dir, 'cnndm_m6_m7.txt')) as f:
                 text = f.read()
@@ -225,8 +237,10 @@ def main(unused_argv):
             sys_ref_summaries = [get_sents(sys_ref_summary) for sys_ref_summary in tqdm(sys_ref_summary_texts)]
             reordered_summaries = reorder_list_like(summaries, sys_ref_summaries, reference_summaries)
             with open(os.path.join(processed_dir, 'summaries.txt'), 'w') as writer:
-                for summ in reordered_summaries:
-                    writer.write(summ + '\n')
+                with open(os.path.join(processed_dir, 'summaries_tokenized.txt'), 'w') as writer_tokenized:
+                    for summ in reordered_summaries:
+                        writer_tokenized.write(summ + '\n')
+                        writer.write(fix_punctuations(summ) + '\n')
         elif system == 'novel':
             with open(os.path.join(raw_dir, 'rl-novelty-lm.out')) as f:
                 text = f.read()
@@ -241,16 +255,18 @@ def main(unused_argv):
                 obj = json.loads(line)
                 article = obj['article']
                 summary = obj['prediction']
-                summary_texts.append(summary)
-                sys_article_texts.append(article)
+                summary_texts.append(util.unfix_bracket_tokens_in_sent(summary))
+                sys_article_texts.append(util.unfix_bracket_tokens_in_sent(article))
             # nlp_summaries = nlp.pipe(summary_texts)
             # nlp_sys_articles = nlp.pipe(sys_article_texts)
             summaries = [get_sents(summary) for summary in tqdm(summary_texts, total=11490)]
             sys_articles = [get_sents(article) for article in tqdm(sys_article_texts, total=11490)]
             reordered_summaries = reorder_list_like(summaries, sys_articles, reference_articles)
             with open(os.path.join(processed_dir, 'summaries.txt'), 'w') as writer:
-                for summ in reordered_summaries:
-                    writer.write(summ + '\n')
+                with open(os.path.join(processed_dir, 'summaries_tokenized.txt'), 'w') as writer_tokenized:
+                    for summ in reordered_summaries:
+                        writer_tokenized.write(summ + '\n')
+                        writer.write(fix_punctuations(summ) + '\n')
             a=0
 
 

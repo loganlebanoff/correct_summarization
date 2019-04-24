@@ -129,8 +129,9 @@ flags.DEFINE_boolean('finetune', False, 'If true, save plots of each distributio
 flags.DEFINE_boolean('word_imp_reg', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('convert_to_importance_model', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_float('imp_loss_wt', 0.5, 'Weight of importance loss (lambda in the paper). If zero, then no incentive to minimize importance loss. 0.5 means equal weight.')
+flags.DEFINE_boolean('imp_loss_oneminus', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('tag_tokens', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
-flags.DEFINE_boolean('by_instance', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
+flags.DEFINE_boolean('by_instance', True, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('sep', False, 'If true, add a separator token [SEP] between sentences.')
 
 
@@ -226,6 +227,8 @@ def convert_to_importance_model():
     logging.info("converting non-importance model to importance model..")
 
     new_log_root = FLAGS.log_root + '_imp' + str(FLAGS.imp_loss_wt)
+    if FLAGS.imp_loss_oneminus:
+        new_log_root += '_oneminus'
 
     print("copying models from %s to %s..." % (FLAGS.log_root, new_log_root))
     util.create_dirs(new_log_root)
@@ -450,6 +453,8 @@ def main(unused_argv):
             FLAGS.pretrained_path += '_finetune'
     if FLAGS.sep:
         FLAGS.exp_name += '_sep'
+    if FLAGS.tag_tokens:
+        FLAGS.exp_name += '_tag'
 
     extractor = 'bert' if FLAGS.use_bert else 'lambdamart'
     bert_suffix = ''
@@ -485,12 +490,13 @@ def main(unused_argv):
 
     if FLAGS.convert_to_importance_model:
         convert_to_importance_model()
-        FLAGS.convert_to_coverage_model = True
+        # FLAGS.convert_to_coverage_model = True
     if FLAGS.word_imp_reg:
-        assert FLAGS.coverage, "To run with importance_loss, run with coverage=True as well"
+        if FLAGS.coverage:
+            raise Exception('Importance loss does not work at the same time with coverage loss yet. Need to modify the total_loss in model.py.')
         FLAGS.log_root += '_imp' + str(FLAGS.imp_loss_wt)
-    if FLAGS.tag_tokens:
-        FLAGS.log_root += '_tag'
+        if FLAGS.imp_loss_oneminus:
+            FLAGS.log_root += '_oneminus'
 
     print(util.bcolors.OKGREEN + "Experiment path: " + FLAGS.log_root + util.bcolors.ENDC)
 

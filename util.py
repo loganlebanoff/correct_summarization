@@ -89,6 +89,7 @@ def load_ckpt(saver, sess, ckpt_dir="train"):
         except:
             logging.info("Failed to load checkpoint from %s. Sleeping for %i secs...", my_ckpt_dir, 10)
             time.sleep(10)
+            raise
 
 def flatten_list_of_lists(list_of_lists):
     return list(itertools.chain.from_iterable(list_of_lists))
@@ -682,14 +683,23 @@ def get_first_available_sent(enforced_groundtruth_ssi_list, raw_article_sents, r
             return (sent_idx,)
     return ()       # if we reach here, there are no available sents left
 
-def replace_empty_ssis(enforced_groundtruth_ssi_list, raw_article_sents):
+def replace_empty_ssis(enforced_groundtruth_ssi_list, raw_article_sents, sys_alp_list=None):
     replaced_ssi_list = []
-    for ssi in enforced_groundtruth_ssi_list:
+    replaced_alp_list = []
+    for ssi_idx, ssi in enumerate(enforced_groundtruth_ssi_list):
         if len(ssi) == 0:
-            replaced_ssi_list.append(get_first_available_sent(enforced_groundtruth_ssi_list, raw_article_sents, replaced_ssi_list))
+            first_available_sent = get_first_available_sent(enforced_groundtruth_ssi_list, raw_article_sents, replaced_ssi_list)
+            if len(first_available_sent) != 0:
+                replaced_ssi_list.append(first_available_sent)
+                chosen_sent = first_available_sent[0]
+                alp = [list(range(len(raw_article_sents[chosen_sent].split(' '))))]
+                replaced_alp_list.append(alp)
+            else:
+                a=0     # Don't add the summary sentence because all the source sentences are used up
         else:
             replaced_ssi_list.append(ssi)
-    return replaced_ssi_list
+            replaced_alp_list.append(sys_alp_list[ssi_idx])
+    return replaced_ssi_list, replaced_alp_list
 
 def sent_selection_eval(ssi_list, operation_on_gt):
     if FLAGS.dataset_name == 'cnn_dm':
@@ -702,7 +712,7 @@ def sent_selection_eval(ssi_list, operation_on_gt):
     sys_neg = 0
     gt_pos = 0
     gt_neg = 0
-    for gt, sys_, ext_len in ssi_list:
+    for gt, sys_, ext_len, article_lcs_paths in ssi_list:
         gt = operation_on_gt(gt)
         sys_ = sys_[:sys_max_sent_len]
         sys_ = flatten_list_of_lists(sys_)
@@ -734,15 +744,21 @@ def sent_selection_eval(ssi_list, operation_on_gt):
 def all_sent_selection_eval(ssi_list):
     chronological_ssi = True
     def flatten(gt):
+        if chronological_ssi:
+            gt = make_ssi_chronological(gt)
         return flatten_list_of_lists(gt)
     def primary(gt):
         if chronological_ssi:
-            return [min(ssi) for ssi in ssi_list]
+            try:
+                return [min(ssi) for ssi in gt if len(ssi) > 0]
+            except:
+                print_vars(gt)
+                raise
         else:
             return flatten_list_of_lists(enforce_sentence_limit(gt, 1))
     def secondary(gt):
         if chronological_ssi:
-            return [max(ssi) for ssi in ssi_list if len(ssi) == 2]
+            return [max(ssi) for ssi in gt if len(ssi) == 2]
         else:
             return [ssi[1] for ssi in gt if len(ssi) == 2]
     # def single(gt):

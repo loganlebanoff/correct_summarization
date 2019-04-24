@@ -154,38 +154,45 @@ class BeamSearchDecoder(object):
                 example, names_to_types)
             article_sent_tokens = [util.process_sent(sent) for sent in raw_article_sents]
             groundtruth_summ_sents = [[sent.strip() for sent in groundtruth_summary_text.strip().split('\n')]]
+            groundtruth_summ_sent_tokens = [sent.split(' ') for sent in groundtruth_summ_sents[0]]
 
             if ssi_list is None:    # this is if we are doing the upper bound evaluation (ssi_list comes straight from the groundtruth)
                 sys_ssi = groundtruth_similar_source_indices_list
+                sys_alp_list = groundtruth_article_lcs_paths_list
                 if FLAGS.singles_and_pairs == 'singles':
                     sys_ssi = util.enforce_sentence_limit(sys_ssi, 1)
+                    sys_alp_list = util.enforce_sentence_limit(sys_alp_list, 1)
                 elif FLAGS.singles_and_pairs == 'both':
                     sys_ssi = util.enforce_sentence_limit(sys_ssi, 2)
-                sys_ssi = util.replace_empty_ssis(sys_ssi, raw_article_sents)
+                    sys_alp_list = util.enforce_sentence_limit(sys_alp_list, 2)
+                sys_ssi, sys_alp_list = util.replace_empty_ssis(sys_ssi, raw_article_sents, sys_alp_list=sys_alp_list)
             else:
-                gt_ssi, sys_ssi, ext_len = ssi_list[example_idx]
+                gt_ssi, sys_ssi, ext_len, sys_token_probs_list = ssi_list[example_idx]
+                sys_alp_list = ssi_functions.list_labels_from_probs(sys_token_probs_list, FLAGS.tag_threshold)
                 if FLAGS.singles_and_pairs == 'singles':
                     sys_ssi = util.enforce_sentence_limit(sys_ssi, 1)
+                    sys_alp_list = util.enforce_sentence_limit(sys_alp_list, 1)
                     groundtruth_similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, 1)
                     gt_ssi = util.enforce_sentence_limit(gt_ssi, 1)
                 elif FLAGS.singles_and_pairs == 'both':
                     sys_ssi = util.enforce_sentence_limit(sys_ssi, 2)
+                    sys_alp_list = util.enforce_sentence_limit(sys_alp_list, 2)
                     groundtruth_similar_source_indices_list = util.enforce_sentence_limit(groundtruth_similar_source_indices_list, 2)
                     gt_ssi = util.enforce_sentence_limit(gt_ssi, 2)
-                if gt_ssi != groundtruth_similar_source_indices_list:
-                    raise Exception('Example %d has different groundtruth source indices: ' + str(groundtruth_similar_source_indices_list) + ' || ' + str(gt_ssi))
+                # if gt_ssi != groundtruth_similar_source_indices_list:
+                #     raise Exception('Example %d has different groundtruth source indices: ' + str(groundtruth_similar_source_indices_list) + ' || ' + str(gt_ssi))
                 if FLAGS.dataset_name == 'xsum':
                     sys_ssi = [sys_ssi[0]]
 
             final_decoded_words = []
             final_decoded_outpus = ''
             best_hyps = []
-            highlight_html_total = ''
+            highlight_html_total = '<u>System Summary</u><br><br>'
             for ssi_idx, ssi in enumerate(sys_ssi):
-                selected_article_lcs_paths = None
-                # selected_article_lcs_paths = article_lcs_paths_list[ssi_idx]
-                # ssi, selected_article_lcs_paths = util.make_ssi_chronological(ssi, selected_article_lcs_paths)
-                # selected_article_lcs_paths = [selected_article_lcs_paths]
+                # selected_article_lcs_paths = None
+                selected_article_lcs_paths = sys_alp_list[ssi_idx]
+                ssi, selected_article_lcs_paths = util.make_ssi_chronological(ssi, selected_article_lcs_paths)
+                selected_article_lcs_paths = [selected_article_lcs_paths]
                 selected_raw_article_sents = util.reorder(raw_article_sents, ssi)
                 selected_article_text = ' '.join( [' '.join(sent) for sent in util.reorder(article_sent_tokens, ssi)] )
                 selected_doc_indices_str = '0 ' * len(selected_article_text.split())
@@ -213,7 +220,7 @@ class BeamSearchDecoder(object):
                 final_decoded_words.extend(decoded_words)
                 final_decoded_outpus += decoded_output
 
-                if example_idx < 1000:
+                if example_idx < 100 or (example_idx >= 2000 and example_idx < 2100):
                     min_matched_tokens = 2
                     selected_article_sent_tokens = [util.process_sent(sent) for sent in selected_raw_article_sents]
                     highlight_summary_sent_tokens = [decoded_words]
@@ -225,7 +232,7 @@ class BeamSearchDecoder(object):
                                                                                      selected_article_sent_tokens,
                                                                                    lcs_paths_list=lcs_paths_list,
                                                                                    article_lcs_paths_list=highlight_smooth_article_lcs_paths_list)
-                    highlight_html_total += '<u>System Summary</u><br><br>' + highlighted_html + '<br><br>'
+                    highlight_html_total += highlighted_html + '<br>'
 
                 if FLAGS.attn_vis and example_idx < 200:
                     self.write_for_attnvis(article_withunks, abstract_withunks, decoded_words, best_hyp.attn_dists,
@@ -236,8 +243,34 @@ class BeamSearchDecoder(object):
                 if len(final_decoded_words) >= 100:
                     break
 
-            if example_idx < 1000:
+            gt_ssi_list, gt_alp_list = util.replace_empty_ssis(groundtruth_similar_source_indices_list, raw_article_sents, sys_alp_list=groundtruth_article_lcs_paths_list)
+            highlight_html_gt = '<u>Reference Summary</u><br><br>'
+            for ssi_idx, ssi in enumerate(gt_ssi_list):
+                selected_article_lcs_paths = gt_alp_list[ssi_idx]
+                try:
+                    ssi, selected_article_lcs_paths = util.make_ssi_chronological(ssi, selected_article_lcs_paths)
+                except:
+                    util.print_vars(ssi, example_idx, selected_article_lcs_paths)
+                    raise
+                selected_raw_article_sents = util.reorder(raw_article_sents, ssi)
+
+                if example_idx < 100 or (example_idx >= 2000 and example_idx < 2100):
+                    min_matched_tokens = 2
+                    selected_article_sent_tokens = [util.process_sent(sent) for sent in selected_raw_article_sents]
+                    highlight_summary_sent_tokens = [groundtruth_summ_sent_tokens[ssi_idx]]
+                    highlight_ssi_list, lcs_paths_list, highlight_article_lcs_paths_list, highlight_smooth_article_lcs_paths_list = ssi_functions.get_simple_source_indices_list(
+                        highlight_summary_sent_tokens,
+                        selected_article_sent_tokens, None, 2, min_matched_tokens)
+                    highlighted_html = ssi_functions.html_highlight_sents_in_article(highlight_summary_sent_tokens,
+                                                                                   highlight_ssi_list,
+                                                                                     selected_article_sent_tokens,
+                                                                                   lcs_paths_list=lcs_paths_list,
+                                                                                   article_lcs_paths_list=highlight_smooth_article_lcs_paths_list)
+                    highlight_html_gt += highlighted_html + '<br>'
+
+            if example_idx < 100 or (example_idx >= 2000 and example_idx < 2100):
                 self.write_for_human(raw_article_sents, groundtruth_summ_sents, final_decoded_words, example_idx)
+                highlight_html_total = ssi_functions.put_html_in_two_columns(highlight_html_total, highlight_html_gt)
                 ssi_functions.write_highlighted_html(highlight_html_total, self._highlight_dir, example_idx)
 
             # if example_idx % 100 == 0:

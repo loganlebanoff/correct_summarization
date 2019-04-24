@@ -1,3 +1,4 @@
+import copy
 from tqdm import tqdm
 from scoop import futures
 import rouge_functions
@@ -15,8 +16,9 @@ import sys
 from collections import defaultdict
 import util
 from scipy import sparse
-from count_merged import html_highlight_sents_in_article, get_simple_source_indices_list
+from ssi_functions import html_highlight_sents_in_article, get_simple_source_indices_list
 import pickle
+import ssi_functions
 # from profilestats import profile
 
 if 'dataset_name' in flags.FLAGS:
@@ -50,6 +52,10 @@ if 'artemb' not in flags.FLAGS:
 if 'plushidden' not in flags.FLAGS:
     flags.DEFINE_boolean('plushidden', True, 'Which mode to run in. Must be in {write_to_file, generate_summaries}.')
 # flags.DEFINE_boolean('l_sents', True, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
+flags.DEFINE_bool("tag_tokens", False, "Whether to use TPU or GPU/CPU.")
+flags.DEFINE_float("tag_loss_wt", 0.2, "Whether to use TPU or GPU/CPU.")
+flags.DEFINE_float("tag_threshold", 0.2, "Whether to use TPU or GPU/CPU.")
+flags.DEFINE_bool("use_mmr", False, "Whether to use TPU or GPU/CPU.")
 
 if not flags_already_done:
     FLAGS(sys.argv)
@@ -91,6 +97,12 @@ else:
 # if FLAGS.plushidden:
 #     exp_name += '_plushidden'
 #     bert_scores_dir += '_plushidden'
+if FLAGS.tag_tokens:
+    exp_name += '_tag' + str(FLAGS.tag_loss_wt)
+    bert_scores_dir += '_tag' + str(FLAGS.tag_loss_wt)
+
+if FLAGS.use_mmr:
+    exp_name += '_mmr'
 
 if FLAGS.upper_bound:
     exp_name = exp_name + '_upperbound'
@@ -115,6 +127,8 @@ if FLAGS.pca:
     bert_scores_dir += '_pca'
 temp_in_path = os.path.join(bert_in_dir, 'test.tsv')
 temp_out_path = os.path.join(bert_scores_dir, 'test_results.tsv')
+file_path_seq = os.path.join(bert_scores_dir, 'test_results_seq.tsv')
+file_path_mappings = os.path.join(bert_scores_dir, 'test_results_mappings.tsv')
 util.create_dirs(bert_scores_dir)
 my_log_dir = os.path.join(log_dir, exp_name)
 dec_dir = os.path.join(my_log_dir, 'decoded')
@@ -127,11 +141,25 @@ util.create_dirs(ssi_out_dir)
 
 # @profile
 def read_bert_scores(file_path):
+    print ('Reading read_bert_scores')
     with open(file_path) as f:
         lines = f.readlines()
-    data = [[float(x) for x in line.split('\t')] for line in lines]
+    data = [[float(x) for x in line.split('\t')] for line in tqdm(lines)]
     data = np.array(data)
     return data
+
+# @profile
+def read_bert_scores_seq(file_path_seq, file_path_mappings):
+    print ('Reading read_bert_scores_seq')
+    with open(file_path_seq) as f:
+        lines = f.readlines()
+    # lines = lines[:1000]
+    data = [[[float(x) for x in section.split('\t')] for section in line.split('\t\t')] for line in tqdm(lines)]
+    data = np.array(data)
+    with open(file_path_mappings) as f:
+        lines = f.readlines()
+    mappings_data = [[int(x) for x in line.split('\t')] for line in lines]
+    return data, mappings_data
 
 # @profile
 def get_qid_source_indices(line):
@@ -147,10 +175,11 @@ def get_qid_source_indices(line):
 
 # @profile
 def read_source_indices_from_bert_input(file_path):
+    print ('Reading source indices from bert input')
     out_list = []
     with open(file_path) as f:
         lines = f.readlines()[1:]
-    for line in lines:
+    for line in tqdm(lines):
         qid, inst_id, source_indices = get_qid_source_indices(line)
         out_list.append(tuple((qid, tuple(source_indices))))
     return out_list
@@ -163,13 +192,28 @@ def get_sent_or_sents(article_sent_tokens, source_indices):
 
 # @profile
 def get_bert_scores_for_singles_pairs(data, qid_source_indices_list):
+    print ('get_bert_scores_for_singles_pairs')
     out_dict = {}
-    for row_idx, row in enumerate(data):
+    for row_idx, row in enumerate(tqdm(data)):
         score0, score1 = row
         qid, source_indices = qid_source_indices_list[row_idx]
         if qid not in out_dict:
             out_dict[qid] = {}
         out_dict[qid][source_indices] = score1
+    return out_dict
+
+def get_token_scores_and_mappings(data, data_mappings, qid_source_indices_list):
+    out_dict = {}
+    for row_idx, row in enumerate(data):
+        tokens_score_list = row
+        tokens_mapping_list = data_mappings[row_idx]
+        if len(tokens_score_list) != len(tokens_mapping_list):
+            raise Exception('Len of tokens_score_list %d != Len of tokens_mapping_list %d' % (len(tokens_score_list), len(tokens_mapping_list)))
+        token_scores = [score1 for score0,score1 in tokens_score_list]
+        qid, source_indices = qid_source_indices_list[row_idx]
+        if qid not in out_dict:
+            out_dict[qid] = {}
+        out_dict[qid][source_indices] = (token_scores, tokens_mapping_list)
     return out_dict
 
 # @profile
@@ -180,6 +224,16 @@ def rank_source_sents(temp_in_path, temp_out_path):
         raise Exception('Len of qid_source_indices_list %d != Len of data %d' % (len(qid_source_indices_list), len(data)))
     source_indices_to_scores = get_bert_scores_for_singles_pairs(data, qid_source_indices_list)
     return source_indices_to_scores
+
+def get_token_scores_for_ssi(temp_in_path, file_path_seq, file_path_mappings):
+    qid_source_indices_list = read_source_indices_from_bert_input(temp_in_path)
+    data, data_mappings = read_bert_scores_seq(file_path_seq, file_path_mappings)
+    if len(qid_source_indices_list) != len(data):
+        raise Exception('Len of qid_source_indices_list %d != Len of data %d' % (len(qid_source_indices_list), len(data)))
+    if len(qid_source_indices_list) != len(data_mappings):
+        raise Exception('Len of qid_source_indices_list %d != Len of data_mappings %d' % (len(qid_source_indices_list), len(data_mappings)))
+    source_indices_to_token_scores_and_mappings = get_token_scores_and_mappings(data, data_mappings, qid_source_indices_list)
+    return source_indices_to_token_scores_and_mappings
 
 # @profile
 def get_best_source_sents(article_sent_tokens, mmr_dict, already_used_source_indices):
@@ -196,7 +250,52 @@ def get_best_source_sents(article_sent_tokens, mmr_dict, already_used_source_ind
     sents = get_sent_or_sents(article_sent_tokens, source_indices)
     return sents, source_indices
 
-def generate_summary(article_sent_tokens, qid_ssi_to_importances, example_idx):
+def get_token_info_for_ssi(qid_ssi_to_token_scores_and_mappings, qid, source_indices):
+    return qid_ssi_to_token_scores_and_mappings[qid][source_indices]
+
+def consolidate_token_scores(token_scores, token_mappings):
+    token_cons_scores = []
+    cur_sent_token_scores = []
+    prev_mapping = -3
+    for token_idx, score in enumerate(token_scores):
+        mapping = token_mappings[token_idx]
+        if mapping == -2:   # token is padding
+            prev_mapping = mapping
+            continue
+        elif mapping == -1:
+            if token_idx == 0:   # token is [CLS]
+                prev_mapping = mapping
+                continue
+            else:   # token is [SEP], so it means we finished a sentence
+                token_cons_scores.append(cur_sent_token_scores)
+                cur_sent_token_scores = []
+                prev_mapping = mapping
+        else:   # token is a real WordPiece token
+            if prev_mapping == mapping:     # this token is part of the previous full token
+                cur_sent_token_scores[-1] = max(cur_sent_token_scores[-1], score)
+            else:   # this token is a new full token
+                cur_sent_token_scores.append(score)
+                prev_mapping = mapping
+
+    if len(cur_sent_token_scores) != 0:
+        print (token_scores, token_mappings)
+        raise Exception('Didnt flush out sentence (see printed above)')
+    return token_cons_scores
+
+
+def threshold_token_scores(token_cons_scores, threshold):
+    token_tags = [[1 if score >= threshold else 0 for score in sent] for sent in token_cons_scores]
+    return token_tags
+
+def filter_untagged(sents, token_tags):
+    sents_only_tagged = []
+    for sent_idx, sent in enumerate(sents):
+        cur_token_tags = token_tags[sent_idx]
+        new_sent = [token for token_idx, token in enumerate(sent) if cur_token_tags[token_idx]]
+        sents_only_tagged.append(new_sent)
+    return sents_only_tagged
+
+def generate_summary(article_sent_tokens, qid_ssi_to_importances, example_idx, qid_ssi_to_token_scores_and_mappings):
     qid = example_idx
 
     summary_sent_tokens = []
@@ -204,6 +303,8 @@ def generate_summary(article_sent_tokens, qid_ssi_to_importances, example_idx):
     already_used_source_indices = []
     similar_source_indices_list = []
     summary_sents_for_html = []
+    article_lcs_paths_list = []
+    token_probs_list = []
     ssi_length_extractive = None
     while len(summary_tokens) < 300:
         if len(summary_tokens) >= l_param and ssi_length_extractive is None:
@@ -211,11 +312,40 @@ def generate_summary(article_sent_tokens, qid_ssi_to_importances, example_idx):
         # if FLAGS.dataset_name == 'xsum' and len(summary_tokens) > 0:
         #     ssi_length_extractive = len(similar_source_indices_list)
         #     break
-        mmr_dict = util.calc_MMR_source_indices(article_sent_tokens, summary_tokens, None, qid_ssi_to_importances, qid=qid)
-        sents, source_indices = get_best_source_sents(article_sent_tokens, mmr_dict, already_used_source_indices)
+        if FLAGS.use_mmr:
+            score_dict = util.calc_MMR_source_indices(article_sent_tokens, summary_tokens, None, qid_ssi_to_importances, qid=qid)
+        else:
+            score_dict = qid_ssi_to_importances[qid]
+        sents, source_indices = get_best_source_sents(article_sent_tokens, score_dict, already_used_source_indices)
         if len(source_indices) == 0:
             break
+
+        token_scores, token_mappings = get_token_info_for_ssi(qid_ssi_to_token_scores_and_mappings, qid, source_indices)
+        # if np.max(token_mappings) !=
+        token_cons_scores = consolidate_token_scores(token_scores, token_mappings)
+        if len(token_cons_scores) != len(sents):
+            print (token_cons_scores, sents)
+            raise Exception('Len of token_cons_scores %d != Len of sents %d' % (len(token_cons_scores), len(sents)))
+        padded_token_cons_scores = []       # we need to pad it, because sometimes the instance was too long for BERT, so it got truncated. So we need to fill the end of the sentences with 0 probabilities.
+        for sent_idx, sent_scores in enumerate(token_cons_scores):
+            sent = sents[sent_idx]
+            if len(sent_scores) > len(sent):
+                print (token_cons_scores, sents)
+                raise Exception('Len of sent_scores %d > Len of sent %d' % (len(sent_scores), len(sent)))
+            while len(sent_scores) < len(sent):
+                sent_scores.append(0.)
+            padded_token_cons_scores.append(sent_scores)
+        token_probs_list.append(padded_token_cons_scores)
+        token_tags = threshold_token_scores(padded_token_cons_scores, FLAGS.tag_threshold)     # shape (1 or 2, len(sent)) 1 or 2 depending on if it is singleton/pair
+        article_lcs_paths = ssi_functions.binary_tags_to_list(token_tags)
+        article_lcs_paths_list.append(article_lcs_paths)
+
+        # if FLAGS.tag_tokens and FLAGS.tag_loss_wt != 0:
+        #     sents_only_tagged = filter_untagged(sents, token_tags)
+        #     summary_sent_tokens.extend(sents_only_tagged)
+        # else:
         summary_sent_tokens.extend(sents)
+
         summary_tokens = util.flatten_list_of_lists(summary_sent_tokens)
         similar_source_indices_list.append(source_indices)
         summary_sents_for_html.append(' <br> '.join([' '.join(sent) for sent in sents]))
@@ -226,16 +356,16 @@ def generate_summary(article_sent_tokens, qid_ssi_to_importances, example_idx):
     selected_article_sent_indices = util.flatten_list_of_lists(similar_source_indices_list[:ssi_length_extractive])
     summary_sents = [' '.join(sent) for sent in util.reorder(article_sent_tokens, selected_article_sent_indices)]
     # summary = '\n'.join([' '.join(tokens) for tokens in summary_sent_tokens])
-    return summary_sents, similar_source_indices_list, summary_sents_for_html, ssi_length_extractive
+    return summary_sents, similar_source_indices_list, summary_sents_for_html, ssi_length_extractive, article_lcs_paths_list, token_probs_list
 
-def example_generator_extended(example_generator, total, single_feat_len, pair_feat_len, singles_and_pairs):
+def example_generator_extended(example_generator, total, qid_ssi_to_importances, qid_ssi_to_token_scores_and_mappings):
     example_idx = -1
     for example in tqdm(example_generator, total=total):
     # for example in example_generator:
         example_idx += 1
         if FLAGS.num_instances != -1 and example_idx >= FLAGS.num_instances:
             break
-        yield (example, example_idx, single_feat_len, pair_feat_len, singles_and_pairs)
+        yield (example, example_idx, qid_ssi_to_importances, qid_ssi_to_token_scores_and_mappings)
 
 # @profile
 def write_highlighted_html(html, out_dir, example_idx):
@@ -278,7 +408,7 @@ def get_indices_of_first_k_sents_of_each_article(rel_sent_indices, k):
     return indices
 
 def evaluate_example(ex):
-    example, example_idx, qid_ssi_to_importances, _, _ = ex
+    example, example_idx, qid_ssi_to_importances, qid_ssi_to_token_scores_and_mappings = ex
     print(example_idx)
     # example_idx += 1
     qid = example_idx
@@ -296,26 +426,31 @@ def evaluate_example(ex):
         similar_source_indices_list = groundtruth_similar_source_indices_list
         ssi_length_extractive = len(similar_source_indices_list)
     else:
-        summary_sents, similar_source_indices_list, summary_sents_for_html, ssi_length_extractive = generate_summary(article_sent_tokens, qid_ssi_to_importances, example_idx)
+        summary_sents, similar_source_indices_list, summary_sents_for_html, ssi_length_extractive, \
+            article_lcs_paths_list, token_probs_list = generate_summary(article_sent_tokens, qid_ssi_to_importances, example_idx, qid_ssi_to_token_scores_and_mappings)
         similar_source_indices_list_trunc = similar_source_indices_list[:ssi_length_extractive]
         summary_sents_for_html_trunc = summary_sents_for_html[:ssi_length_extractive]
-        if example_idx <= 100:
+        if example_idx < 100 or (example_idx >= 2000 and example_idx < 2100):
             summary_sent_tokens = [sent.split(' ') for sent in summary_sents_for_html_trunc]
+            if FLAGS.tag_tokens and FLAGS.tag_loss_wt != 0:
+                lcs_paths_list_param = copy.deepcopy(article_lcs_paths_list)
+            else:
+                lcs_paths_list_param = None
             extracted_sents_in_article_html = html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_list_trunc,
-                                            article_sent_tokens, doc_indices=doc_indices)
+                                            article_sent_tokens, doc_indices=doc_indices, lcs_paths_list=lcs_paths_list_param)
             # write_highlighted_html(extracted_sents_in_article_html, html_dir, example_idx)
 
-            groundtruth_ssi_list, lcs_paths_list, article_lcs_paths_list = get_simple_source_indices_list(
+            groundtruth_ssi_list, gt_lcs_paths_list, gt_article_lcs_paths_list, gt_smooth_article_paths_list = get_simple_source_indices_list(
                                             groundtruth_summ_sent_tokens,
                                            article_sent_tokens, None, sentence_limit, min_matched_tokens)
             groundtruth_highlighted_html = html_highlight_sents_in_article(groundtruth_summ_sent_tokens, groundtruth_ssi_list,
-                                            article_sent_tokens, lcs_paths_list=lcs_paths_list, article_lcs_paths_list=article_lcs_paths_list, doc_indices=doc_indices)
+                                            article_sent_tokens, lcs_paths_list=gt_lcs_paths_list, article_lcs_paths_list=gt_smooth_article_paths_list, doc_indices=doc_indices)
 
             all_html = '<u>System Summary</u><br><br>' + extracted_sents_in_article_html + '<u>Groundtruth Summary</u><br><br>' + groundtruth_highlighted_html
             # all_html = '<u>System Summary</u><br><br>' + extracted_sents_in_article_html
             write_highlighted_html(all_html, html_dir, example_idx)
     rouge_functions.write_for_rouge(groundtruth_summ_sents, summary_sents, example_idx, ref_dir, dec_dir)
-    return (groundtruth_similar_source_indices_list, similar_source_indices_list, ssi_length_extractive)
+    return (groundtruth_similar_source_indices_list, similar_source_indices_list, ssi_length_extractive, token_probs_list)
 
 
 def main(unused_argv):
@@ -338,15 +473,16 @@ def main(unused_argv):
 
 
     qid_ssi_to_importances = rank_source_sents(temp_in_path, temp_out_path)
-    ex_gen = example_generator_extended(example_generator, total, qid_ssi_to_importances, None, FLAGS.singles_and_pairs)
+    qid_ssi_to_token_scores_and_mappings = get_token_scores_for_ssi(temp_in_path, file_path_seq, file_path_mappings)
+    ex_gen = example_generator_extended(example_generator, total, qid_ssi_to_importances, qid_ssi_to_token_scores_and_mappings)
     print('Creating list')
     ex_list = [ex for ex in ex_gen]
     ssi_list = list(futures.map(evaluate_example, ex_list))
 
     # save ssi_list
-    with open(os.path.join(my_log_dir, 'ssi.pkl'), 'w') as f:
+    with open(os.path.join(my_log_dir, 'ssi.pkl'), 'wb') as f:
         pickle.dump(ssi_list, f)
-    with open(os.path.join(my_log_dir, 'ssi.pkl')) as f:
+    with open(os.path.join(my_log_dir, 'ssi.pkl'), 'rb') as f:
         ssi_list = pickle.load(f)
     print('Evaluating BERT model F1 score...')
     suffix = util.all_sent_selection_eval(ssi_list)

@@ -1,3 +1,4 @@
+import copy
 import os
 import util
 import numpy as np
@@ -72,8 +73,14 @@ def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_
         except:
             similar_source_indices = []
             a=0
-        # lcs_paths = lcs_paths_list[summ_sent_idx]
 
+        if lcs_paths_list is not None:
+            lcs_paths_list = copy.deepcopy(lcs_paths_list)
+            lcs_paths = lcs_paths_list[summ_sent_idx]
+            if '<br>' in summ_sent:     # this is a special case where we are straight-up copying a pair of sentences as one instance. If this is the case we need to adjust lcs_paths.
+                br_idx = summ_sent.index('<br>')
+                sent1_len = len(summ_sent[:br_idx])
+                lcs_paths[1] = [token_idx+1+sent1_len for token_idx in lcs_paths[1]]
 
         for token_idx, token in enumerate(summ_sent):
             insert_string = token + ' '
@@ -91,7 +98,7 @@ def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_
                 # if token_idx in lcs_paths[source_indices_idx]:
                 # if lcs_paths_list is not None:
                 #     lcs_paths_list[summ_sent_idx][source_indices_idx]
-                if lcs_paths_list is None or token_idx in lcs_paths_list[summ_sent_idx][source_indices_idx]:
+                if lcs_paths_list is None or token_idx in lcs_paths[source_indices_idx]:
                     insert_string = start_tag_highlight(color) + token + ' ' + end_tag
                     break
                 # else:
@@ -139,6 +146,26 @@ def html_highlight_sents_in_article(summary_sent_tokens, similar_source_indices_
         out_str += '<br>'
     out_str += '<br>------------------------------------------------------<br><br>'
     return out_str
+
+def put_html_in_two_columns(html1, html2):
+    html = '''
+    
+    <style>
+.row {{
+  display: flex;
+}}
+
+.column {{
+  flex: 50%;
+}}
+    </style>
+    
+    <div class="row">
+      <div class="column">{}</div>
+      <div class="column">{}</div>
+    </div>
+    '''.format(html1, html2)
+    return html
 
 
 def get_sent_similarities(summ_sent, article_sent_tokens, vocab, only_rouge_l=False, remove_stop_words=True):
@@ -307,3 +334,34 @@ def get_top_similar_sent(summ_sent, article_sent_tokens, vocab, remove_stop_word
 def replace_with_blanks(summ_sent, selection):
     replaced_summ_sent = [summ_sent[token_idx] if token_idx in selection else '' for token_idx, token in enumerate(summ_sent)]
     return  replaced_summ_sent
+
+def list_labels_from_probs(sys_token_probs_list, threshold):
+    token_tags_list = [[[1 if score >= threshold else 0 for score in sent] for sent in inst] for inst in sys_token_probs_list]
+    article_lcs_paths_list = [binary_tags_to_list(token_tags) for token_tags in token_tags_list]
+    return article_lcs_paths_list
+
+def binary_tags_to_list(token_tags):
+    article_lcs_paths = []
+    for sent in token_tags:
+        path = [token_idx for token_idx, tag in enumerate(sent) if tag == 1]
+        article_lcs_paths.append(path)
+    return article_lcs_paths
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

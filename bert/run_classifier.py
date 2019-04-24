@@ -155,6 +155,7 @@ if 'dataset_name' not in flags.FLAGS:
 
 flags.DEFINE_bool("plushidden", True, "Whether to use TPU or GPU/CPU.")
 flags.DEFINE_bool("tag_tokens", False, "Whether to use TPU or GPU/CPU.")
+flags.DEFINE_float("tag_loss_wt", 0.2, "Whether to use TPU or GPU/CPU.")
 
 
 class InputExample(object):
@@ -527,12 +528,11 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   labels_b = None
   if example.text_b is not None:
     tokens_b, mappings_b = tokenizer.tokenize(example.text_b)
-    if example.article_lcs_paths == [[]]:                                                                                                                                                                                                                                                                                               
-    try:
-        labels_b = create_token_labels(mappings_b, example.article_lcs_paths[1])
-    except:
-        print (example.article_lcs_paths)
-        raise
+    if example.article_lcs_paths == [[]]:
+        articls_lcs_paths_b = []
+    else:
+        articls_lcs_paths_b = example.article_lcs_paths[1]
+    labels_b = create_token_labels(mappings_b, articls_lcs_paths_b)
 
   if tokens_b:
     # Modifies `tokens_a` and `tokens_b` in place so that the total
@@ -762,11 +762,21 @@ def _truncate_seq_pair(tokens_a, tokens_b, max_length):
     else:
       tokens_b.pop()
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 
 def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
                  labels, num_labels, use_one_hot_embeddings, sentence_ids, article_embedding, token_labels, mappings):
-  """Creates a classification model."""
-  model = modeling.BertModel(
+    """Creates a classification model."""
+    model = modeling.BertModel(
       config=bert_config,
       is_training=is_training,
       input_ids=input_ids,
@@ -776,13 +786,13 @@ def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
       sentence_ids=sentence_ids,
       article_embedding=article_embedding)
 
-  # In the demo, we are doing a simple classification task on the entire
-  # segment.
-  #
-  # If you want to use the token-level output, use model.get_sequence_output()
-  # instead.
+    # In the demo, we are doing a simple classification task on the entire
+    # segment.
+    #
+    # If you want to use the token-level output, use model.get_sequence_output()
+    # instead.
 
-  if FLAGS.plushidden:
+    if FLAGS.plushidden:
       pre_output_layer = model.get_pooled_output()
       if FLAGS.artemb:
           pre_output_layer = tf.concat([pre_output_layer, article_embedding], axis=-1)
@@ -794,70 +804,75 @@ def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
           bert_config.hidden_size,
           activation=tf.tanh,
           kernel_initializer=modeling.create_initializer(bert_config.initializer_range))
-  else:
+    else:
       output_layer = model.get_pooled_output()
       if FLAGS.artemb:
         output_layer = tf.concat([output_layer, article_embedding], axis=-1)
 
-  hidden_size = output_layer.shape[-1].value
+    hidden_size = output_layer.shape[-1].value
 
-  output_weights = tf.get_variable(
+    output_weights = tf.get_variable(
       "output_weights", [num_labels, hidden_size],
       initializer=tf.truncated_normal_initializer(stddev=0.02))
 
-  output_bias = tf.get_variable(
+    output_bias = tf.get_variable(
       "output_bias", [num_labels], initializer=tf.zeros_initializer())
 
-  with tf.variable_scope("loss"):
-    if is_training:
-      # I.e., 0.1 dropout
-      output_layer = tf.nn.dropout(output_layer, keep_prob=0.9)
+    with tf.variable_scope("loss"):
+        if is_training:
+          # I.e., 0.1 dropout
+          output_layer = tf.nn.dropout(output_layer, keep_prob=0.9)
 
-    logits = tf.matmul(output_layer, output_weights, transpose_b=True)
-    logits = tf.nn.bias_add(logits, output_bias)
-    probabilities = tf.nn.softmax(logits, axis=-1)
-    log_probs = tf.nn.log_softmax(logits, axis=-1)
+        logits = tf.matmul(output_layer, output_weights, transpose_b=True)
+        logits = tf.nn.bias_add(logits, output_bias)
+        probabilities = tf.nn.softmax(logits, axis=-1)
+        log_probs = tf.nn.log_softmax(logits, axis=-1)
 
-    one_hot_labels = tf.one_hot(labels, depth=num_labels, dtype=tf.float32)
-    cls_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
+        one_hot_labels = tf.one_hot(labels, depth=num_labels, dtype=tf.float32)
+        cls_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
 
-
+    seq_probabilities = None
     if FLAGS.tag_tokens:
-        final_hidden = model.get_sequence_output()
+        with tf.variable_scope("seq_loss"):
+            final_hidden = model.get_sequence_output()
 
-        final_hidden_shape = modeling.get_shape_list(final_hidden, expected_rank=3)
-        batch_size = final_hidden_shape[0]
-        seq_length = final_hidden_shape[1]
-        hidden_size_seq = final_hidden_shape[2]
+            final_hidden_shape = modeling.get_shape_list(final_hidden, expected_rank=3)
+            batch_size = final_hidden_shape[0]
+            seq_length = final_hidden_shape[1]
+            hidden_size_seq = final_hidden_shape[2]
 
-        output_weights_seq = tf.get_variable(
-            "cls/squad/output_weights", [2, hidden_size_seq],
-            initializer=tf.truncated_normal_initializer(stddev=0.02))
+            output_weights_seq = tf.get_variable(
+                "seq_output_weights", [2, hidden_size_seq],
+                initializer=tf.truncated_normal_initializer(stddev=0.02))
 
-        output_bias_seq = tf.get_variable(
-            "cls/squad/output_bias", [2], initializer=tf.zeros_initializer())
+            output_bias_seq = tf.get_variable(
+                "seq_output_bias", [2], initializer=tf.zeros_initializer())
 
-        final_hidden_matrix = tf.reshape(final_hidden,
-                                         [batch_size * seq_length, hidden_size_seq])
-        logits_seq = tf.matmul(final_hidden_matrix, output_weights_seq, transpose_b=True)
-        logits_seq = tf.nn.bias_add(logits_seq, output_bias_seq)
-        log_probs_seq = tf.nn.log_softmax(logits_seq, axis=-1)
+            final_hidden_matrix = tf.reshape(final_hidden,
+                                             [batch_size * seq_length, hidden_size_seq])
+            logits_seq = tf.matmul(final_hidden_matrix, output_weights_seq, transpose_b=True)
+            logits_seq = tf.nn.bias_add(logits_seq, output_bias_seq)
+            seq_probabilities = tf.nn.softmax(logits_seq, axis=-1)
+            seq_probabilities = tf.reshape(seq_probabilities, [batch_size, seq_length, num_labels])
+            log_probs_seq = tf.nn.log_softmax(logits_seq, axis=-1)
 
-        logits_seq = tf.reshape(logits_seq, [batch_size, seq_length, 2])
-        # logits_seq = tf.transpose(logits_seq, [2, 0, 1])
-        # token_labels_reshaped = tf.reshape(token_labels, [batch_size * seq_length])
-        one_hot_labels_seq = tf.one_hot(token_labels, depth=num_labels, dtype=tf.float32)
-        seq_loss = tf.reduce_sum(one_hot_labels_seq * log_probs_seq, axis=-1)
-        seq_loss = -tf.reduce_sum(seq_loss, axis=-1)
+            # logits_seq = tf.reshape(logits_seq, [batch_size, seq_length, 2])
+            # logits_seq = tf.transpose(logits_seq, [2, 0, 1])
+            # token_labels_reshaped = tf.reshape(token_labels, [batch_size * seq_length])
+            one_hot_labels_seq = tf.one_hot(token_labels, depth=num_labels, dtype=tf.float32)
+            one_hot_labels_seq_reshaped = tf.reshape(one_hot_labels_seq, [batch_size * seq_length, num_labels])
+            seq_losses = tf.reduce_sum(one_hot_labels_seq_reshaped * log_probs_seq, axis=-1)
+            masked_seq_losses = tf.to_float(tf.reshape(input_mask, [batch_size * seq_length])) * seq_losses     # Mask out padded tokens for the loss
+            seq_loss = -tf.reduce_sum(masked_seq_losses, axis=-1)
+            seq_loss = tf.to_float(labels) * seq_loss   # Mask out negative INSTANCES for the loss. Negative instances do not have a training signal for token-level outputs.
 
-
-
-        per_example_loss = cls_loss + seq_loss
+            per_example_loss = (1-FLAGS.tag_loss_wt) * cls_loss + FLAGS.tag_loss_wt * (1./FLAGS.max_seq_length) * seq_loss
     else:
+        seq_loss = 0
         per_example_loss = cls_loss
     loss = tf.reduce_mean(per_example_loss)
 
-    return (loss, per_example_loss, logits, probabilities, model.embedding_output)
+    return (loss, per_example_loss, logits, probabilities, seq_probabilities, model.embedding_output, cls_loss, seq_loss)
 
 
 def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
@@ -888,7 +903,7 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
 
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
-    (total_loss, per_example_loss, logits, probabilities, embedding_output) = create_model(
+    (total_loss, per_example_loss, logits, probabilities, seq_probabilities, embedding_output, cls_loss, seq_loss) = create_model(
         bert_config, is_training, input_ids, input_mask, segment_ids, label_ids,
         num_labels, use_one_hot_embeddings, sentence_ids, article_embedding, token_labels, mappings)
 
@@ -908,13 +923,13 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
       else:
         tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
 
-    tf.logging.info("**** Trainable Variables ****")
-    for var in tvars:
-      init_string = ""
-      if var.name in initialized_variable_names:
-        init_string = ", *INIT_FROM_CKPT*"
-      tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
-                      init_string)
+    # tf.logging.info("**** Trainable Variables ****")
+    # for var in tvars:
+    #   init_string = ""
+    #   if var.name in initialized_variable_names:
+    #     init_string = ", *INIT_FROM_CKPT*"
+    #   tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
+    #                   init_string)
 
     output_spec = None
     if mode == tf.estimator.ModeKeys.TRAIN:
@@ -929,18 +944,22 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
           scaffold_fn=scaffold_fn)
     elif mode == tf.estimator.ModeKeys.EVAL:
 
-      def metric_fn(per_example_loss, label_ids, logits, is_real_example):
+      def metric_fn(per_example_loss, label_ids, logits, is_real_example, cls_loss, seq_loss):
         predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
         accuracy = tf.metrics.accuracy(
             labels=label_ids, predictions=predictions, weights=is_real_example)
         loss = tf.metrics.mean(values=per_example_loss, weights=is_real_example)
+        _cls_loss = tf.metrics.mean(values=cls_loss, weights=is_real_example)
+        _seq_loss = tf.metrics.mean(values=seq_loss, weights=is_real_example)
         return {
             "eval_accuracy": accuracy,
             "eval_loss": loss,
+            "cls_loss": _cls_loss,
+            "seq_loss": _seq_loss,
         }
 
       eval_metrics = (metric_fn,
-                      [per_example_loss, label_ids, logits, is_real_example])
+                      [per_example_loss, label_ids, logits, is_real_example, cls_loss, seq_loss])
       output_spec = tf.contrib.tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,
@@ -949,7 +968,7 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
     else:
       output_spec = tf.contrib.tpu.TPUEstimatorSpec(
           mode=mode,
-          predictions={"probabilities": probabilities},
+          predictions={"probabilities": probabilities, "seq_probabilities": seq_probabilities, "mappings": mappings},
           scaffold_fn=scaffold_fn)
     return output_spec
 
@@ -961,7 +980,9 @@ def num_lines_in_file(file_path):
     return num_lines
 
 
-def main(_):
+def main(unused_argv):
+  if len(unused_argv) != 1: # prints a message if you've entered flags incorrectly
+    raise Exception("Problem with flags: %s" % unused_argv)
   tf.logging.set_verbosity(tf.logging.INFO)
 
   processors = {
@@ -983,6 +1004,8 @@ def main(_):
   #     output_folder += '_artemb'
   # if FLAGS.plushidden:
   #     output_folder += '_plushidden'
+  if FLAGS.tag_tokens:
+      output_folder += '_tag' + str(FLAGS.tag_loss_wt)
   if FLAGS.dataset_name == 'duc_2004':
       FLAGS.model_dir = os.path.join(data_root, 'cnn_dm', FLAGS.singles_and_pairs, output_folder)
   else:
@@ -991,6 +1014,8 @@ def main(_):
       FLAGS.model_dir = os.path.join(FLAGS.model_dir, 'best')
   FLAGS.data_dir = os.path.join(data_root, FLAGS.dataset_name, FLAGS.singles_and_pairs, 'input')
   FLAGS.output_dir = os.path.join(data_root, FLAGS.dataset_name, FLAGS.singles_and_pairs, output_folder)
+
+  print(bcolors.OKGREEN + "Experiment path: " + FLAGS.output_dir + bcolors.ENDC)
 
   if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
     raise ValueError(
@@ -1218,17 +1243,29 @@ def main(_):
     result = estimator.predict(input_fn=predict_input_fn)
 
     output_predict_file = os.path.join(FLAGS.output_dir, "test_results.tsv")
+    output_seq_predict_file = os.path.join(FLAGS.output_dir, "test_results_seq.tsv")
+    output_mappings_predict_file = os.path.join(FLAGS.output_dir, "test_results_mappings.tsv")
+    if FLAGS.tag_tokens:
+        writer_seq = tf.gfile.GFile(output_seq_predict_file, "w")
+        writer_mappings = tf.gfile.GFile(output_mappings_predict_file, "w")
     with tf.gfile.GFile(output_predict_file, "w") as writer:
       num_written_lines = 0
       tf.logging.info("***** Predict results *****")
       for (i, prediction) in enumerate(tqdm(result, total=num_actual_predict_examples)):
         probabilities = prediction["probabilities"]
+        seq_probabilities = prediction["seq_probabilities"]
+        mappings = prediction["mappings"]
         if i >= num_actual_predict_examples:
           break
         output_line = "\t".join(
             str(class_probability)
             for class_probability in probabilities) + "\n"
         writer.write(output_line)
+        if FLAGS.tag_tokens:
+            output_line = "\t\t".join(['\t'.join([str(prob) for prob in token_probs]) for token_probs in seq_probabilities]) + "\n"
+            writer_seq.write(output_line)
+            output_line = "\t".join(str(idx) for idx in mappings) + "\n"
+            writer_mappings.write(output_line)
         num_written_lines += 1
     print (num_written_lines, num_actual_predict_examples)
     assert num_written_lines == num_actual_predict_examples

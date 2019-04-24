@@ -109,11 +109,14 @@ flags.DEFINE_string('ssi_data_path', '',
 flags.DEFINE_boolean('better_beam_search', False,
                     'Whether to run with only single sentences or with both singles and pairs. Must be in {singles, both}.')
 flags.DEFINE_boolean('word_imp_reg', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
-flags.DEFINE_float('imp_loss_wt', 1.0, 'Weight of coverage loss (lambda in the paper). If zero, then no incentive to minimize coverage loss.')
+flags.DEFINE_float('imp_loss_wt', 0.5, 'Weight of coverage loss (lambda in the paper). If zero, then no incentive to minimize coverage loss.')
+flags.DEFINE_boolean('imp_loss_oneminus', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('first_intact', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('tag_tokens', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
-flags.DEFINE_boolean('by_instance', False, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
+flags.DEFINE_boolean('by_instance', True, 'If true, save plots of each distribution -- importance, similarity, mmr. This setting makes decoding take much longer.')
 flags.DEFINE_boolean('sep', False, 'If true, add a separator token [SEP] between sentences.')
+flags.DEFINE_float("tag_loss_wt", 0.2, "Whether to use TPU or GPU/CPU.")
+flags.DEFINE_float("tag_threshold", 0.2, "Whether to use TPU or GPU/CPU.")
 
 
 _exp_name = 'lambdamart'
@@ -148,18 +151,25 @@ def main(unused_argv):
         pretrained_dataset = 'cnn_dm'
     if FLAGS.singles_and_pairs == 'both':
         FLAGS.exp_name = FLAGS.dataset_name + '_' + FLAGS.exp_name + extractor + '_both'
-        FLAGS.pretrained_path = os.path.join(FLAGS.log_root, pretrained_dataset + '_sent')
+        FLAGS.pretrained_path = os.path.join(FLAGS.log_root, pretrained_dataset + '_both')
         dataset_articles = FLAGS.dataset_name
     else:
         FLAGS.exp_name = FLAGS.dataset_name + '_' + FLAGS.exp_name + extractor + '_singles'
-        FLAGS.pretrained_path = os.path.join(FLAGS.log_root, pretrained_dataset + '_sent' + '_singles')
+        FLAGS.pretrained_path = os.path.join(FLAGS.log_root, pretrained_dataset + '_singles')
         dataset_articles = FLAGS.dataset_name + '_singles'
     if FLAGS.word_imp_reg:
         FLAGS.pretrained_path += '_imp' + str(FLAGS.imp_loss_wt)
         FLAGS.exp_name += '_imp' + str(FLAGS.imp_loss_wt)
+        if FLAGS.imp_loss_oneminus:
+            FLAGS.pretrained_path += '_oneminus'
+            FLAGS.exp_name += '_oneminus'
     if FLAGS.sep:
         FLAGS.pretrained_path += '_sep'
         FLAGS.exp_name += '_sep'
+    if FLAGS.tag_tokens:
+        FLAGS.pretrained_path += '_tag'
+        FLAGS.exp_name += '_tag' + str(FLAGS.tag_loss_wt)
+
 
 
     bert_suffix = ''
@@ -173,11 +183,16 @@ def main(unused_argv):
     #     if FLAGS.plushidden:
     #         FLAGS.exp_name += '_plushidden'
     #         bert_suffix += '_plushidden'
+    if FLAGS.tag_tokens:
+        bert_suffix += '_tag' + str(FLAGS.tag_loss_wt)
+    else:
+        bert_suffix += '_tag' + '0.0'
     if FLAGS.upper_bound:
         FLAGS.exp_name = FLAGS.exp_name + '_upperbound'
         ssi_list = None     # this is if we are doing the upper bound evaluation (ssi_list comes straight from the groundtruth)
     else:
         my_log_dir = os.path.join(log_dir, '%s_%s_%s%s' % (FLAGS.dataset_name, extractor, FLAGS.singles_and_pairs, bert_suffix))
+        print(util.bcolors.OKGREEN + "BERT path: " + my_log_dir + util.bcolors.ENDC)
         with open(os.path.join(my_log_dir, 'ssi.pkl'), 'rb') as f:
             ssi_list = pickle.load(f)
         FLAGS.ssi_data_path = my_log_dir

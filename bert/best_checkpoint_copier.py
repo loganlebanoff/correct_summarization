@@ -82,7 +82,7 @@ class BestCheckpointCopier(tf.estimator.Exporter):
     return len(self.checkpoints) < self.checkpoints_to_keep or self.compare_fn(checkpoint, self.checkpoints[-1])
 
   def _fillCheckpoints(self, checkpointPickleDir):
-    with open(checkpointPickleDir) as f:
+    with open(checkpointPickleDir, 'rb') as f:
       self.checkpoints = pickle.load(f)
 
   def _writeCheckpointsPickle(self, checkpointPickleDir):

@@ -50,6 +50,9 @@ while [ $# -gt 0 ]; do
     --batch_size=*)
       batch_size="${1#*=}"
       ;;
+    --exp_suffix=*)
+      exp_suffix="${1#*=}"
+      ;;
     --sentemb=*)
       sentemb="${1#*=}"
       ;;
@@ -100,21 +103,23 @@ echo "$artemb"
 echo "$@"
 
 if [[ "$mode" == *"tensorboard"* ]]; then
-    CUDA_VISIBLE_DEVICES="$cuda" tensorboard --logdir=$HOME/discourse/data/bert/"$dataset_name"/"$singles_and_pairs"/output"$exp_suffix" --port="$port" &
+    CUDA_VISIBLE_DEVICES="$cuda" tensorboard --logdir=$HOME/discourse/data/bert/"$dataset_name"/"$singles_and_pairs"/output"$exp_suffix"/eval --port="$port" &
 fi
 if [[ "$mode" == *"train"* ]]; then
     cd bert
-    CUDA_VISIBLE_DEVICES="$cuda" python run_classifier.py   --task_name=merge   --do_train=true   --do_eval=true   --dataset_name="$dataset_name" --singles_and_pairs="$singles_and_pairs"   --max_seq_length=64   --train_batch_size=32   --learning_rate=2e-5   --num_train_epochs=1000.0 --batch_size="$batch_size" --sentemb="$sentemb" --artemb="$artemb" --plushidden="$plushidden"  "$@"
+    CUDA_VISIBLE_DEVICES="$cuda" python run_classifier.py   --task_name=merge   --do_train=true   --do_eval=true   --dataset_name="$dataset_name" --singles_and_pairs="$singles_and_pairs"   --max_seq_length=64   --train_batch_size=32   --learning_rate=2e-5   --num_train_epochs=1000.0 --train_batch_size="$batch_size" --eval_batch_size="$batch_size" --sentemb="$sentemb" --artemb="$artemb" --plushidden="$plushidden"  "$@"
     cd ..
 fi
 if [[ "$mode" == *"predict"* ]]; then
     cd bert
-    CUDA_VISIBLE_DEVICES="$cuda" python run_classifier.py   --task_name=merge   --do_predict=true   --dataset_name="$dataset_name" --singles_and_pairs="$singles_and_pairs"  --max_seq_length=64 --sentemb="$sentemb" --artemb="$artemb"  --plushidden="$plushidden" "$@"
+    CUDA_VISIBLE_DEVICES="$cuda" python run_classifier.py   --task_name=merge   --do_predict=true   --dataset_name="$dataset_name" --singles_and_pairs="$singles_and_pairs"  --max_seq_length=64 --predict_batch_size="$batch_size" --sentemb="$sentemb" --artemb="$artemb"  --plushidden="$plushidden" "$@"
     cd ..
 fi
 if [[ "$mode" == *"summ"* ]]; then
-    python bert_scores_to_summaries.py --dataset_name="$dataset_name" --singles_and_pairs="$singles_and_pairs" --sentemb="$sentemb" --artemb="$artemb"  --plushidden="$plushidden"
+    python bert_scores_to_summaries.py --dataset_name="$dataset_name" --singles_and_pairs="$singles_and_pairs" --sentemb="$sentemb" --artemb="$artemb"  --plushidden="$plushidden" "$@"
 fi
 if [[ "$mode" == *"pg"* ]]; then
     CUDA_VISIBLE_DEVICES="$cuda" python ssi_to_pg_input.py --dataset_name="$dataset_name" --singles_and_pairs="$singles_and_pairs" --use_bert=True --sentemb="$sentemb" --artemb="$artemb"  --plushidden="$plushidden" "$@"
 fi
+
+pkill -P $$

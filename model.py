@@ -325,9 +325,12 @@ class SummarizationModel(object):
 
                     if hps.word_imp_reg:
                         with tf.variable_scope('importance_loss'):
-                            self._importance_loss = _importance_loss(self.attn_dists, self._enc_padding_mask, self.enc_importances)
+                            self._importance_loss = _importance_loss(self.attn_dists, self._enc_padding_mask, self.enc_importances, one_minus=hps.imp_loss_oneminus)
                             tf.summary.scalar('importance_loss', self._importance_loss)
-                        self._total_with_imp_loss = (1-hps.imp_loss_wt) * self._total_loss + hps.imp_loss_wt * self._importance_loss
+                        if hps.imp_loss_oneminus:
+                            self._total_with_imp_loss = (1 - hps.imp_loss_wt) * self._loss + hps.imp_loss_wt * self._importance_loss
+                        else:
+                            self._total_with_imp_loss = (1-hps.imp_loss_wt) * self._loss - hps.imp_loss_wt * self._importance_loss
                         tf.summary.scalar('total_with_imp_loss', self._total_with_imp_loss)
 
 
@@ -582,7 +585,7 @@ def _coverage_loss(attn_dists, padding_mask):
     return coverage_loss
 
 
-def _importance_loss(attn_dists, padding_mask, importances):
+def _importance_loss(attn_dists, padding_mask, importances, one_minus=False):
     """Calculates the coverage loss from the attention distributions.
 
     Args:
@@ -596,6 +599,10 @@ def _importance_loss(attn_dists, padding_mask, importances):
     coverage = tf.zeros_like(attn_dists[0]) # shape (batch_size, attn_length). Initial coverage is zero.
     for a in attn_dists:
         coverage += a # update the coverage vector
-    importance_losses = coverage * importances
+    if one_minus:
+        ones = tf.ones_like(coverage)
+        importance_losses = tf.clip_by_value(ones - coverage, 0., 100.) * importances
+    else:
+        importance_losses = coverage * importances
     importance_loss = _mask_and_avg_enc(importance_losses, padding_mask)
     return importance_loss

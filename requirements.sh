@@ -23,24 +23,24 @@ trap intexit INT
 #source ~/.bashrc
 
 #conda install numpy -y
-#conda install cudatoolkit==9.0 -y
+#conda install cudatoolkit==9.0  -y
 #conda install tensorflow-gpu==1.11 -y
-#pip install sumy -y
-#pip install pyrouge -y
-##conda install spacy -y
-#python -m spacy download en_core_web_sm
+#pip install sumy
+pip install pyrouge
+#conda install spacy -y
 
-#conda uninstall spacy -y
-#pip uninstall spacy -y
-#conda uninstall spacy-nightly -y
-#pip uninstall spacy-nightly -y
-#conda uninstall thinc -y
-#pip uninstall thinc -y
-#conda uninstall regex -y
-#pip uninstall regex
-#yes | pip install regex==2018.01.10
-#yes | pip install thinc==6.12.0
-#yes | pip install spacy
-#yes | pip install spacy-stanfordnlp
+conda uninstall spacy -y
+pip uninstall spacy -y
+conda uninstall spacy-nightly -y
+pip uninstall spacy-nightly -y
+conda uninstall thinc -y
+pip uninstall thinc -y
+conda uninstall regex -y
+pip uninstall regex -y
+yes | pip install regex==2018.01.10
+yes | pip install thinc==6.12.0
+yes | pip install spacy
+yes | pip install spacy-stanfordnlp
 yes | python -c 'import stanfordnlp
 stanfordnlp.download("en")'
+python -m spacy download en_core_web_sm
