@@ -23,7 +23,7 @@
                 participating in our study!</em></p>
             <div class="col-12 col-md-6">
                 <p><strong>Description: </strong> We have machine-generated (AI)
-                    summaries of an Article. Each summary pulls from 0-2 article
+                    summary sentences of an Article. Each summary sentence pulls from 2 article
                     sentences to create the result you see.</p>
                 
                 <p class="mb-0"><strong>What we need <em>you</em> to do:</strong></p>
@@ -33,7 +33,7 @@
                         should be a pretty quick read.)
                     </li>
                     <li class="list-item">
-                        Go through each the <a href="#summaries">Summary Sentences</a>,
+                        Go through each of the <a href="#summaries">Summary Sentences</a>,
                         hover over each to highlight the corresponding
                         sentences in the article. <strong>Read each summary sentence
                         and answer the following questions:</strong>
@@ -65,7 +65,6 @@
 
 
 <script>
-
     function putArticle(articleSents) {
         let article = document.getElementById("src-article-content");
         let idx = 0;
@@ -161,21 +160,33 @@
 
     function addYNQuestion(id, text, name) {
         let wrapper = document.createElement("div");
-        wrapper.setAttribute("class", "d-md-flex mb-3");
-        wrapper.innerHTML = `
-                <div class="p-0 m-0 col-12 col-md-8 m-0 d-flex flex-column text-center text-md-left">
-                    <p class="mx-0 my-md-auto mb-3">${text}</p>
-                </div>
-                <div class="p-0 m-0 col-12 col-md-4 d-flex justify-content-center justify-content-md-between">
-                    <div class="custom-control custom-radio">
-                        <input type="radio" id="Y${id}_${name}" name="${name}" class="custom-control-input">
-                        <label class="custom-control-label btn btn-success btn-sm" for="Y${id}_${name}">YES</label>
-                    </div>
-                    <div class="custom-control custom-radio">
-                        <input type="radio" id="N${id}_${name}" name="${name}" class="custom-control-input">
-                        <label class="custom-control-label btn btn-danger btn-sm" for="N${id}_${name}">NO</label>
-                    </div>
-                </div>`;
+        wrapper.setAttribute("class", "d-md-flex mb-3 col-6");
+
+        let keyword = document.createElement("div");
+        keyword.setAttribute("class", "p-0 m-0 col-6 d-flex flex-column text-center text-md-left");
+        let keyword_txt = document.createElement("p");
+        keyword_txt.setAttribute("class",   "mx-0 my-auto");
+        keyword_txt.innerHTML = `${text}`;
+        keyword.appendChild(keyword_txt);
+        wrapper.appendChild(keyword);
+
+        let choices = document.createElement("div");
+        choices.setAttribute("class", "p-0 m-0 col-6 d-flex justify-content-center justify-content-md-between");
+
+        let y = document.createElement("label");
+        y.setAttribute("class", "my-auto btn btn-success btn-sm");
+        y.setAttribute("for", `Y${id}_${name}`);
+        y.innerHTML = `YES <input type="radio" id="Y${id}_${name}" name="${name}">`;
+
+        let n = document.createElement("label");
+        n.setAttribute("class", "my-auto btn btn-danger btn-sm");
+        n.setAttribute("for", `N${id}_${name}`);
+        n.innerHTML = `NO <input type="radio" id="N${id}_${name}" name="${name}">`;
+
+        choices.appendChild(y);
+        choices.appendChild(n);
+
+        wrapper.append(choices);
 
         return wrapper;
     }
@@ -195,7 +206,17 @@
         return fromColors[rand];
     }
 
-    function addSummary(idx, sent) {
+    function setBG(el, bg=el.style.backgroundColor) {
+        let srcs = el.getAttribute("data-srcs").split(",");
+        if (parseInt(srcs) !== -1) {
+            srcs.forEach(function (id) {
+                document.getElementById(`sent${id}`).style.backgroundColor = bg;
+            })
+        }
+    }
+
+
+    function addSummary(idx, meta) {
         let tasks = document.getElementById("tasks");
 
         let card = document.createElement("div");
@@ -203,11 +224,11 @@
 
         card.style.backgroundColor = newColor();
         card.id = `summary${idx}`;
-        card.setAttribute("data-srcs", sent.srcs);
+        card.setAttribute("data-srcs", meta.src);
 
         let summary = document.createElement("strong");
         summary.setAttribute("class", "mb-1");
-        summary.innerHTML = sent.sent;
+        summary.innerHTML = meta.sum;
 
         card.appendChild(summary);
 
@@ -215,46 +236,48 @@
         hr.setAttribute("class", "my-2");
         card.appendChild(hr);
 
-        card.appendChild(
-            addYNQuestion(idx, 
-                "Is this sentence <strong>true to the original article?</strong>",
-                `Accuracy_${idx}`));
+        let row = document.createElement("div");
+        row.setAttribute("class", "row m-0");
+        row.appendChild(addYNQuestion(idx, "Faithfulness", `Faithfulness_${idx}`));
+        row.appendChild(addYNQuestion(idx, "Coverage",     `Coverage_${idx}`));
+        row.appendChild(addYNQuestion(idx, "Grammatical",  `Grammatical_${idx}`));
+        row.appendChild(addYNQuestion(idx, "Merging",      `Merging_${idx}`));
 
-        card.appendChild(
-            addYNQuestion(idx,
-                "Does this sentence <strong>contain information not " +
-                "represented by the highlighted sentences?</strong>",
-                `ExtraInfo_${idx}`));
+        card.appendChild(row);
 
-        card.appendChild(
-            addYNQuestion(idx,
-                "Is this sentence <strong>grammatically correct?</strong>",
-                `Grammatical_${idx}`));
+        let src_id = document.createElement("input");
+        src_id.setAttribute("type", "hidden");
+        src_id.setAttribute("value", meta.sys);
+        card.appendChild(src_id)
 
         tasks.appendChild(card);
+        card.setAttribute("data-clicked", false);
 
-        card.addEventListener("mouseenter", function () {
-            let srcs = card.getAttribute("data-srcs").split(",");
-            if (parseInt(srcs) !== -1) {
-                srcs.forEach(function (id) {
-                    document.getElementById(`sent${id}`).style.backgroundColor = card.style.backgroundColor;
-                })
-            }
-        });
-
+        card.addEventListener("mouseenter", function () { setBG(card); })
         card.addEventListener("mouseleave", function () {
-            let srcs = card.getAttribute("data-srcs").split(",");
-            if (parseInt(srcs) !== -1) {
-                srcs.forEach(function (id) {
-                    document.getElementById(`sent${id}`).style.backgroundColor = "#fff";
-                })
-            }
+            if (card.getAttribute("data-clicked") !== "true")
+                setBG(card, "#fff");
+        })
+        card.addEventListener("click", function () {
+            let tasks = document.getElementById("tasks");
+            Array.prototype.forEach.call(tasks.children, function (el) {
+                setBG(el, "#fff");
+            })
+
+            setBG(card);
+            card.setAttribute("data-clicked", true);
         })
     }
 
-     function zip(srcs, summs) {
+    function zip2(srcs, summs) {
         return srcs.map(function (el, idx) {
-            return [srcs[idx], summs[idx]]
+            return [srcs[idx], summs[idx]];
+        })
+    }
+
+    function zip3(srcs, summs, syss) {
+        return srcs.map(function (el, idx) {
+            return [srcs[idx], summs[idx], syss[idx]];
         })
     }
 
@@ -274,14 +297,14 @@
         return arr;
     }
 
-    function  parseSummaries(srcs, summs) {
+    function parseSummaries(meta) {
         let summaries = [];
-        zip(srcs, summs).forEach(function (el, idx) {
-            let tru_src = el[0].split("||");
-            let tru_sum = el[1].split("||");
-            zip(tru_src, tru_sum).forEach(function (trus, idx) {
-                summaries.push({"srcs": trus[0],  "sent": trus[1]})
-            });
+        meta.forEach(function (el, idx) {
+            summaries.push({
+                "src": el[0].split("||"),
+                "sum": el[1],
+                "sys": el[2],
+            })
         });
 
         shuffle(summaries);
@@ -317,33 +340,45 @@
     <p hidden="">${article_id} b4bc18629514d75299236eeaa0dacb856aae15126ab6e1537c541619838fe026</p>
     <p hidden=""></p>
     <script>
-        let article_id = "b4bc18629514d75299236eeaa0dacb856aae15126ab6e1537c541619838fe026";
-        let article_content = "Marseille, France -LRB- CNN -RRB- The French prosecutor leading an investigation into the crash of Germanwings Flight 9525 insisted Wednesday that he was not aware of any video footage from on board the plane.||Marseille prosecutor Brice Robin told CNN that &quot;so far no videos were used in the crash investigation.&quot;||He added, &quot;A person who has such a video needs to immediately give it to the investigators.&quot;||Robin&apos;s comments follow claims by two magazines, German daily Bild and French Paris Match, of a cell phone video showing the harrowing final seconds from on board Germanwings Flight 9525 as it crashed into the French Alps.||All 150 on board were killed.||Paris Match and Bild reported that the video was recovered from a phone at the wreckage site.||The two publications described the supposed video, but did not post it on their websites.||The publications said that they watched the video, which was found by a source close to the investigation.||&quot;One can hear cries of &apos;My God&apos; in several languages,&quot; Paris Match reported.||&quot;Metallic banging can also be heard more than three times, perhaps of the pilot trying to open the cockpit door with a heavy object.||Towards the end, after a heavy shake, stronger than the others, the screaming intensifies.||Then nothing.&quot;||&quot;It is a very disturbing scene,&quot; said Julian Reichelt, editor-in-chief of Bild online.||An official with France&apos;s accident investigation agency, the BEA, said the agency is not aware of any such video.||Lt. Col. Jean-Marc Menichini, a French Gendarmerie spokesman in charge of communications on rescue efforts around the Germanwings crash site, told CNN that the reports were &quot;completely wrong&quot; and &quot;unwarranted.&quot;||Cell phones have been collected at the site, he said, but that they &quot;had n&apos;t been exploited yet.&quot;||Menichini said he believed the cell phones would need to be sent to the Criminal Research Institute in Rosny sous-Bois, near Paris, in order to be analyzed by specialized technicians working hand-in-hand with investigators.||But none of the cell phones found so far have been sent to the institute, Menichini said.||Asked whether staff involved in the search could have leaked a memory card to the media, Menichini answered with a categorical &quot;no.&quot;||Reichelt told &quot;Erin Burnett: Outfront&quot; that he had watched the video and stood by the report, saying Bild and Paris Match are &quot;very confident&quot; that the clip is real.||He noted that investigators only revealed they&apos;d recovered cell phones from the crash site after Bild and Paris Match published their reports.||&quot;That is something we did not know before.||... Overall we can say many things of the investigation were n&apos;t revealed by the investigation at the beginning,&quot; he said.||What was mental state of Germanwings co-pilot?||German airline Lufthansa confirmed Tuesday that co-pilot Andreas Lubitz had battled depression years before he took the controls of Germanwings Flight 9525, which he&apos;s accused of deliberately crashing last week in the French Alps.||Lubitz told his Lufthansa flight training school in 2009 that he had a &quot;previous episode of severe depression,&quot; the airline said Tuesday.||Email correspondence between Lubitz and the school discovered in an internal investigation, Lufthansa said, included medical documents he submitted in connection with resuming his flight training.||The announcement indicates that Lufthansa, the parent company of Germanwings, knew of Lubitz&apos;s battle with depression, allowed him to continue training and ultimately put him in the cockpit.||Lufthansa, whose CEO Carsten Spohr previously said Lubitz was 100% fit to fly, described its statement Tuesday as a &quot;swift and seamless clarification&quot; and said it was sharing the information and documents -- including training and medical records -- with public prosecutors.||Spohr traveled to the crash site Wednesday, where recovery teams have been working for the past week to recover human remains and plane debris scattered across a steep mountainside.||He saw the crisis center set up in Seyne-les-Alpes, laid a wreath in the village of Le Vernet, closer to the crash site, where grieving families have left flowers at a simple stone memorial.||Menichini told CNN late Tuesday that no visible human remains were left at the site but recovery teams would keep searching.||French President Francois Hollande, speaking Tuesday, said that it should be possible to identify all the victims using DNA analysis by the end of the week, sooner than authorities had previously suggested.||In the meantime, the recovery of the victims&apos; personal belongings will start Wednesday, Menichini said.||Among those personal belongings could be more cell phones belonging to the 144 passengers and six crew on board.||Check out the latest from our correspondents.||The details about Lubitz&apos;s correspondence with the flight school during his training were among several developments as investigators continued to delve into what caused the crash and Lubitz&apos;s possible motive for downing the jet.||A Lufthansa spokesperson told CNN on Tuesday that Lubitz had a valid medical certificate, had passed all his examinations and &quot;held all the licenses required.&quot;||Earlier, a spokesman for the prosecutor&apos;s office in Dusseldorf, Christoph Kumpa, said medical records reveal Lubitz suffered from suicidal tendencies at some point before his aviation career and underwent psychotherapy before he got his pilot&apos;s license.||Kumpa emphasized there&apos;s no evidence suggesting Lubitz was suicidal or acting aggressively before the crash.||Investigators are looking into whether Lubitz feared his medical condition would cause him to lose his pilot&apos;s license, a European government official briefed on the investigation told CNN on Tuesday.||While flying was &quot;a big part of his life,&quot; the source said, it&apos;s only one theory being considered.||Another source, a law enforcement official briefed on the investigation, also told CNN that authorities believe the primary motive for Lubitz to bring down the plane was that he feared he would not be allowed to fly because of his medical problems.||Lubitz&apos;s girlfriend told investigators he had seen an eye doctor and a neuropsychologist, both of whom deemed him unfit to work recently and concluded he had psychological issues, the European government official said.||But no matter what details emerge about his previous mental health struggles, there&apos;s more to the story, said Brian Russell, a forensic psychologist.||&quot;Psychology can explain why somebody would turn rage inward on themselves about the fact that maybe they were n&apos;t going to keep doing their job and they&apos;re upset about that and so they&apos;re suicidal,&quot; he said.||&quot;But there is no mental illness that explains why somebody then feels entitled to also take that rage and turn it outward on 149 other people who had nothing to do with the person&apos;s problems.&quot;||Germanwings crash compensation: What we know.||Who was the captain of Germanwings Flight 9525?||CNN&apos;s Margot Haddad reported from Marseille and Pamela Brown from Dusseldorf, while Laura Smith-Spark wrote from London.||CNN&apos;s Frederik Pleitgen, Pamela Boykoff, Antonia Mortensen, Sandrine Amiel and Anna-Maja Rappard contributed to this report.";
-        let abs_rl_rerank_srcs = "0||3||5||1||2";
-        let abs_rl_rerank_summ = "french prosecutor says he was not aware of any video footage .||robin &apos;s comments follow claims by two magazines , daily bild and french paris match .||the video was recovered from a phone at the wreckage site .||marseille prosecutor brice robin says &apos;&apos; no videos were used in the crash investigation &apos;&apos;||new : &apos;&apos; a person who has such a video needs to immediately give it to the investigators , &apos;&apos; he says .";
-        let bottom_up_srcs = "0||3||4";
-        let bottom_up_summ = "marseille prosecutor says he was not aware of any video footage from on board plane .||robin &apos;s comments follow claims by two magazines .||all 150 on board were killed .";
-        let dca_srcs = "1||3||4||5";
-        let dca_summ = "marseille prosecutor brice robin told cnn that &quot; so far no videos were used in the crash investigation &quot; .||robin &apos;s comments follow claims by two magazines , german daily bild and french paris match .||all 150 on board were killed .||paris match and bild reported that the video was recovered from a phone .";
-        let novel_srcs = "0||3||4||3";
-        let novel_summ = "french prosecutor says he was not aware of video footage from on board plane .||germanwings flight 9525 was crashed into french alps .||all 150 on board were killed .||robin &apos;s comments follow claims by two magazines , german daily bild and french media .";
-        let pg_srcs = "0,1||7||3";
-        let pg_summ = "marseille prosecutor brice robin says he was not aware of any video footage from board the plane .||the video was found by a source close to the investigation .||robin &apos;s comments follow claims by two magazines , german daily bild and french paris match .";
-        let reference_srcs = "1,19||19||25";
-        let reference_summ = "marseille prosecutor says &apos;&apos; so far no videos were used in the crash investigation &apos;&apos; despite media reports .||journalists at bild and paris match are &apos;&apos; very confident &apos;&apos; the video clip is real , an editor says .||andreas lubitz had informed his lufthansa training school of an episode of severe depression , airline says .";
-        
+        let article_id = "c646bd9c55607b1c13e3b828345efa8128e58847dd4412244dd5c45ba8644f23";
+        let article_content = "(CNN) Michele Bachmann is comparing President Obama to the co-pilot of the doomed Germanwings flight.||&quot;With his Iran deal, Barack Obama is for the 300 million souls of the United States what Andreas Lubitz was for the 150 souls on the German Wings flight - a deranged pilot flying his entire nation into the rocks,&quot; the Minnesota Republican and former representative wrote in a Facebook comment posted March 31.||&quot;After the fact, among the smoldering remains of American cities, the shocked survivors will ask, why did he do it?&quot;||Andreas Lubitz, the co-pilot of Germanwings Flight 9525, is accused by authorities of deliberately crashing the plane in the French Alps.||He died in the crash along with 149 other crew and passengers.||The motive of the March 24 crash is under investigation, though investigators are looking in to whether Lubitz feared a medical condition would cause him to lose his pilot&apos;s license.||Many comments posted on her Facebook page blasted the former representative.||Melissa Coca wrote, &quot;Comparing this tragedy to anything is moronic and despicable.&quot;||Michael J Pristash wrote, &quot;Your allusion is so inappropriate and divisive, not to mention disrespectful on so many levels.||Shame on you.&quot;||Some also accused her of taking desperate measures to stay in the public eye.||Lynda Anderson wrote, &quot;Posting outrageous things in a pathetic attempt to stay relevant?&quot;||Negotiations are coming down to the wire between Iran, the United States and other nations on restricting Tehran&apos;s nuclear program to prevent the ability to develop an atomic bomb.||One deadline passed Tuesday, but there is a June 30 deadline for a comprehensive deal -- with all technical and diplomatic impasses fully worked out.||Bachmann is no stranger to voicing her opinion on the President&apos;s dealing with Iran, personally telling him to &quot;bomb Iran&quot; during the 2014 White House Christmas Party.||&quot;I turned to the president and I said, something to the effect of,&apos;Mr. President, you need to bomb the Iranian nuclear facilities, because if you do n&apos;t, Iran will have a nuclear weapon on your watch and the course of world history will change,&apos;&quot; she told the Washington Free Beacon.||The congresswoman, who sought the GOP presidential nomination in 2012, said Obama had a &quot;condescending smile on his face and laughed at me.&quot;||She said he told her: &quot;Well Michele, it&apos;s just not that easy.&quot;";
+        let sources_0 = "3,4";
+        let sources_1 = "2,1";
+        let sources_2 = "1,2";
+        let sources_3 = "3,4";
+        let sources_4 = "0,6";
+        let sources_5 = "1,0";
+        let summary_0 = "barker&apos;s &quot;lucky seven&quot; game show for 35 years.";
+        let summary_1 = "contestants told to &quot;come on down!&quot; on the april 1 edition of &quot;the price is right&quot; encountered not host drew carey.";
+        let summary_2 = "the price is in a price is right, &quot; contestants told to &quot; come on.";
+        let summary_3 = "bob barker was the first price-guessing game of the show for 35 years before stepping down in 2007.";
+        let summary_4 = "former gop representative compares president obama to andreas lubitz.";
+        let summary_5 = "contestants told to &quot;come on down!&quot; for the first time in eight years.";
+        let system_0 = "bottom-up";
+        let system_1 = "pg";
+        let system_2 = "dca";
+        let system_3 = "novel";
+        let system_4 = "reference";
+        let system_5 = "bottom-up";
+
         let sourceArticle = `${article_content}`;
         putArticle(sourceArticle);
 
-        let srcs = [`${abs_rl_rerank_srcs}`, `${bottom_up_srcs}`, `${dca_srcs}`,  `${novel_srcs}`,  `${pg_srcs}`,  `${reference_srcs}`,];
-        let summ = [`${abs_rl_rerank_summ}`, `${bottom_up_summ}`, `${dca_summ}`,  `${novel_summ}`,  `${pg_summ}`,  `${reference_summ}`,];
+        let summary_meta = [
+            [`${sources_0}`, `${summary_0}`, `${system_0}`],
+            [`${sources_1}`, `${summary_1}`, `${system_1}`],
+            [`${sources_2}`, `${summary_2}`, `${system_2}`],
+            [`${sources_3}`, `${summary_3}`, `${system_3}`],
+            [`${sources_4}`, `${summary_4}`, `${system_4}`],
+            [`${sources_5}`, `${summary_5}`, `${system_5}`],
+        ];
 
-        let summaries = parseSummaries(srcs, summ);
+        let summaries = parseSummaries(summary_meta);
 
         let idx = 0;
         console.log(summaries);
-        summaries.forEach(function (value) {
-            addSummary(idx,  value);
+        summaries.forEach(function (meta) {
+            addSummary(idx,  meta);
             idx++;
         });
 
