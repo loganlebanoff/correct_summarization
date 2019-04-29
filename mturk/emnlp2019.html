@@ -33,86 +33,30 @@
                         should be a pretty quick read.)
                     </li>
                     <li class="list-item">
-                        Go through each the <a href="#summaries">Summaries</a>,
+                        Go through each the <a href="#summaries">Summary Sentences</a>,
                         hover over each to highlight the corresponding
-                        sentences in the article. <strong>Read each summary
+                        sentences in the article. <strong>Read each summary sentence
                         and answer the following questions:</strong>
                         <ol class="list">
                             <li class="list-item">
-                                Is this sentence true to the original
-                                article?
+                                <strong>Faithful:</strong> Does the summary sentence convey the same meaning as the original article?
                             </li>
                             <li class="list-item">
-                                Does this sentence contain information not
-                                represented by the highlighted sentences?
+                                <strong>Coverage:</strong> Does the highlighted text contain all information used to generate the summary sentence?
                             </li>
                             <li class="list-item">
-                                Is this sentence grammatically correct?
+                                <strong>Grammatical:</strong> Is this sentence grammatically correct?
                             </li>
+                            <li class="list-item">
+                                <strong>Merging:</strong> How is the summary sentence created?
+                            </li>
+                            
                         </ol>
                     </li>
                 </ol>
             </div>
-            <div class="col-12 col-md-6">
-                <blockquote class="blockquote border-left pl-3"
-                            style="border-width: 4px !important;">
-                    Some pairs of sentences...
-                </blockquote>
-                <p><strong>Summary: </strong> some summary </p>
-                <ol class="list">
-                    <li class="list-item">
-                        <p class="m-1 d-flex justify-content-between">
-                            <span class="d-flex flex-column justify-content-center">
-                                <strong>Is this sentence true to the
-                                    original article?</strong>
-                            </span>
-                            <span class="btn-group">
-                                <span class="btn btn-sm btn-success d-flex flex-column justify-content-center">YES</span>
-                                <span class="btn btn-sm btn-danger d-flex flex-column justify-content-center">NO</span>
-                            </span>
-                        </p>
-                        <p class="m-0">
-                            <span class="btn btn-sm btn-success">YES</span>
-                            This summary is true to the original article it's
-                            been sourced from.
-                        </p>
-                    </li>
-                    <li class="list-item">
-                        <p class="m-1 d-flex justify-content-between">
-                            <span class="d-flex flex-column justify-content-center">
-                                <strong>Does this sentence contain
-                                    information not represented by the
-                                    highlighted sentences?</strong>
-                            </span>
-                            <span class="btn-group">
-                                <span class="btn btn-sm btn-success d-flex flex-column justify-content-center">YES</span>
-                                <span class="btn btn-sm btn-danger d-flex flex-column justify-content-center">NO</span>
-                            </span>
-                        </p>
-                        <p class="m-0">
-                            <span class="btn btn-sm btn-danger">NO</span>
-                            This summary only contains information presented
-                            in the sentences cited above.
-                        </p>
-                    </li>
-                    <li class="list-item">
-                        <p class="m-1 d-flex justify-content-between">
-                            <span class="d-flex flex-column justify-content-center">
-                                <strong>Is this sentence grammatically
-                                    correct?</strong>
-                            </span>
-                            <span class="btn-group">
-                                <span class="btn btn-sm btn-success d-flex flex-column justify-content-center">YES</span>
-                                <span class="btn btn-sm btn-danger d-flex flex-column justify-content-center">NO</span>
-                            </span>
-                        </p>
-                        <p class="m-0">
-                            <span class="btn btn-sm btn-success">YES</span>
-                            This sentence is well-formed, following the rules of
-                            English grammar.
-                        </p>
-                    </li>
-                </ol>
+            <div id="divExample" class="col-12 col-md-6">
+
             </div>
         </div>
     </div>
@@ -121,6 +65,7 @@
 
 
 <script>
+
     function putArticle(articleSents) {
         let article = document.getElementById("src-article-content");
         let idx = 0;
@@ -140,6 +85,79 @@
         "#80b1d3", "#fdb462", "#b3de69", "#fccde5",
         "#d9d9d9", "#bc80bd", "#ccebc5", "#ffed6f",
     ];
+
+    yes_html = `<span class="btn btn-sm btn-success">YES</span>`
+    no_html = `<span class="btn btn-sm btn-danger">NO</span>`
+    repl_html = `<span class="btn btn-sm btn-info">Repl.</span>`
+    bal_html = `<span class="btn btn-sm btn-secondary">Bal.</span>`
+    imbal_html = `<span class="btn btn-sm btn-primary">Imbal.</span>`
+    other_html = `<span class="btn btn-sm btn-warning">Other</span>`
+    function addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, example_idx) {
+
+        articleSentsText = ''
+        for(var i=0; i<articleSents.length; i++) {
+            let p = document.createElement("div");
+            p.setAttribute("class", "alert py-0 px-2 my-1");
+            p.style.backgroundColor = fromColors[example_idx];
+            p.innerHTML = articleSents[i]
+            articleSentsText += p.outerHTML
+        }
+
+        faithful_html = faithful ? yes_html : no_html
+        contain_html = contain ? yes_html : no_html
+        grammatical_html = grammatical ? yes_html : no_html
+        created_html = created == 'repl' ? repl_html : created == 'bal' ? bal_html : created == 'imbal' ? imbal_html : created == 'other' ? other_html : 'ERROR'
+        let wrapper = document.getElementById("divExample");
+        wrapper.innerHTML = wrapper.innerHTML + `
+                <p class="mb-1"><strong>Article Sentences: </strong>
+                </p>
+                <div class="pb-2">
+                ${articleSentsText}
+                </div>
+                <p><strong>Summary Sentence: </strong>${summarySent}</p>
+                        <p class="m-1 pl-5 d-flex justify-content-between">
+                            <span class="d-flex flex-column justify-content-center">
+                                <strong>Faithful:</strong>
+                            </span>
+                        </p>
+                        <p class="m-1 pl-5 pb-1">
+                            ${faithful_html}
+                            ${faithful_exp}
+                        </p>
+
+                        <p class="m-1 pl-5 d-flex justify-content-between">
+                            <span class="d-flex flex-column justify-content-center">
+                                <strong>Coverage:</strong>
+                            </span>
+                        </p>
+                        <p class="m-1 pl-5 pb-1">
+                            ${contain_html}
+                            ${contain_exp}
+                            
+                        </p>
+
+                        <p class="m-1 pl-5 d-flex justify-content-between">
+                            <span class="d-flex flex-column justify-content-center">
+                                <strong>Grammatical:</strong>
+                            </span>
+                        </p>
+                        <p class="m-1 pl-5 pb-1">
+                            ${grammatical_html}
+                            ${grammatical_exp}                            
+                        </p>
+
+                        <p class="m-1 pl-5 d-flex justify-content-between">
+                            <span class="d-flex flex-column justify-content-center">
+                                <strong>Merging:</strong>
+                            </span>
+                        </p>
+                        <p class="m-1 pl-5">
+                            ${created_html}
+                            ${created_exp}
+                        </p>
+                <hr>
+        `    
+    }
 
     function addYNQuestion(id, text, name) {
         let wrapper = document.createElement("div");
@@ -328,6 +346,66 @@
             addSummary(idx,  value);
             idx++;
         });
+
+        // Add all examples to instructions
+        articleSents = [`Stewart said that she and her husband, Joseph Naaman, booked Felix on their Etihad Airways flight from the United Arab Emirates
+         to New York's John F. Kennedy International Airport on April 1.`, `Shortly after the plane arrived in New York that evening, Felix went missing
+          somewhere on the grounds of Kennedy Airport, according to Etihad Airways.`]
+        summarySent = `felix went missing somewhere at john f. kennedy international airport, airline says.`
+        faithful = true
+        faithful_exp = `This summary sentence is true to the original article it's been sourced from.`
+        contain = true
+        contain_exp = `This summary sentence only contains information presented
+                            in the highlighted sentences.`
+        grammatical = true
+        grammatical_exp = `This sentence is well-formed, following the rules of
+                            English grammar.`
+        created = `repl`
+        created_exp = `This sentence is created by taking the main idea from Sentence 2 and replacing the entity "kennedy airport" with a 
+                            different description of it from Sentence 1: "john f. kennedy international airport."`
+        addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 0)
+
+        articleSents = [`(CNN) Kanye West has settled a lawsuit with a paparazzi photographer he assaulted -- and the two have shaken on it.`, 
+            `West avoided criminal charges by reaching a civil settlement with the man.`]
+        summarySent = `kanye west has been charged with assaulting a man in the mars . `
+        faithful = false
+        faithful_exp = `The summary sentence incorrectly states that Kanye West was charged with assault, while the article says that he avoided being charged by reaching a civil settlement.`
+        contain = false
+        contain_exp = `This summary sentence includes the information "in the mars" which is not stated in the highlighted sentences`
+        grammatical = true
+        grammatical_exp = `This sentence is well-formed, following the rules of
+                            English grammar.`
+        created = `other`
+        created_exp = `Information from each sentence is scattered throughout the summary sentence, which does not fit into either the "Replacement," "Balanced Concatenation,"  or "Imbalanced Concatenation" categories.`
+        addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 4)
+
+        articleSents = [`West pleaded no contest last year to a misdemeanor count of battery over the scuffle. `, 
+            `A judge sentenced him to two years' probation, as well as anger management sessions and community service.`]
+        summarySent = `a judge sentenced him to two years' probation, a misdemeanor count of battery over the incident.`
+        faithful = true
+        faithful_exp = `This summary sentence is true to the original article it's been sourced from.`
+        contain = true
+        contain_exp = `This summary sentence only contains information presented
+                            in the highlighted sentences.`
+        grammatical = true
+        grammatical_exp = `This sentence is not grammatical, since "a misdemeanor count of battery over the incident" does not make sense after the comma.`
+        created = `bal`
+        created_exp = `The information comes relatively equally from the two highlighted sentences, and the two blocks of information are linked next to each other, making it "Balanced Concatenation."`
+        addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 2)
+
+        articleSents = [`The actor, one of the church of scientology's most high-profile members along with stars like Tom Cruise and Kirstie Alley, is premiering his new film, "the forger," in clearwater, florida.`, 
+            `The HBO documentary is based on the book "Going Clear: Scientology, Hollywood, and the Prison of Belief" by Lawrence Wright and is critical of the organization, which has close ties to the showbiz industry.`]
+        summarySent = `the actor, one of the church of scientology's most high-profile members along with stars like Tom Cruise, is based on the book "the forger."`
+        faithful = false
+        faithful_exp = `The summary sentence incorrectly states the the name of the book is "The Forger," which is incorrect. The article says the book's name is "Going Clear: Scientology, Hollywood, and the Prison of Belief."`
+        contain = false
+        contain_exp = `This summary sentence only contains information presented
+                            in the highlighted sentences.`
+        grammatical = false
+        grammatical_exp = `This sentence is not grammatical. "One of the church of scientology's new film" is not grammatical.`
+        created = `imbal`
+        created_exp = `The information comes unequally from the two highlighted sentences, and the two blocks of information are linked next to each other, making it "Imbalanced Concatenation."`
+        addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 3)
     </script>
 </section>
 
