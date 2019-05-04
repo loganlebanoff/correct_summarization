@@ -12,72 +12,161 @@
         integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
         crossorigin="anonymous"></script>
 
-<div class="row my-4">
-    <div class="col-12 text-center">
-        <button class='btn btn-info' onclick='document.getElementById("instructions").style.display = "block"; document.getElementById("examples").style.display = "block";'>
-            Click here to show instructions</button>
-    </div>
-</div>
-
-<!-- Instructions -->
-<section class="col-12 my-4" id="instructions" style="display: none;">
+<section class="col-12 my-4" id="examples" style="display: none;">
     <div class="card border-info">
         <div class="card-header bg-info text-white text-center">
-            <h5 class="m-0">Instructions</h5>
+            <h5 class="m-0">Examples</h5>
         </div>
-        <div class="card-body row">
-            <p class="d-block col-12 text-center"><em>Firstly, thanks for
-                participating in our study!</em></p>
-            <div class="col-12 col-md-6 offset-md-3">
-                <p><strong>Description: </strong> We have machine-generated (AI)
-                    summary sentences of an Article. Each summary sentence pulls from 2 article
-                    sentences to create the result you see.</p>
-                
-                <p class="mb-0"><strong>What we need <em>you</em> to do:</strong></p>
-                <ol class="list">
-                    <li class="list-item">
-                        <strong>Read the entire article.</strong> (It
-                        should be a pretty quick read.)
-                    </li>
-                    <li class="list-item">
-                        Go through each of the <a href="#summaries">Summary Sentences</a>,
-                        hover over each to highlight the corresponding
-                        sentences in the article. Click on the summary sentence to keep the sentences highlighted.
-                        <strong>Read each summary sentence
-                        and answer the following questions:</strong>
-                        <ol class="list">
+        <div class="card-body row border-between">
+            <div id="divExampleLeft" class="col-12 col-md-6">
+
+            </div>
+            <div id="divExampleRight" class="col-12 col-md-6">
+
+            </div>
+    </div>
+</section>
+
+<!-- Instructions -->
+<section class="col-12 my-4" id="instructions">
+    <div>
+        <button class="btn btn-info btn-block btn-lg text-white text-center" type="button"
+            data-toggle="collapse" data-target="#instructionCollapse"
+            aria-expanded="false" aria-controls="instructionCollapse">
+            <h5 class="m-0">Instructions</h5>
+        </button>
+        <div class="collapse mt-3" id="instructionCollapse">
+            <div class="card">
+                <div class="row card-body">
+                    <!-- Actual Instructions -->
+                    <div class="col-12 col-md-6" id="actualInstructions">
+                        <p class="d-block col-12 text-center"><em>Firstly,
+                            thanks for participating in our study!</em></p>
+                        <p><strong>Description: </strong> We have machine-generated (AI)
+                            summary sentences of an Article. Each summary sentence pulls from 2 article
+                            sentences to create the result you see.</p>
+
+                        <p class="mb-0"><strong>What we need <em>you</em> to do:</strong></p>
+                        <ol>
                             <li class="list-item">
-                                <strong>Faithful:</strong> Does the summary sentence convey the same meaning as the original article?
+                                <strong>Read ALL instructions and examples.</strong>
                             </li>
                             <li class="list-item">
-                                <strong>Coverage:</strong> Does the highlighted text contain all information used to generate the summary sentence?
+                                <strong>Read the entire article.</strong> (It
+                                should be a pretty quick read.)
                             </li>
                             <li class="list-item">
-                                <strong>Grammatical:</strong> Is this sentence grammatically correct?
+                                Go through each of the <a href="#summaries">Summary Sentences</a>,
+                                hover over each to highlight the corresponding
+                                sentences in the article. Click on the summary sentence to keep the sentences highlighted.
+                                <strong>Read each summary sentence
+                                and answer the following questions:</strong>
+                                <ol>
+                                    <li class="list-item">
+                                        <strong>Faithful:</strong> Does the summary sentence convey the same meaning as the original article?
+                                    </li>
+                                    <li class="list-item">
+                                        <strong>Coverage:</strong> Does the highlighted text contain all information used to generate the summary sentence?
+                                    </li>
+                                    <li class="list-item">
+                                        <strong>Grammatical:</strong> Is this sentence grammatically correct?
+                                    </li>
+                                    <li class="list-item">
+                                        <strong>Merging:</strong> How is the summary sentence created?
+                                        <ul type="a">
+                                            <li class="list-item">
+                                                <i>Replacement:</i> a pronoun or description of an entity in one sentence is replaced by a different description
+                                                of that entity in the other sentence.
+                                            </li>
+                                            <li class="list-item">
+                                                <i>Balanced Concatenation:</i> a consecutive part of one sentence is concatenated (linked together side-by-side)
+                                                with a consecutive part of the other sentence. The parts taken from each sentence are of similar length.
+                                            </li>
+                                            <li class="list-item">
+                                                <i>Imbalanced Concatenation:</i> similar to "Balanced Concatenation,"
+                                                but the part taken from one sentence is larger than the part taken from the other sentence.
+                                            </li>
+                                            <li class="list-item">
+                                                <i>Other:</i> all remaining cases.
+                                            </li>
+                                        </ul>
+                                    </li>
+                                </ol>
                             </li>
-                            <li class="list-item">
-                                <strong>Merging:</strong> How is the summary sentence created?
-                                
-                                <ul class="list" type="a">
-                                    <li class="list-item">
-                                        <i>Replacement:</i> a pronoun or description of an entity in one sentence is replaced by a different description 
-                                        of that entity in the other sentence.
-                                    </li>
-                                    <li class="list-item">
-                                        <i>Balanced Concatenation:</i> a consecutive part of one sentence is concatenated (linked together side-by-side) 
-                                        with a consecutive part of the other sentence. The parts taken from each sentence are of similar length.
-                                    </li>
-                                    <li class="list-item">
-                                        <i>Imbalanced Concatenation:</i> similar to "Balanced Concatenation," 
-                                        but the part taken from one sentence is larger than the part taken from the other sentence.
-                                    </li>
-                                    <li class="list-item">
-                                        <i>Other:</i> all remaining cases.
-                                    </li>
-                            
                         </ol>
-                    </li>
-                </ol>
+                    </div>
+
+                    <!-- Examples -->
+                    <div class="col-12 col-md-6" id="examples">
+                        <p class="d-block col-12 text-center"><em>Examples</em></p>
+                        <div class="accordian" id="allExamples">
+                            <!-- Example -->
+                            <div class="card">
+                                <div class="card-header p-0" id="example1">
+                                    <button class="btn btn-block btn-lg btn-link collapsed" type="button"
+                                        data-toggle="collapse" data-target="#example1body"
+                                        aria-expanded="true" aria-controls="example1body">
+                                        Example 1 (Collapsable)
+                                    </button>
+                                </div>
+                                <div id="example1body" class="collapse show" aria-labelledby="example1" data-parent="#allExamples">
+                                    <div class="card-body" id="exampleContent1">
+                                        <!-- Example 1 content -->
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- /Example -->
+                            <!-- Example -->
+                            <div class="card">
+                                <div class="card-header p-0" id="example2">
+                                    <button class="btn btn-block btn-lg btn-link collapsed" type="button"
+                                        data-toggle="collapse" data-target="#example2body"
+                                        aria-expanded="true" aria-controls="example2body">
+                                        Example 2 (Collapsable)
+                                    </button>
+                                </div>
+                                <div id="example2body" class="collapse" aria-labelledby="example2" data-parent="#allExamples">
+                                    <div class="card-body" id="exampleContent2">
+                                        <!-- Example 2 content -->
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- /Example -->
+                            <!-- Example -->
+                            <div class="card">
+                                    <div class="card-header p-0" id="example3">
+                                        <button class="btn btn-block btn-lg btn-link collapsed" type="button"
+                                            data-toggle="collapse" data-target="#example3body"
+                                            aria-expanded="true" aria-controls="example3body">
+                                            Example 3 (Collapsable)
+                                        </button>
+                                    </div>
+                                    <div id="example3body" class="collapse" aria-labelledby="example2" data-parent="#allExamples">
+                                        <div class="card-body" id="exampleContent3">
+                                            <!-- Example 3 content -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- /Example -->
+                            <!-- Example -->
+                            <div class="card">
+                                    <div class="card-header p-0" id="example4">
+                                        <button class="btn btn-block btn-lg btn-link collapsed" type="button"
+                                            data-toggle="collapse" data-target="#example4body"
+                                            aria-expanded="true" aria-controls="example4body">
+                                            Example 4 (Collapsable)
+                                        </button>
+                                    </div>
+                                    <div id="example4body" class="collapse" aria-labelledby="example4" data-parent="#allExamples">
+                                        <div class="card-body" id="exampleContent4">
+                                            <!-- Example 4 content -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- /Example -->
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -122,11 +211,11 @@
 
     yes_html = `<span class="btn btn-sm btn-success">YES</span>`
     no_html = `<span class="btn btn-sm btn-danger">NO</span>`
-    repl_html = `<span class="btn btn-sm btn-info">Replacement</span>`
+    repl_html = `<span class="btn btn-sm btn-primary">Replacement</span>`
     bal_html = `<span class="btn btn-sm btn-secondary">Balanced Concatentation</span>`
-    imbal_html = `<span class="btn btn-sm btn-primary">Imbalanced Concatentation</span>`
+    imbal_html = `<span class="btn btn-sm btn-info">Imbalanced Concatentation</span>`
     other_html = `<span class="btn btn-sm btn-warning">Other</span>`
-    function addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, example_idx, useLeftPane) {
+    function addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, example_idx, placement_idx) {
 
         articleSentsText = ''
         for(var i=0; i<articleSents.length; i++) {
@@ -141,7 +230,7 @@
         contain_html = contain ? yes_html : no_html
         grammatical_html = grammatical ? yes_html : no_html
         created_html = created == 'repl' ? repl_html : created == 'bal' ? bal_html : created == 'imbal' ? imbal_html : created == 'other' ? other_html : 'ERROR'
-        divName = useLeftPane ? "divExampleLeft" : "divExampleRight"
+        divName = "exampleContent" + placement_idx.toString()
         let wrapper = document.getElementById(divName);
         wrapper.innerHTML = wrapper.innerHTML + `
                 <p class="mb-1"><strong>Article Sentences: </strong>
@@ -194,35 +283,59 @@
         `    
     }
 
-    function addYNQuestion(id, text, name) {
+    function addQuestion(text) {
         let wrapper = document.createElement("div");
-        wrapper.setAttribute("class", "d-md-flex mb-3 col-6");
+        wrapper.setAttribute("class", "mb-3 col-4");
 
         let keyword = document.createElement("div");
-        keyword.setAttribute("class", "p-0 m-0 col-6 d-flex flex-column text-center text-md-left");
-        let keyword_txt = document.createElement("p");
-        keyword_txt.setAttribute("class",   "mx-0 my-auto");
+        keyword.setAttribute("class", "p-0 m-0 col-12 text-center");
+
+        let keyword_txt = document.createElement("em");
+        keyword_txt.setAttribute("class", "mx-0 my-auto");
         keyword_txt.innerHTML = `${text}`;
         keyword.appendChild(keyword_txt);
+
         wrapper.appendChild(keyword);
 
+        return wrapper;
+    }
+
+    function addYNQuestion(id, text, name) {
+        let wrapper = addQuestion(text);
+
         let choices = document.createElement("div");
-        choices.setAttribute("class", "p-0 m-0 col-6 d-flex justify-content-center justify-content-md-between");
+        choices.setAttribute("class", "p-0 m-0 btn-group-vertical d-flex");
 
-        let y = document.createElement("label");
-        y.setAttribute("class", "my-auto btn btn-success btn-sm");
-        y.setAttribute("for", `Y${id}_${name}`);
-        y.innerHTML = `YES <input type="radio" id="Y${id}_${name}" name="${name}">`;
+        choices.appendChild(addQsButton("YES", "btn-success", id, name));
+        choices.appendChild(addQsButton("NO" , "btn-danger" , id, name));
 
-        let n = document.createElement("label");
-        n.setAttribute("class", "my-auto btn btn-danger btn-sm");
-        n.setAttribute("for", `N${id}_${name}`);
-        n.innerHTML = `NO <input type="radio" id="N${id}_${name}" name="${name}">`;
+        wrapper.appendChild(choices);
 
-        choices.appendChild(y);
-        choices.appendChild(n);
+        return wrapper;
+    }
 
-        wrapper.append(choices);
+    function addQsButton(text, color, id, name) {
+        let x = document.createElement("label");
+        x.setAttribute("class", `my-auto btn btn-block btn-sm ${color}`);
+        x.setAttribute("for", `${text}_${id}_${name}`);
+        x.innerHTML = `${text} <input type="radio" id="${text}_${id}_${name}" name="${name}">`;
+
+        return x;
+    }
+
+    function addMultiQuest(id, text, name) {
+        let wrapper = addQuestion(text);
+        wrapper.setAttribute("class", "mb-3 col-12");
+
+        let choices = document.createElement("div");
+        choices.setAttribute("class", "p-0 m-0 btn-group d-flex");
+
+        choices.appendChild(addQsButton("Replacement"   , "btn-primary"  , id, name));
+        choices.appendChild(addQsButton("Bal. Concat."  , "btn-secondary", id, name));
+        choices.appendChild(addQsButton("Imbal. Concat.", "btn-info"     , id, name));
+        choices.appendChild(addQsButton("Other"         , "btn-warning"  , id, name));
+
+        wrapper.appendChild(choices);
 
         return wrapper;
     }
@@ -274,10 +387,10 @@
 
         let row = document.createElement("div");
         row.setAttribute("class", "row m-0");
-        row.appendChild(addYNQuestion(idx, "Faithfulness", `Faithfulness_${idx}`));
-        row.appendChild(addYNQuestion(idx, "Coverage",     `Coverage_${idx}`));
-        row.appendChild(addYNQuestion(idx, "Grammatical",  `Grammatical_${idx}`));
-        row.appendChild(addYNQuestion(idx, "Merging",      `Merging_${idx}`));
+        row.appendChild(addMultiQuest(idx, "Merging",             `Merging_${idx}`));
+        row.appendChild(addYNQuestion(idx, "Faithfulness",        `Faithfulness_${idx}`));
+        row.appendChild(addYNQuestion(idx, "Grammatical",         `Grammatical_${idx}`));
+        row.appendChild(addYNQuestion(idx, "Incomplete Coverage", `IncompleteCoverage_${idx}`));
 
         card.appendChild(row);
 
@@ -434,7 +547,7 @@
         created = `repl`
         created_exp = `This sentence is created by taking the main idea from Sentence 2 and replacing the entity "kennedy airport" with a 
                             different description of it from Sentence 1: "john f. kennedy international airport."`
-        addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 0, true)
+        addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 0, 1)
 
         articleSents = [`(CNN) Kanye West has settled a lawsuit with a paparazzi photographer he assaulted -- and the two have shaken on it.`, 
             `West avoided criminal charges by reaching a civil settlement with the man.`]
@@ -448,7 +561,7 @@
                             English grammar.`
         created = `other`
         created_exp = `Information from each sentence is scattered throughout the summary sentence, which does not fit into either the "Replacement," "Balanced Concatenation,"  or "Imbalanced Concatenation" categories.`
-        addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 4, true)
+        addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 4, 2)
 
         articleSents = [`West pleaded no contest last year to a misdemeanor count of battery over the scuffle. `, 
             `A judge sentenced him to two years' probation, as well as anger management sessions and community service.`]
@@ -462,7 +575,7 @@
         grammatical_exp = `This sentence is not grammatical, since "a misdemeanor count of battery over the incident" does not make sense after the comma.`
         created = `bal`
         created_exp = `The information comes relatively equally from the two highlighted sentences, and the two blocks of information are linked next to each other, making it "Balanced Concatenation."`
-        addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 2, false)
+        addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 2, 3)
 
         articleSents = [`The actor, one of the church of scientology's most high-profile members along with stars like Tom Cruise and Kirstie Alley, is premiering his new film, "the forger," in clearwater, florida.`, 
             `The HBO documentary is based on the book "Going Clear: Scientology, Hollywood, and the Prison of Belief" by Lawrence Wright and is critical of the organization, which has close ties to the showbiz industry.`]
@@ -476,7 +589,7 @@
         grammatical_exp = `This sentence is not grammatical. "One of the church of scientology's new film" is not grammatical.`
         created = `imbal`
         created_exp = `The information comes unequally from the two highlighted sentences, and the two blocks of information are linked next to each other, making it "Imbalanced Concatenation."`
-        addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 3, false)
+        addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 3, 4)
     </script>
 </section>
 
