@@ -24,6 +24,7 @@
             <div id="divExampleRight" class="col-12 col-md-6">
 
             </div>
+        </div>
     </div>
 </section>
 
@@ -145,7 +146,7 @@
         let idx = 0;
         articleSents.split("||").forEach(function (sent) {
             let p = document.createElement("p");
-            p.id = `sent${idx}`;
+            p.id = "sent" + idx;
             p.innerHTML = sent;
             p.setAttribute("class", "alert py-1 px-2");
             article.appendChild(p);
@@ -169,7 +170,7 @@
 
         let keyword_txt = document.createElement("em");
         keyword_txt.setAttribute("class", "mx-0 my-auto");
-        keyword_txt.innerHTML = `${text}`;
+        keyword_txt.innerHTML = text;
         keyword.appendChild(keyword_txt);
 
         wrapper.appendChild(keyword);
@@ -193,9 +194,10 @@
 
     function addQsButton(text, color, id, name) {
         let x = document.createElement("label");
-        x.setAttribute("class", `my-auto btn btn-block btn-sm ${color}`);
-        x.setAttribute("for", `${text}_${id}_${name}`);
-        x.innerHTML = `${text} <input type="radio" id="${text}_${id}_${name}" name="${name}">`;
+        x.setAttribute("class", "my-auto btn btn-block btn-sm " + color);
+        let input_id = text + "_" + id + "_" + name
+        x.setAttribute("for", input_id);
+        x.innerHTML = text + "<input type='radio' id='" + input_id + "' name='" + name + "'>";
 
         return x;
     }
@@ -233,14 +235,16 @@
     }
 
     function setBG(el, bg=el.style.backgroundColor) {
+        if (!el.hasAttribute("data-srcs"))
+            return
+
         let srcs = el.getAttribute("data-srcs").split(",");
         if (parseInt(srcs) !== -1) {
             srcs.forEach(function (id) {
-                document.getElementById(`sent${id}`).style.backgroundColor = bg;
+                document.getElementById("sent" + id).style.backgroundColor = bg;
             })
         }
     }
-
 
     function addSummary(idx, meta) {
         let tasks = document.getElementById("tasks");
@@ -249,7 +253,7 @@
         card.setAttribute("class", "alert summary-sent px-2 py-1 pb-2 my-2");
 
         card.style.backgroundColor = newColor();
-        card.id = `summary${idx}`;
+        card.id = "summary" + idx;
         card.setAttribute("data-srcs", meta.src);
 
         let summary = document.createElement("strong");
@@ -264,10 +268,10 @@
 
         let row = document.createElement("div");
         row.setAttribute("class", "row m-0");
-        row.appendChild(addMultiQuest(idx, "Merging",             `Merging_${idx}`));
-        row.appendChild(addYNQuestion(idx, "Faithfulness",        `Faithfulness_${idx}`));
-        row.appendChild(addYNQuestion(idx, "Grammatical",         `Grammatical_${idx}`));
-        row.appendChild(addYNQuestion(idx, "Incomplete Coverage", `IncompleteCoverage_${idx}`));
+        row.appendChild(addMultiQuest(idx, "Merging",             ("Merging_" + idx)));
+        row.appendChild(addYNQuestion(idx, "Faithfulness",        ("Faithfulness_" + idx)));
+        row.appendChild(addYNQuestion(idx, "Grammatical",         ("Grammatical_" + idx)));
+        row.appendChild(addYNQuestion(idx, "Incomplete Coverage", ("IncompleteCoverage_" + idx)));
 
         card.appendChild(row);
 
@@ -279,11 +283,15 @@
         tasks.appendChild(card);
         card.setAttribute("data-clicked", false);
 
-        card.addEventListener("mouseenter", function () { setBG(card); })
+        card.addEventListener("mouseenter", function () {
+            setBG(card);
+        })
+
         card.addEventListener("mouseleave", function () {
-            if (card.getAttribute("data-clicked") !== "true")
+            if (!card.getAttribute("data-clicked"))
                 setBG(card, "#fff");
         })
+
         card.addEventListener("click", function () {
             let tasks = document.getElementById("tasks");
             Array.prototype.forEach.call(tasks.children, function (el) {
@@ -349,43 +357,45 @@
     <div class="row mx-0">
         <div class="col-12 col-md-6" id="src-article">
             <div class="card border-secondary">
-                <div class="card-header bg-secondary text-light text-center"><strong>Article</strong></div>
+                <div class="card-header bg-secondary d-flex justify-content-between">
+                    <p class="text-light text-center d-flex m-auto"> <strong>Article</strong> </p>
+                    <button type="button" id="clear-highlights" class="btn btn-warning">Clear Highlights</button>
+                </div>
                 <div class="card-body p-2" id="src-article-content"></div>
             </div>
         </div>
         <div class="col-12 col-md-6" id="summaries">
             <div class="card">
-                <div class="card-header text-center"><strong>Summary Sentences</strong></div>
+                <div class="card-header bg-light text-center"><strong>Summary Sentences</strong></div>
                 <div class="card-body p-2">
                     <fieldset id="tasks">
+                        <input type="hidden" name="${article_id}">
                     </fieldset>
                 </div>
             </div>
         </div>
     </div>
-    <p hidden="">${article_id} b4bc18629514d75299236eeaa0dacb856aae15126ab6e1537c541619838fe026</p>
-    <p hidden=""></p>
     <script>
-        let article_id = "c646bd9c55607b1c13e3b828345efa8128e58847dd4412244dd5c45ba8644f23";
-        let article_content = "(CNN) Michele Bachmann is comparing President Obama to the co-pilot of the doomed Germanwings flight.||&quot;With his Iran deal, Barack Obama is for the 300 million souls of the United States what Andreas Lubitz was for the 150 souls on the German Wings flight - a deranged pilot flying his entire nation into the rocks,&quot; the Minnesota Republican and former representative wrote in a Facebook comment posted March 31.||&quot;After the fact, among the smoldering remains of American cities, the shocked survivors will ask, why did he do it?&quot;||Andreas Lubitz, the co-pilot of Germanwings Flight 9525, is accused by authorities of deliberately crashing the plane in the French Alps.||He died in the crash along with 149 other crew and passengers.||The motive of the March 24 crash is under investigation, though investigators are looking in to whether Lubitz feared a medical condition would cause him to lose his pilot&apos;s license.||Many comments posted on her Facebook page blasted the former representative.||Melissa Coca wrote, &quot;Comparing this tragedy to anything is moronic and despicable.&quot;||Michael J Pristash wrote, &quot;Your allusion is so inappropriate and divisive, not to mention disrespectful on so many levels.||Shame on you.&quot;||Some also accused her of taking desperate measures to stay in the public eye.||Lynda Anderson wrote, &quot;Posting outrageous things in a pathetic attempt to stay relevant?&quot;||Negotiations are coming down to the wire between Iran, the United States and other nations on restricting Tehran&apos;s nuclear program to prevent the ability to develop an atomic bomb.||One deadline passed Tuesday, but there is a June 30 deadline for a comprehensive deal -- with all technical and diplomatic impasses fully worked out.||Bachmann is no stranger to voicing her opinion on the President&apos;s dealing with Iran, personally telling him to &quot;bomb Iran&quot; during the 2014 White House Christmas Party.||&quot;I turned to the president and I said, something to the effect of,&apos;Mr. President, you need to bomb the Iranian nuclear facilities, because if you do n&apos;t, Iran will have a nuclear weapon on your watch and the course of world history will change,&apos;&quot; she told the Washington Free Beacon.||The congresswoman, who sought the GOP presidential nomination in 2012, said Obama had a &quot;condescending smile on his face and laughed at me.&quot;||She said he told her: &quot;Well Michele, it&apos;s just not that easy.&quot;";
-        let sources_0 = "3,4";
-        let sources_1 = "2,1";
-        let sources_2 = "1,2";
-        let sources_3 = "3,4";
-        let sources_4 = "0,6";
-        let sources_5 = "1,0";
-        let summary_0 = "barker&apos;s &quot;lucky seven&quot; game show for 35 years.";
-        let summary_1 = "contestants told to &quot;come on down!&quot; on the april 1 edition of &quot;the price is right&quot; encountered not host drew carey.";
-        let summary_2 = "the price is in a price is right, &quot; contestants told to &quot; come on.";
-        let summary_3 = "bob barker was the first price-guessing game of the show for 35 years before stepping down in 2007.";
-        let summary_4 = "former gop representative compares president obama to andreas lubitz.";
-        let summary_5 = "contestants told to &quot;come on down!&quot; for the first time in eight years.";
-        let system_0 = "bottom-up";
-        let system_1 = "pg";
-        let system_2 = "dca";
-        let system_3 = "novel";
-        let system_4 = "reference";
-        let system_5 = "bottom-up";
+        // let article_id = "c646bd9c55607b1c13e3b828345efa8128e58847dd4412244dd5c45ba8644f23";
+        // let article_content = "(CNN) Michele Bachmann is comparing President Obama to the co-pilot of the doomed Germanwings flight.||&quot;With his Iran deal, Barack Obama is for the 300 million souls of the United States what Andreas Lubitz was for the 150 souls on the German Wings flight - a deranged pilot flying his entire nation into the rocks,&quot; the Minnesota Republican and former representative wrote in a Facebook comment posted March 31.||&quot;After the fact, among the smoldering remains of American cities, the shocked survivors will ask, why did he do it?&quot;||Andreas Lubitz, the co-pilot of Germanwings Flight 9525, is accused by authorities of deliberately crashing the plane in the French Alps.||He died in the crash along with 149 other crew and passengers.||The motive of the March 24 crash is under investigation, though investigators are looking in to whether Lubitz feared a medical condition would cause him to lose his pilot&apos;s license.||Many comments posted on her Facebook page blasted the former representative.||Melissa Coca wrote, &quot;Comparing this tragedy to anything is moronic and despicable.&quot;||Michael J Pristash wrote, &quot;Your allusion is so inappropriate and divisive, not to mention disrespectful on so many levels.||Shame on you.&quot;||Some also accused her of taking desperate measures to stay in the public eye.||Lynda Anderson wrote, &quot;Posting outrageous things in a pathetic attempt to stay relevant?&quot;||Negotiations are coming down to the wire between Iran, the United States and other nations on restricting Tehran&apos;s nuclear program to prevent the ability to develop an atomic bomb.||One deadline passed Tuesday, but there is a June 30 deadline for a comprehensive deal -- with all technical and diplomatic impasses fully worked out.||Bachmann is no stranger to voicing her opinion on the President&apos;s dealing with Iran, personally telling him to &quot;bomb Iran&quot; during the 2014 White House Christmas Party.||&quot;I turned to the president and I said, something to the effect of,&apos;Mr. President, you need to bomb the Iranian nuclear facilities, because if you do n&apos;t, Iran will have a nuclear weapon on your watch and the course of world history will change,&apos;&quot; she told the Washington Free Beacon.||The congresswoman, who sought the GOP presidential nomination in 2012, said Obama had a &quot;condescending smile on his face and laughed at me.&quot;||She said he told her: &quot;Well Michele, it&apos;s just not that easy.&quot;";
+        // let sources_0 = "3,4";
+        // let sources_1 = "2,1";
+        // let sources_2 = "1,2";
+        // let sources_3 = "3,4";
+        // let sources_4 = "0,6";
+        // let sources_5 = "1,0";
+        // let summary_0 = "barker&apos;s &quot;lucky seven&quot; game show for 35 years.";
+        // let summary_1 = "contestants told to &quot;come on down!&quot; on the april 1 edition of &quot;the price is right&quot; encountered not host drew carey.";
+        // let summary_2 = "the price is in a price is right, &quot; contestants told to &quot; come on.";
+        // let summary_3 = "bob barker was the first price-guessing game of the show for 35 years before stepping down in 2007.";
+        // let summary_4 = "former gop representative compares president obama to andreas lubitz.";
+        // let summary_5 = "contestants told to &quot;come on down!&quot; for the first time in eight years.";
+        // let system_0 = "bottom-up";
+        // let system_1 = "pg";
+        // let system_2 = "dca";
+        // let system_3 = "novel";
+        // let system_4 = "reference";
+        // let system_5 = "bottom-up";
 
         let sourceArticle = `${article_content}`;
         putArticle(sourceArticle);
@@ -407,6 +417,14 @@
             addSummary(idx,  meta);
             idx++;
         });
+
+        document.getElementById("clear-highlights").addEventListener("click", function() {
+            let tasks = document.getElementById("tasks");
+            Array.prototype.forEach.call(tasks.children, function(el) {
+                setBG(el, "#fff");
+                el.setAttribute("data-clicked", false);
+            })
+        })
     </script>
 </section>
 
@@ -423,6 +441,13 @@
 
     div.summary-sent > div:last-child {
         margin: 0 !important;
+    }
+
+    div.card-header {
+        position: -webkit-sticky;
+        position: sticky;
+        top: 0;
+        z-index: 10000000;
     }
 </style>
 <!-- /Tasks -->
