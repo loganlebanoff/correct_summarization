@@ -34,7 +34,7 @@
         <button class="btn btn-info btn-block btn-lg text-white text-center" type="button"
             data-toggle="collapse" data-target="#instructionCollapse"
             aria-expanded="false" aria-controls="instructionCollapse">
-            <h5 class="m-0">Instructions</h5>
+            <h5 class="m-0">Click to View Instructions</h5>
         </button>
         <div class="collapse mt-3" id="instructionCollapse">
             <div class="card">
@@ -258,7 +258,7 @@
                         <p class="m-1 pl-5 pb-1">
                             ` + contain_html + `
                             ` + contain_exp + `
-                            
+
                         </p>
 
                         <p class="m-1 pl-5 d-flex justify-content-between">
@@ -268,7 +268,7 @@
                         </p>
                         <p class="m-1 pl-5 pb-1">
                             ` + grammatical_html + `
-                            ` + grammatical_exp + `                            
+                            ` + grammatical_exp + `
                         </p>
 
                         <p class="m-1 pl-5 d-flex justify-content-between">
@@ -281,7 +281,7 @@
                             ` + created_exp + `
                         </p>
                 <hr>
-        `    
+        `
     }
 
     function addQuestion(text) {
@@ -320,7 +320,7 @@
         x.setAttribute("class", "my-auto btn btn-block btn-sm " + color);
         let input_id = text + "_" + id + "_" + name
         x.setAttribute("for", input_id);
-        x.innerHTML = text + "<input type='radio' id='" + input_id + "' name='" + name + "'>";
+        x.innerHTML = text + "<input type='radio' id='" + input_id + "' name='" + name + "' value='" + text + "' required>";
 
         return x;
     }
@@ -391,17 +391,30 @@
 
         let row = document.createElement("div");
         row.setAttribute("class", "row m-0");
-        row.appendChild(addMultiQuest(idx, "Merging",             ("Merging_" + idx)));
-        row.appendChild(addYNQuestion(idx, "Faithfulness",        ("Faithfulness_" + idx)));
-        row.appendChild(addYNQuestion(idx, "Grammatical",         ("Grammatical_" + idx)));
-        row.appendChild(addYNQuestion(idx, "Incomplete Coverage", ("IncompleteCoverage_" + idx)));
+        row.appendChild(addYNQuestion(idx, "Faithfulness", ("Faithfulness_" + idx)));
+        row.appendChild(addYNQuestion(idx, "Grammatical",  ("Grammatical_" + idx)));
+        row.appendChild(addYNQuestion(idx, "Coverage",     ("Coverage_" + idx)));
+        row.appendChild(addMultiQuest(idx, "Merging",      ("Merging_" + idx)));
 
         card.appendChild(row);
 
-        let src_id = document.createElement("input");
-        src_id.setAttribute("type", "hidden");
-        src_id.setAttribute("value", meta.sys);
-        card.appendChild(src_id)
+        let system_id = document.createElement("input");
+        system_id.setAttribute("type", "hidden");
+        system_id.setAttribute("name", "system_" + idx);
+        system_id.setAttribute("value", meta.sys);
+        card.appendChild(system_id);
+
+        let summary_id = document.createElement("input");
+        summary_id.setAttribute("type", "hidden");
+        summary_id.setAttribute("name", "summary_" + idx);
+        summary_id.setAttribute("value", meta.sum);
+        card.appendChild(summary_id);
+
+        let sources_id = document.createElement("input");
+        sources_id.setAttribute("type", "hidden");
+        sources_id.setAttribute("name", "sources_" + idx);
+        sources_id.setAttribute("value", meta.src);
+        card.appendChild(sources_id)
 
         tasks.appendChild(card);
         card.setAttribute("data-clicked", false);
@@ -411,7 +424,7 @@
         })
 
         card.addEventListener("mouseleave", function () {
-            if (!card.getAttribute("data-clicked"))
+            if (card.getAttribute("data-clicked") !== "true")
                 setBG(card, "#fff");
         })
 
@@ -480,7 +493,7 @@
     <div class="row mx-0">
         <div class="col-12 col-md-6" id="src-article">
             <div class="card border-secondary">
-                <div class="card-header bg-secondary d-flex justify-content-between">
+                <div class="card-header sticky-header bg-secondary d-flex justify-content-between">
                     <p class="text-light text-center d-flex m-auto"> <strong>Article</strong> </p>
                     <button type="button" id="clear-highlights" class="btn btn-warning">Clear Highlights</button>
                 </div>
@@ -489,10 +502,10 @@
         </div>
         <div class="col-12 col-md-6" id="summaries">
             <div class="card">
-                <div class="card-header bg-light text-center"><strong>Summary Sentences</strong></div>
+                <div class="card-header sticky-header bg-light text-center"><strong>Summary Sentences</strong></div>
                 <div class="card-body p-2">
                     <fieldset id="tasks">
-                        <input type="hidden" name="${article_id}">
+                        <input type="hidden" name="article_hash" value="${article_id}">
                     </fieldset>
                 </div>
             </div>
@@ -555,11 +568,11 @@
         grammatical_exp = `This sentence is well-formed, following the rules of
                             English grammar.`
         created = `repl`
-        created_exp = `This sentence is created by taking the main idea from Sentence 2 and replacing the entity "kennedy airport" with a 
+        created_exp = `This sentence is created by taking the main idea from Sentence 2 and replacing the entity "kennedy airport" with a
                             different description of it from Sentence 1: "john f. kennedy international airport."`
         addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 0, 1)
 
-        articleSents = [`(CNN) Kanye West has settled a lawsuit with a paparazzi photographer he assaulted -- and the two have shaken on it.`, 
+        articleSents = [`(CNN) Kanye West has settled a lawsuit with a paparazzi photographer he assaulted -- and the two have shaken on it.`,
             `West avoided criminal charges by reaching a civil settlement with the man.`]
         summarySent = `kanye west has been charged with assaulting a man in the mars . `
         faithful = false
@@ -573,7 +586,7 @@
         created_exp = `Information from each sentence is scattered throughout the summary sentence, which does not fit into either the "Replacement," "Balanced Concatenation,"  or "Imbalanced Concatenation" categories.`
         addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 4, 2)
 
-        articleSents = [`West pleaded no contest last year to a misdemeanor count of battery over the scuffle. `, 
+        articleSents = [`West pleaded no contest last year to a misdemeanor count of battery over the scuffle. `,
             `A judge sentenced him to two years' probation, as well as anger management sessions and community service.`]
         summarySent = `a judge sentenced him to two years' probation, a misdemeanor count of battery over the incident.`
         faithful = true
@@ -587,7 +600,7 @@
         created_exp = `The information comes relatively equally from the two highlighted sentences, and the two blocks of information are linked next to each other, making it "Balanced Concatenation."`
         addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 2, 3)
 
-        articleSents = [`The actor, one of the church of scientology's most high-profile members along with stars like Tom Cruise and Kirstie Alley, is premiering his new film, "the forger," in clearwater, florida.`, 
+        articleSents = [`The actor, one of the church of scientology's most high-profile members along with stars like Tom Cruise and Kirstie Alley, is premiering his new film, "the forger," in clearwater, florida.`,
             `The HBO documentary is based on the book "Going Clear: Scientology, Hollywood, and the Prison of Belief" by Lawrence Wright and is critical of the organization, which has close ties to the showbiz industry.`]
         summarySent = `the actor, one of the church of scientology's most high-profile members along with stars like Tom Cruise, is based on the book "the forger."`
         faithful = false
@@ -600,7 +613,7 @@
         created = `imbal`
         created_exp = `The information comes unequally from the two highlighted sentences, and the two blocks of information are linked next to each other, making it "Imbalanced Concatenation."`
         addExample(articleSents, summarySent, faithful, faithful_exp, contain, contain_exp, grammatical, grammatical_exp, created, created_exp, 3, 4)
-        
+
         document.getElementById("clear-highlights").addEventListener("click", function() {
             let tasks = document.getElementById("tasks");
             Array.prototype.forEach.call(tasks.children, function(el) {
@@ -626,7 +639,7 @@
         margin: 0 !important;
     }
 
-    div.card-header {
+    div.sticky-header {
         position: -webkit-sticky;
         position: sticky;
         top: 0;
