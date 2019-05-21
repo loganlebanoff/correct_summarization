@@ -10,13 +10,15 @@ articles = pd.read_csv("articles100.csv")
 systems = ["bottom-up", "reference", "dca", "pg", "novel", "abs-rl-rerank"]
 n_sys = len(systems)
 
+inp_artcl = [f"Input.article_content"]
 ans_systm = [f"Answer.system_{idx}"       for idx in range(n_sys)]
 ans_cover = [f"Answer.Coverage_{idx}"     for idx in range(n_sys)]
 ans_merge = [f"Answer.Merging_{idx}"      for idx in range(n_sys)]
 ans_faith = [f"Answer.Faithfulness_{idx}" for idx in range(n_sys)]
 ans_gramm = [f"Answer.Grammatical_{idx}"  for idx in range(n_sys)]
 ans_sumry = [f"Answer.summary_{idx}"      for idx in range(n_sys)]
-other_col = ["WorkerId", "Answer.article_hash", "Approve"]
+ans_sents = [F"Answer.sources_{idx}"      for idx in range(n_sys)]
+other_col = ["WorkerId", "Answer.article_hash", "Approve"] + inp_artcl + ans_sents
 n_systems = [f"n_{sys}" for sys in systems]
 
 system_id = [f"sys_{idx}" for idx in range(n_sys)]
@@ -26,6 +28,7 @@ sys_gramm = [f"gramm_{idx}" for idx in range(n_sys)]
 sys_merge = [f"merge_{idx}" for idx in range(n_sys)]
 sys_sumry = [f"summary_{idx}" for idx in range(n_sys)]
 sys_sha256 = [f"sha_{idx}" for idx in range(n_sys)]
+sys_sents = [f"src_{idx}" for idx in range(n_sys)]
 
 results = turk_res.loc[:, other_col + ans_systm + ans_cover + ans_merge + ans_faith + ans_gramm + ans_sumry]
 results.set_index(["Answer.article_hash", "WorkerId"], inplace=True)
@@ -50,11 +53,12 @@ merge_d = {
     "Other": "ot",
 }
 
-cols_to_keep = n_systems + system_id + sys_cover + sys_faith + sys_gramm + sys_merge + sys_sumry
+cols_to_keep = inp_artcl + n_systems + system_id + sys_sents + sys_cover + sys_faith + sys_gramm + sys_merge + sys_sumry
 
 col_dict = [zip(ans_systm, system_id), zip(ans_cover, sys_cover), 
             zip(ans_merge, sys_merge), zip(ans_faith, sys_faith), 
-            zip(ans_gramm, sys_gramm), zip(ans_sumry, sys_sumry)]
+            zip(ans_gramm, sys_gramm), zip(ans_sumry, sys_sumry),
+            zip(ans_sents, sys_sents)]
 
 new_cols = {}
 for col_map in col_dict:
@@ -73,7 +77,8 @@ results = results[cols_to_keep + sys_sha256]
 
 put_mapping = [(sys_sumry, object), (sys_gramm, int),
                (sys_merge, object), (sys_faith, int), 
-               (system_id, object), (sys_cover, int),]
+               (system_id, object), (sys_cover, int),
+               (sys_sents, object)]
 for group, rows in results.groupby("Answer.article_hash"):
     parent = rows.iloc[0]
     parent_summ = list(parent[sys_sha256])
